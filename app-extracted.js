@@ -5133,20 +5133,12 @@ document.addEventListener('DOMContentLoaded', function(){
     setTimeout(function(){ input.focus(); }, 50);
   }
 
-  // Détection Alt + * puis S (sous 2s)
+  // Détection MAJ + F8
   document.addEventListener('keydown', function(e){
-    // Étape 1 : Alt + * (souvent Shift+8)
-    var isStar = (e.key === '*') || (e.key === '8' && e.shiftKey);
-    if (e.altKey && isStar) {
-      lastStarTs = Date.now();
-      return;
-    }
-    // Étape 2 : S après Alt+*
-    if ((e.key === 's' || e.key === 'S') && (Date.now() - lastStarTs <= STAR_WINDOW_MS)) {
+    if (e.shiftKey && e.key === 'F8') {
       e.preventDefault();
       e.stopPropagation();
       showAdminPrompt();
-      lastStarTs = 0;
     }
   }, true);
 })();
