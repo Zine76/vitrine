@@ -5027,3 +5027,25 @@
         console.log('  • Bouton de retour');
         
 // --- end <script> ---
+
+
+// === Patch: persistence nomSalle ===
+(function(){
+  if (typeof setRoom === 'function') {
+    const __origSetRoom = setRoom;
+    window.setRoom = function(room){
+      if(!room) return;
+      try{ localStorage.setItem('nomSalle', room); }catch(e){}
+      return __origSetRoom.call(this, room);
+    };
+  }
+})();
+
+
+// === Auto-restore salle au chargement ===
+document.addEventListener('DOMContentLoaded', function(){
+  try{
+    var savedRoom = localStorage.getItem('nomSalle');
+    if(savedRoom){ setRoom(savedRoom); }
+  }catch(e){}
+});
