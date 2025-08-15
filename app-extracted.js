@@ -19,9 +19,7 @@
     window.setRoom = wrapped;
   }
 
-  // Hook au plus tôt
   hookSetRoom();
-  // Et à nouveau après chargement (si setRoom défini plus tard)
   document.addEventListener('DOMContentLoaded', hookSetRoom);
 
   // Auto-restore au chargement
@@ -105,38 +103,11 @@
     setTimeout(function(){ input.focus(); }, 50);
   }
 
-  // --- Secret shortcuts ---
-  // A) MAJ + F8 (Shift+F8). Attention : si DevTools est ouvert, F8 est intercepté.
+  // --- Shortcut Alt+Ctrl+K ---
   document.addEventListener('keydown', function(e){
-    if (e.shiftKey && e.key === 'F8') {
+    if (e.altKey && e.ctrlKey && (e.key === 'k' || e.key === 'K')) {
       e.preventDefault(); e.stopPropagation();
       showAdminPrompt();
     }
   }, true);
-
-  // B) Fallback : Ctrl+Shift+S (utile si DevTools est ouvert)
-  document.addEventListener('keydown', function(e){
-    if (e.ctrlKey && e.shiftKey && (e.key === 's' || e.key === 'S')) {
-      e.preventDefault(); e.stopPropagation();
-      showAdminPrompt();
-    }
-  }, true);
-
-  // C) Fallback souris : 5 clics en haut-gauche (80x80) dans 2s
-  (function(){
-    var cornerClicks = 0, timer = null;
-    document.addEventListener('click', function(e){
-      if (e.clientX < 80 && e.clientY < 80) {
-        cornerClicks++;
-        if (cornerClicks === 1) {
-          timer = setTimeout(function(){ cornerClicks = 0; }, 2000);
-        }
-        if (cornerClicks >= 5) {
-          cornerClicks = 0;
-          if (timer) { clearTimeout(timer); timer = null; }
-          showAdminPrompt();
-        }
-      }
-    }, true);
-  })();
 })();
