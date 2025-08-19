@@ -1,10 +1,40 @@
-/* --- begin <style> --- */
+
+
+/* === Extracted from vitrine-lock-integrated-LOCKED-FINAL.html === */
+
+
+/* Masque toute UI d'accueil/landing dès le parse si verrouillé */
+.is-room-locked #landing,
+.is-room-locked .landing,
+.is-room-locked [data-route="landing"],
+.is-room-locked [data-component*="landing"],
+.is-room-locked [class*="landing"],
+.is-room-locked [id*="landing"] { display:none !important; }
+
+/* ===== EXCEPTION CHAT AUTONOME ===== */
+/* La bannière de chat peut s'afficher même quand verrouillé, mais seulement quand activée par JavaScript */
+.is-room-locked #consentBanner[style*="display: block"],
+.is-room-locked .consent-banner[style*="display: block"] {
+  display: block !important;
+  position: fixed !important;
+  z-index: 10002 !important;
+}
+
+.is-room-locked .change-room-btn,
+.is-room-locked [data-action="choose-room"],
+.is-room-locked [data-action="change-room"],
+.is-room-locked [onclick*="changeRoom"],
+.is-room-locked [href*="landing"] {
+  pointer-events:none !important; opacity:.5 !important; filter:grayscale(1);
+}
+
+
 
         /* ===== VARIABLES CSS ===== */
         :root {
             /* Couleurs principales */
             --primary-blue: #3b82f6;
-            --primary-purple: #8b5cf6;
+            --primary-purple: #ffffff;
             --primary-orange: #f97316;
             --primary-green: #10b981;
             
@@ -56,6 +86,12 @@
             --action-bg: #f3f4f6;
             --action-border: #d1d5db;
             --action-hover: #e5e7eb;
+            
+            /* Chat SEA */
+            --chat-bg: #f0f9ff;
+            --chat-border: #3b82f6;
+            --chat-header-bg: #3b82f6;
+            --chat-header-text: #ffffff;
         }
 
         /* ===== ANIMATIONS ===== */
@@ -67,6 +103,472 @@
             to {
                 opacity: 1;
                 transform: translate(-50%, -50%);
+            }
+        }
+
+        /* ===== CHAT SEA MODAL ===== */
+        .chat-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all var(--transition-medium);
+        }
+
+        .chat-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .chat-container {
+            background: var(--chat-bg);
+            border: 2px solid var(--chat-border);
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+            transform: scale(0.8);
+            transition: transform var(--transition-medium);
+            overflow: hidden; /* EMPÊCHE DÉBORDEMENT */
+        }
+
+        .chat-modal.active .chat-container {
+            transform: scale(1);
+        }
+
+        .chat-header {
+            background: var(--chat-header-bg);
+            color: var(--chat-header-text);
+            padding: 1rem 1.5rem;
+            border-radius: var(--border-radius) var(--border-radius) 0 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin: 0; /* RESET MARGINS */
+            flex-shrink: 0; /* EMPÊCHE COMPRESSION */
+        }
+
+        .chat-header h3 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .chat-close {
+            background: none;
+            border: none;
+            color: var(--chat-header-text);
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: all var(--transition-fast);
+        }
+
+        .chat-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .chat-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            border-radius: 0 0 var(--border-radius) var(--border-radius);
+            background: var(--chat-bg);
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .chat-message {
+            max-width: 80%;
+            padding: 0.75rem 1rem;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .chat-message.sent {
+            align-self: flex-end;
+            background: var(--primary-blue);
+            color: white;
+        }
+
+        .chat-message.received {
+            align-self: flex-start;
+            background: #e5e7eb;
+            color: var(--text-primary);
+        }
+        
+        /* ✅ MESSAGES CHAT MODE NUIT */
+        [data-theme="dark"] .chat-message.received {
+            background: #475569 !important;
+            color: white !important;
+        }
+        
+        [data-theme="dark"] .chat-message.sent {
+            background: #3b82f6 !important;
+            color: white !important;
+        }
+        
+        /* Message système d'accueil */
+        .chat-message.system-message {
+            align-self: center;
+            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+            color: white;
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            max-width: 90%;
+            text-align: center;
+            padding: 1.5rem;
+        }
+        
+        .system-message-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.75rem;
+        }
+        
+        .system-message-content i {
+            font-size: 2rem;
+            color: #93c5fd;
+        }
+        
+        .system-message-text {
+            line-height: 1.6;
+        }
+        
+        .system-message-text strong {
+            color: #dbeafe;
+            font-size: 1.1rem;
+        }
+        
+        .system-message-text em {
+            color: #bfdbfe;
+            font-style: italic;
+        }
+
+        .chat-input-area {
+            display: flex;
+            gap: 0.5rem;
+            padding: 1rem;
+            border-top: 1px solid #e5e7eb;
+            background: white;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            background: white;
+            color: #1f2937;
+        }
+        
+        /* ✅ CHAT INPUT MODE NUIT - FONDS SOMBRES BRUTALE */
+        [data-theme="dark"] .chat-input-area {
+            background: #1e293b !important;
+            border-top-color: #334155 !important;
+        }
+        
+        [data-theme="dark"] .chat-modal input,
+        [data-theme="dark"] .chat-container input,
+        [data-theme="dark"] .chat-input-area input,
+        [data-theme="dark"] input[placeholder*="Tapez"],
+        [data-theme="dark"] input[placeholder*="message"] {
+            background: #334155 !important;
+            background-color: #334155 !important;
+            color: white !important;
+            border: 2px solid #475569 !important;
+            -webkit-text-fill-color: white !important;
+            text-shadow: none !important;
+        }
+        
+        [data-theme="dark"] .chat-modal input::placeholder,
+        [data-theme="dark"] .chat-container input::placeholder,
+        [data-theme="dark"] .chat-input-area input::placeholder {
+            color: #94a3b8 !important;
+            -webkit-text-fill-color: #94a3b8 !important;
+        }
+        
+        [data-theme="dark"] .chat-modal input:focus,
+        [data-theme="dark"] .chat-container input:focus,
+        [data-theme="dark"] .chat-input-area input:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+            color: white !important;
+            -webkit-text-fill-color: white !important;
+        }
+
+        .chat-input-area input:focus {
+            outline: none;
+            border-color: var(--primary-blue);
+        }
+
+        .send-btn {
+            padding: 0.75rem 1rem;
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .send-btn:hover {
+            background: #1d4ed8;
+        }
+        
+        /* ✅ BOUTONS CHAT MODE NUIT */
+        [data-theme="dark"] .send-btn {
+            background: #3b82f6 !important;
+            color: white !important;
+        }
+        
+        [data-theme="dark"] .send-btn:hover {
+            background: #2563eb !important;
+        }
+
+        /* ===== CONSENT BANNER CENTRÉE AVEC ANIMATION SONNERIE ===== */
+        .consent-banner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+            color: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(30, 64, 175, 0.4);
+            z-index: 10002;
+            max-width: 450px;
+            border: 3px solid rgba(59, 130, 246, 0.5);
+            animation: consentSlideIn 0.5s ease-out;
+            text-align: center;
+        }
+        
+        /* Animation d'entrée centrée */
+        @keyframes consentSlideIn {
+            from {
+                opacity: 0;
+                transform: translate(-50%, -50%) scale(0.8);
+            }
+            to {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1);
+            }
+        }
+        
+        /* Animation de clignotement notification chat */
+        .consent-banner-phone {
+            animation: chatNotification 1.5s ease-in-out infinite;
+            display: inline-block;
+            margin-bottom: 1rem;
+        }
+        
+        @keyframes chatNotification {
+            0%, 100% {
+                transform: scale(1) rotate(0deg);
+                color: #60a5fa;
+            }
+            25% {
+                transform: scale(1.1) rotate(-2deg);
+                color: #93c5fd;
+            }
+            50% {
+                transform: scale(1.2) rotate(0deg);
+                color: #dbeafe;
+            }
+            75% {
+                transform: scale(1.1) rotate(2deg);
+                color: #93c5fd;
+            }
+        }
+
+        /* ===== CHAT TIMEOUT BANNER ===== */
+        .chat-timeout-banner {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(245, 158, 11, 0.4);
+            z-index: 10002;
+            width: 90%;
+            max-width: 520px;
+            text-align: center;
+            border: 3px solid rgba(255, 255, 255, 0.2);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            animation: consentSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: none;
+        }
+
+        .chat-timeout-banner h3 {
+            margin: 0 0 1rem 0;
+            font-size: 1.4rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .chat-timeout-banner p {
+            margin: 0 0 1.5rem 0;
+            font-size: 1rem;
+            line-height: 1.5;
+            opacity: 0.95;
+        }
+
+        .chat-timeout-banner .timeout-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .chat-timeout-banner .timeout-btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 140px;
+            justify-content: center;
+        }
+
+        .chat-timeout-banner .timeout-btn.initiate {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .chat-timeout-banner .timeout-btn.initiate:hover {
+            background: rgba(255, 255, 255, 0.25);
+            transform: translateY(-2px);
+        }
+
+        .chat-timeout-banner .timeout-btn.close {
+            background: rgba(239, 68, 68, 0.8);
+            color: white;
+        }
+
+        .chat-timeout-banner .timeout-btn.close:hover {
+            background: rgba(239, 68, 68, 1);
+            transform: translateY(-2px);
+        }
+
+        .consent-content {
+            padding: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .consent-icon {
+            font-size: 2rem;
+            opacity: 0.9;
+        }
+
+        .consent-text {
+            flex: 1;
+        }
+
+        .consent-text h4 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .consent-text p {
+            margin: 0;
+            font-size: 0.9rem;
+            opacity: 0.9;
+            line-height: 1.4;
+        }
+
+        .consent-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .consent-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .consent-btn.accept {
+            background: #10b981;
+            color: white;
+        }
+
+        .consent-btn.accept:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+
+        .consent-btn.decline {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .consent-btn.decline:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+
+        @keyframes slideOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(100%);
+                opacity: 0;
             }
         }
 
@@ -85,7 +587,7 @@
             
             /* Couleurs primaires */
             --primary-blue: #3b82f6;
-            --primary-purple: #8b5cf6;
+            --primary-purple: #ffffff;
             --primary-orange: #f97316;
             --primary-green: #059669;
             
@@ -96,6 +598,11 @@
             --action-bg: #334155;
             --action-border: #475569;
             --action-hover: #475569;
+            
+            /* Chat SEA */
+            --chat-bg: #1e293b;
+            --chat-border: #3b82f6;
+            --chat-header-bg: #1e40af;
             
             /* Bordures */
             --border-color: #475569;
@@ -1030,20 +1537,9 @@
             color: #000000 !important;
         }
         
-        /* ===== AFFICHAGE SALLE AMÉLIORÉ MODE NUIT ===== */
-        [data-theme="dark"] .current-room-info {
-            background: var(--card-bg-dark) !important;
-            color: var(--text-primary) !important;
-            padding: 1rem 1.5rem !important;
-            border-radius: 12px !important;
-            border: 2px solid var(--primary-blue) !important;
-            box-shadow: var(--shadow-medium) !important;
-            margin: 1rem 0 !important;
-        }
+        /* ===== AFFICHAGE SALLE IDENTIQUE MODE JOUR/NUIT ===== */
 
-        [data-theme="dark"] .current-room-info * {
-            color: var(--text-primary) !important;
-        }
+        /* ✅ STYLE IDENTIQUE MODE JOUR/NUIT - Pas de modification en mode nuit */
 
         [data-theme="dark"] .room-icon {
             color: var(--primary-blue) !important;
@@ -1596,7 +2092,7 @@
 
         /* ===== BANNIÈRE DE SAISIE DE SALLE ===== */
         .room-input-banner {
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+            background: linear-gradient(135deg, #1e40af, #1d4ed8);
             border-radius: 20px;
             padding: 2rem;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
@@ -1723,10 +2219,14 @@
         /* ===== HEADER ===== */
         .header {
             background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-purple) 100%);
-            color: white;
             padding: 2rem;
             text-align: center;
             position: relative;
+            box-shadow: 0 4px 20px rgba(30, 64, 175, 0.3);
+        }
+        
+        .header #headerTitle {
+            color: black !important;
         }
 
         .header-top {
@@ -1734,6 +2234,327 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 1rem;
+        }
+
+        /* ✅ NOUVEAU : Bouton Technique */
+        .technical-btn {
+            background: rgba(255, 165, 0, 0.2);
+            border: 1px solid rgba(255, 165, 0, 0.4);
+            color: #ffa500;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .technical-btn:hover {
+            background: rgba(255, 165, 0, 0.3);
+            border-color: rgba(255, 165, 0, 0.6);
+            transform: translateY(-1px);
+        }
+
+        .technical-btn i {
+            font-size: 1rem;
+        }
+
+        /* ✅ NOUVEAU : Modal d'authentification technique */
+        .technical-auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10003;
+            -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+        }
+
+        .technical-auth-content {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+        }
+
+        .technical-auth-content h3 {
+            color: #1e293b;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .technical-auth-content i {
+            color: #ffa500;
+            font-size: 1.2rem;
+        }
+
+        .technical-password-input {
+            width: 100%;
+            padding: 0.8rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            margin-bottom: 1rem;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .technical-password-input:focus {
+            border-color: #ffa500;
+        }
+
+        .technical-auth-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+        }
+
+        .technical-auth-btn {
+            padding: 0.8rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .technical-auth-submit {
+            background: #ffa500;
+            color: white;
+        }
+
+        .technical-auth-submit:hover {
+            background: #e59400;
+            transform: translateY(-1px);
+        }
+
+        .technical-auth-submit:disabled {
+            background: #cbd5e1;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .technical-auth-cancel {
+            background: #e2e8f0;
+            color: #64748b;
+        }
+
+        .technical-auth-cancel:hover {
+            background: #cbd5e1;
+        }
+
+        .technical-auth-error {
+            color: #dc2626;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        /* ✅ NOUVEAU : Page technique */
+        .technical-page {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #f8fafc;
+            z-index: 10002;
+            overflow-y: auto;
+        }
+
+        .technical-header {
+            background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%);
+            color: white;
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .technical-title {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .technical-title h2 {
+            margin: 0;
+            font-size: 1.8rem;
+            font-weight: 600;
+        }
+
+        .technical-return-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .technical-return-btn:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .technical-content {
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .technical-construction-banner {
+            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 25px rgba(251, 191, 36, 0.3);
+        }
+
+        .technical-construction-banner h3 {
+            margin: 0 0 1rem 0;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.8rem;
+        }
+
+        .technical-construction-banner p {
+            margin: 0;
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        /* Mode sombre pour les éléments techniques */
+        [data-theme="dark"] .technical-auth-content {
+            background: #1e293b;
+            color: white;
+        }
+
+        [data-theme="dark"] .technical-auth-content h3 {
+            color: white;
+        }
+
+        [data-theme="dark"] .technical-password-input {
+            background: #334155;
+            border-color: #475569;
+            color: white;
+        }
+
+        [data-theme="dark"] .technical-password-input:focus {
+            border-color: #ffa500;
+        }
+
+        [data-theme="dark"] .technical-page {
+            background: #0f172a;
+        }
+
+        [data-theme="dark"] .technical-content {
+            color: white;
+        }
+
+        /* Animation shake pour erreur de mot de passe */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        /* ✅ NOUVEAU : Overlay de chargement diagnostic */
+        .diagnostic-loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 10005;
+            -webkit-backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .diagnostic-loading-overlay.show {
+            opacity: 1;
+        }
+
+        .diagnostic-loading-content {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 3rem 2rem;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 90%;
+            border: 2px solid rgba(59, 130, 246, 0.2);
+        }
+
+        .diagnostic-hourglass {
+            font-size: 3rem;
+            color: #3b82f6;
+            margin-bottom: 1.5rem;
+            animation: hourglass-spin 2s linear infinite;
+        }
+
+        .diagnostic-loading-text {
+            color: #1e293b;
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .diagnostic-loading-subtext {
+            color: #64748b;
+            font-size: 0.95rem;
+            margin: 0;
+        }
+
+        /* Animation sablier */
+        @keyframes hourglass-spin {
+            0% { transform: rotate(0deg); }
+            50% { transform: rotate(180deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Mode sombre pour l'overlay de chargement */
+        [data-theme="dark"] .diagnostic-loading-content {
+            background: rgba(30, 41, 59, 0.95);
+            border-color: rgba(59, 130, 246, 0.3);
+        }
+
+        [data-theme="dark"] .diagnostic-loading-text {
+            color: white;
+        }
+
+        [data-theme="dark"] .diagnostic-loading-subtext {
+            color: #94a3b8;
         }
 
         .theme-toggle, .return-btn {
@@ -1778,18 +2599,34 @@
             display: inline-flex;
             align-items: center;
             gap: 0.5rem;
-            background: rgba(255, 255, 255, 0.2);
+            background: rgba(30, 41, 59, 0.9);
             padding: 0.5rem 1rem;
             border-radius: 25px;
             font-size: 0.9rem;
+            color: white;
+            font-weight: 600;
+            border: 2px solid rgba(30, 41, 59, 0.8);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .status-dot {
             width: 8px;
             height: 8px;
             border-radius: 50%;
-            background: #10b981;
+            background: #10b981; /* Vert par défaut */
             animation: pulse 2s infinite;
+            transition: background-color 0.3s ease;
+        }
+        
+        /* États du point de statut */
+        .status-dot.offline {
+            background: #ef4444; /* Rouge - Hors ligne */
+            animation: pulse-error 2s infinite;
+        }
+        
+        @keyframes pulse-error {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
         }
 
         @keyframes pulse {
@@ -1826,7 +2663,7 @@
 
         /* Bannière de saisie de salle */
         .room-input-banner {
-            background: linear-gradient(135deg, var(--primary-blue), var(--primary-purple));
+            background: linear-gradient(135deg, #1e40af, #1d4ed8);
             border-radius: 20px;
             padding: 2rem;
             box-shadow: var(--shadow-medium);
@@ -2001,6 +2838,165 @@
         .change-room-btn:hover {
             background: rgba(255, 255, 255, 0.3);
         }
+        
+        /* ===== BOUTON DE THÈME ET MODE HYBRIDE ===== */
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-left: auto;
+        }
+        
+        .theme-toggle-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            color: white;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .theme-toggle-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .theme-toggle-btn i {
+            font-size: 1.1rem;
+        }
+        
+        /* ===== MODE HYBRIDE - DÉTECTION AUTOMATIQUE ===== */
+        /* Mode clair (par défaut) */
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --card-bg: #ffffff;
+            --card-border: #e2e8f0;
+            --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.1);
+            --shadow-medium: 0 4px 6px rgba(0, 0, 0, 0.1);
+            --shadow-heavy: 0 10px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Mode sombre */
+        [data-theme="dark"] {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --text-primary: #f1f5f9;
+            --text-secondary: #cbd5e1;
+            --card-bg: #1e293b;
+            --card-border: #334155;
+            --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.3);
+            --shadow-medium: 0 4px 6px rgba(0, 0, 0, 0.3);
+            --shadow-heavy: 0 10px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        /* Mode sombre - Améliorations spécifiques */
+        [data-theme="dark"] .room-header {
+            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
+            border-color: #3b82f6;
+        }
+        
+        [data-theme="dark"] .current-room-info {
+            color: #dbeafe;
+        }
+        
+        [data-theme="dark"] .change-room-btn {
+            background: rgba(59, 130, 246, 0.2);
+            color: #dbeafe;
+        }
+        
+        [data-theme="dark"] .change-room-btn:hover {
+            background: rgba(59, 130, 246, 0.3);
+        }
+
+        /* ✅ CORRECTIONS PALETTES DIAGNOSTIC - Meilleure visibilité */
+        [data-theme="dark"] .palette h3 {
+            color: #f1f5f9 !important;
+            font-weight: 600 !important;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
+        }
+
+        [data-theme="dark"] .palette p {
+            color: #cbd5e1 !important;
+            font-weight: 400 !important;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6) !important;
+        }
+
+        /* ✅ CORRECTION CRITIQUE - Icônes et indicateurs plus visibles */
+        [data-theme="dark"] .palette .fas,
+        [data-theme="dark"] .palette .fa,
+        [data-theme="dark"] .palette i {
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8) !important;
+            filter: brightness(1.2) contrast(1.1) !important;
+        }
+
+        /* ✅ CORRECTION - Bordures palettes plus définies */
+        [data-theme="dark"] .palette {
+            border: 2px solid rgba(71, 85, 105, 0.6) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+        }
+
+        [data-theme="dark"] .palette:hover {
+            border-color: rgba(59, 130, 246, 0.7) !important;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4),
+                        0 0 0 1px rgba(59, 130, 246, 0.3) !important;
+        }
+        
+        [data-theme="dark"] .palette {
+            background: #1e293b;
+            border-color: #334155;
+            color: #f1f5f9;
+        }
+        
+        [data-theme="dark"] .palette:hover {
+            background: #334155;
+            border-color: #3b82f6;
+        }
+        
+        [data-theme="dark"] .palette h3 {
+            color: #f1f5f9;
+        }
+        
+        [data-theme="dark"] .palette p {
+            color: #cbd5e1;
+        }
+        
+        /* Amélioration du contraste pour les icônes */
+        [data-theme="dark"] .palette-icon {
+            filter: brightness(1.2) contrast(1.1);
+        }
+        
+        /* Mode hybride - Détection automatique */
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg-primary: #0f172a;
+                --bg-secondary: #1e293b;
+                --text-primary: #f1f5f9;
+                --text-secondary: #cbd5e1;
+                --card-bg: #1e293b;
+                --card-border: #334155;
+            }
+        }
+        
+        @media (prefers-color-scheme: light) {
+            :root:not([data-theme="dark"]) {
+                --bg-primary: #ffffff;
+                --bg-secondary: #f8fafc;
+                --text-primary: #1e293b;
+                --text-secondary: #64748b;
+                --card-bg: #ffffff;
+                --card-border: #e2e8f0;
+            }
+        }
 
         /* ===== PALETTES DE PROBLÈMES ===== */
         .problem-palettes {
@@ -2027,9 +3023,9 @@
             padding: 2rem;
             text-align: center;
             cursor: pointer;
+            border: 2px solid #e2e8f0;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             transition: all var(--transition-medium);
-            border: 2px solid transparent;
-            box-shadow: var(--shadow-light);
             position: relative;
             overflow: hidden;
         }
@@ -2048,7 +3044,8 @@
 
         .palette:hover {
             transform: translateY(-8px);
-            box-shadow: var(--shadow-medium);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+            border-color: #3b82f6;
         }
 
         .palette:hover::before {
@@ -2060,7 +3057,7 @@
         }
 
         .palette.video {
-            --palette-color: var(--primary-purple);
+            --palette-color: #ffffff;
         }
 
         .palette.network {
@@ -2125,6 +3122,22 @@
             transform: scale(0.8);
             transition: transform var(--transition-medium);
             box-shadow: var(--shadow-heavy);
+            color: var(--text-primary);
+        }
+        
+        /* ✅ MODALES MODE NUIT */
+        [data-theme="dark"] .modal {
+            background: #1e293b !important;
+            color: white !important;
+            border: 2px solid #334155 !important;
+        }
+        
+        [data-theme="dark"] .modal h2,
+        [data-theme="dark"] .modal h3,
+        [data-theme="dark"] .modal p,
+        [data-theme="dark"] .modal span,
+        [data-theme="dark"] .modal div {
+            color: white !important;
         }
 
         .modal-overlay.active .modal {
@@ -2729,5 +3742,79 @@
             50% { width: 60%; transform: translateX(50%); }
             100% { width: 20%; transform: translateX(400%); }
         }
+        
+        /* ===== CHAT ANIMATIONS ===== */
+        @keyframes slideInRight {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOutRight {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        
+        /* ===== STYLES POUR MESSAGES DE STATUT TICKETS ===== */
+        .ticket-status-container {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            z-index: 1000;
+            max-width: 400px;
+        }
+        
+        .ticket-status-message {
+            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
+            color: white;
+            padding: 1rem 1.25rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 500;
+            animation: slideInRight 0.5s ease-out;
+        }
+        
+        .ticket-status-message i {
+            font-size: 1.2rem;
+            color: #93c5fd;
+        }
+        
+        .status-close-btn {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 0.25rem;
+            border-radius: 4px;
+            margin-left: auto;
+            transition: background-color 0.2s ease;
+        }
+        
+        .status-close-btn:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        /* ===== STYLES SPÉCIFIQUES POUR BANNIÈRES PERSISTANTES ===== */
+        .ticket-status-message.persistent-status {
+            border-left: 4px solid #fff;
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.15);
+            animation: slideInRight 0.5s ease-out, pulseGlow 2s ease-in-out infinite;
+        }
+        
+        .ticket-status-message.temporary-status {
+            opacity: 0.95;
+            animation: slideInRight 0.5s ease-out, fadeOut 5s ease-in-out;
+        }
+        
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 4px 25px rgba(0, 0, 0, 0.15); }
+            50% { box-shadow: 0 4px 30px rgba(255, 255, 255, 0.3); }
+        }
+        
+        @keyframes fadeOut {
+            0%, 80% { opacity: 0.95; }
+            100% { opacity: 0; }
+        }
     
-/* --- end <style> --- */
