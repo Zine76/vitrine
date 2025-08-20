@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="fr">
 <head>
 <!-- VITRINE LOCK EARLY (prevents F5 landing) -->
@@ -4143,6 +4144,13 @@
         console.log(`🌐 [Config] Backend utilisé: ${API_BASE_URL}`);
         console.log(`🖼️ [Config] Images depuis: ${GITHUB_ASSETS_BASE}`);
         
+        // ✅ GUIDE POUR IP DYNAMIQUE
+        if (API_BASE_URL.includes('C46928_DEE.adm.gst.uqam.ca')) {
+            console.log(`💡 [IPDynamique] Si DNS UQAM inaccessible, utilisez:`);
+            console.log(`💡 [IPDynamique] ?backend=https://NOUVELLE_IP:7443`);
+            console.log(`💡 [IPDynamique] Exemple: ?backend=https://132.208.182.100:7443`);
+        }
+        
         // ✅ AVERTISSEMENT MIXED CONTENT
         if (isSecurePage && API_BASE_URL.startsWith('https:') && !customBackend) {
             console.warn(`⚠️  [Security] Page HTTPS détectée - backend configuré en HTTPS`);
@@ -4172,6 +4180,39 @@
         let currentAPI = API_BASE_URL;
         let hasTestedFallback = false;
         
+        // ✅ NOUVEAU: Fonction pour découvrir l'IP dynamique
+        async function discoverDynamicIP() {
+            try {
+                // Essayer plusieurs services de découverte d'IP
+                const ipServices = [
+                    'https://api.ipify.org?format=json',
+                    'https://ipapi.co/json/',
+                    'https://jsonip.com'
+                ];
+                
+                for (const service of ipServices) {
+                    try {
+                        const response = await fetch(service, { signal: AbortSignal.timeout(3000) });
+                        const data = await response.json();
+                        const ip = data.ip || data.query || data.IPv4;
+                        
+                        if (ip && ip.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+                            console.log(`🔍 [IPDiscovery] IP découverte: ${ip} via ${service}`);
+                            return ip;
+                        }
+                    } catch (error) {
+                        console.log(`⚠️ [IPDiscovery] Service ${service} indisponible`);
+                    }
+                }
+                
+                console.log(`❌ [IPDiscovery] Aucun service de découverte IP disponible`);
+                return null;
+            } catch (error) {
+                console.log(`❌ [IPDiscovery] Erreur découverte IP:`, error);
+                return null;
+            }
+        }
+        
         async function testBackendConnectivity(url) {
             try {
                 const response = await fetch(`${url}/api/health`, { 
@@ -4186,10 +4227,36 @@
         }
         
         async function ensureBackendConnection() {
-            // Test du backend principal
+            // Test du backend principal (DNS)
             if (await testBackendConnectivity(currentAPI)) {
                 console.log(`✅ [Connectivity] Backend ${currentAPI} disponible`);
                 return currentAPI;
+            }
+            
+            // ✅ NOUVEAU: Fallback vers IP si DNS échoue (réseau externe)
+            if (!customBackend && currentAPI.includes('C46928_DEE.adm.gst.uqam.ca')) {
+                console.log(`🔄 [Connectivity] DNS UQAM inaccessible, découverte IP dynamique...`);
+                
+                // Essayer l'IP statique d'abord
+                const staticIPFallback = currentAPI.replace('C46928_DEE.adm.gst.uqam.ca', '132.208.182.75');
+                if (await testBackendConnectivity(staticIPFallback)) {
+                    console.log(`✅ [Connectivity] IP statique ${staticIPFallback} disponible`);
+                    currentAPI = staticIPFallback;
+                    return currentAPI;
+                }
+                
+                // Si IP statique échoue, essayer découverte dynamique
+                const discoveredIP = await discoverDynamicIP();
+                if (discoveredIP) {
+                    const dynamicFallback = currentAPI.replace('C46928_DEE.adm.gst.uqam.ca', discoveredIP);
+                    console.log(`🔄 [Connectivity] Test IP découverte: ${dynamicFallback}`);
+                    
+                    if (await testBackendConnectivity(dynamicFallback)) {
+                        console.log(`✅ [Connectivity] IP dynamique ${dynamicFallback} disponible`);
+                        currentAPI = dynamicFallback;
+                        return currentAPI;
+                    }
+                }
             }
             
             // Si pas de backend personnalisé et que le principal échoue, essayer localhost
