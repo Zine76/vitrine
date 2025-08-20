@@ -9183,7 +9183,7 @@
             try {
                 console.log('✅ [Consent] Chat accepté');
                 
-                const response = await fetch('/api/tickets/chat/consent', {
+                const response = await fetch(`${currentAPI}/api/tickets/chat/consent`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -9211,7 +9211,7 @@
                 console.log('🔗 [Consent] Channel ID:', currentChatId);
                 console.log('🏠 [Consent] Room ID:', getCurrentRoom());
                 
-                const response = await fetch('/api/tickets/chat/consent', {
+                const response = await fetch(`${currentAPI}/api/tickets/chat/consent`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -9299,7 +9299,7 @@
                 console.log(`🔍 [DEBUG-VITRINE] Envoi message avec channel_id: "${currentChatId}"`);
                 console.warn(`🚨 [DEBUG-VISIBLE] VITRINE ENVOIE AVEC CHANNEL_ID: "${currentChatId}"`);
                 
-                const response = await fetch('/api/tickets/chat/message', {
+                const response = await fetch(`${currentAPI}/api/tickets/chat/message`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -10219,7 +10219,7 @@
             submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification...';
             
             try {
-                const response = await fetch('/api/technical/auth', {
+                const response = await fetch(`${currentAPI}/api/technical/auth`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
