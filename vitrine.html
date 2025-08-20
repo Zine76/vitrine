@@ -4179,6 +4179,55 @@
         // ===== FONCTION DE TEST CONNECTIVITÉ AVEC FALLBACK =====
         let currentAPI = API_BASE_URL;
         let hasTestedFallback = false;
+        let hybridCheckInterval = null;
+        
+        // ✅ NOUVEAU: Redémarrer toutes les connexions SSE après changement d'API
+        function restartSSEConnections() {
+            console.log(`🔄 [SSERestart] Redémarrage connexions SSE vers: ${currentAPI}`);
+            
+            // Redémarrer Chat SSE
+            if (getCurrentRoom()) {
+                setTimeout(() => {
+                    startChatRequestListener();
+                }, 100);
+            }
+            
+            // Redémarrer Status Events SSE
+            if (statusEventSource) {
+                statusEventSource.close();
+                statusEventSource = null;
+            }
+            if (getCurrentRoom()) {
+                setTimeout(() => {
+                    startStatusEventSource();
+                }, 200);
+            }
+        }
+        
+        // ✅ NOUVEAU: Surveillance hybride intelligente
+        function startHybridMonitoring() {
+            // Vérifier toutes les 10 secondes si on peut améliorer la connexion
+            hybridCheckInterval = setInterval(async () => {
+                const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost';
+                
+                if (isLocal && !customBackend) {
+                    const localhostURL = `${defaultProtocol}://localhost:${httpsPort}`;
+                    const dnsURL = API_BASE_URL;
+                    
+                    // Si on utilise DNS mais localhost est disponible, basculer
+                    if (currentAPI !== localhostURL && await testBackendConnectivity(localhostURL)) {
+                        console.log(`🔄 [HybridMonitor] Bascule vers localhost optimal`);
+                        const oldAPI = currentAPI;
+                        currentAPI = localhostURL;
+                        restartSSEConnections();
+                    }
+                    // Si on utilise localhost mais DNS redevient disponible, proposer le choix
+                    else if (currentAPI === localhostURL && await testBackendConnectivity(dnsURL)) {
+                        console.log(`💡 [HybridMonitor] DNS UQAM redevenu disponible (reste sur localhost)`);
+                    }
+                }
+            }, 10000);
+        }
         
         // ✅ NOUVEAU: Fonction pour découvrir l'IP dynamique
         async function discoverDynamicIP() {
@@ -4227,7 +4276,41 @@
         }
         
         async function ensureBackendConnection() {
-            // Test du backend principal (DNS)
+            // ✅ NOUVEAU: Mode hybride intelligent - priorité selon contexte
+            const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            
+            if (isLocal && !customBackend) {
+                console.log(`🏠 [HybridMode] Accès local détecté - test localhost en priorité`);
+                
+                // Test localhost en PREMIER pour accès local
+                const localhostURL = `${defaultProtocol}://localhost:${httpsPort}`;
+                const dnsURL = currentAPI;
+                
+                // Test SIMULTANÉ avec Promise.race pour le plus rapide
+                try {
+                    const winner = await Promise.race([
+                        testBackendConnectivity(localhostURL).then(ok => ({ url: localhostURL, success: ok, type: 'localhost' })),
+                        testBackendConnectivity(dnsURL).then(ok => ({ url: dnsURL, success: ok, type: 'dns' }))
+                    ]);
+                    
+                    if (winner.success) {
+                        console.log(`✅ [HybridMode] ${winner.type.toUpperCase()} gagne: ${winner.url}`);
+                        const oldAPI = currentAPI;
+                        currentAPI = winner.url;
+                        
+                        // ✅ NOUVEAU: Redémarrer SSE si l'API a changé
+                        if (oldAPI !== currentAPI) {
+                            restartSSEConnections();
+                        }
+                        
+                        return currentAPI;
+                    }
+                } catch (error) {
+                    console.log(`⚠️ [HybridMode] Tests parallèles échoués`);
+                }
+            }
+            
+            // Test du backend principal (DNS) pour accès externe
             if (await testBackendConnectivity(currentAPI)) {
                 console.log(`✅ [Connectivity] Backend ${currentAPI} disponible`);
                 return currentAPI;
@@ -5426,7 +5509,7 @@
             try {
                 console.log(`📋 [FetchRoomEquipmentFromNeonDB] Récupération directe NeonDB pour ${room}`);
                 
-                const response = await fetch(`${API_BASE_URL}/api/room/equipment?room=${encodeURIComponent(room)}`, {
+                const response = await fetch(`${currentAPI}/api/room/equipment?room=${encodeURIComponent(room)}`, {
                     method: 'GET',
                     headers: { 'Content-Type': 'application/json' }
                 });
@@ -6463,7 +6546,7 @@
                 
                 try {
                     // ✅ UTILISER API TEMPS RÉEL au lieu du cache
-                    const response = await fetch(`${API_BASE_URL}/api/room/equipment?room=${encodeURIComponent(roomName)}&refresh=true`);
+                    const response = await fetch(`${currentAPI}/api/room/equipment?room=${encodeURIComponent(roomName)}&refresh=true`);
                     
                     if (response.ok) {
                         const data = await response.json();
@@ -9074,11 +9157,14 @@
         
         async function closeChat() {
             try {
+                // ✅ NOUVEAU : S'assurer de la connexion backend avant fermeture
+                await ensureBackendConnection();
+                
                 // ✅ NOUVEAU : Informer le backend que Vitrine ferme le chat
                 if (currentChatId) {
                     console.log('🔚 [Vitrine] Fermeture du chat par l\'utilisateur');
                     
-                    const response = await fetch(`${API_BASE_URL}/api/tickets/chat/end`, {
+                    const response = await fetch(`${currentAPI}/api/tickets/chat/end`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -9247,6 +9333,9 @@
         
         async function acceptChat() {
             try {
+                // ✅ NOUVEAU : S'assurer de la connexion backend avant acceptation
+                await ensureBackendConnection();
+                
                 console.log('✅ [Consent] Chat accepté');
                 
                 const response = await fetch(`${currentAPI}/api/tickets/chat/consent`, {
@@ -9273,6 +9362,9 @@
         
         async function declineChat() {
             try {
+                // ✅ NOUVEAU : S'assurer de la connexion backend avant refus
+                await ensureBackendConnection();
+                
                 console.log('❌ [Consent] Chat refusé par le client');
                 console.log('🔗 [Consent] Channel ID:', currentChatId);
                 console.log('🏠 [Consent] Room ID:', getCurrentRoom());
@@ -9362,6 +9454,9 @@
             if (!message || !currentChatId) return;
             
             try {
+                // ✅ NOUVEAU : S'assurer de la connexion backend avant envoi
+                await ensureBackendConnection();
+                
                 console.log(`🔍 [DEBUG-VITRINE] Envoi message avec channel_id: "${currentChatId}"`);
                 console.warn(`🚨 [DEBUG-VISIBLE] VITRINE ENVOIE AVEC CHANNEL_ID: "${currentChatId}"`);
                 
@@ -9419,8 +9514,8 @@
             const roomId = getCurrentRoom();
             console.log(`💬 [Chat] Démarrage écoute SSE RÉELLE pour salle ${roomId}`);
             
-                // ✅ CORRIGÉ : Utiliser une seule connexion SSE pour éviter la duplication
-            const sseUrl = `http://localhost:7070/api/tickets/chat/stream?room_id=${roomId}`;
+                // ✅ CORRIGÉ : Utiliser currentAPI dynamique au lieu de localhost hardcodé
+            const sseUrl = `${currentAPI}/api/tickets/chat/stream?room_id=${roomId}`;
             
             // ⚠️ DEBUG : Vérifier qu'on n'a pas déjà une connexion active
             if (window.vitrineChatEventSource) {
@@ -9547,8 +9642,8 @@
             // ✅ RÉACTIVÉ : EventSource pour les changements de statuts des tickets
             console.log('🔔 [StatusEvents] Démarrage EventSource pour changements de statuts');
             
-            // Créer un nouvel EventSource pour les changements de statut
-            const sseUrl = `${API_BASE_URL}/api/tickets/chat/events/vitrine?room_id=${currentRoom}`;
+            // Créer un nouvel EventSource pour les changements de statut - ✅ UTILISER currentAPI
+            const sseUrl = `${currentAPI}/api/tickets/chat/events/vitrine?room_id=${currentRoom}`;
             statusEventSource = new EventSource(sseUrl);
 
             statusEventSource.onopen = function() {
@@ -10050,11 +10145,14 @@
                 }
                 
                 try {
+                    // ✅ NOUVEAU : S'assurer de la connexion backend avant appel Podio
+                    await ensureBackendConnection();
+                    
                     console.log(`🌐 [PodioCache] API call pour salle: ${roomName}`);
                     
-                    // 🐍 Appel API Podio PRIORITAIRE avec fallback NeonDB si échec
+                    // 🐍 Appel API Podio PRIORITAIRE avec fallback NeonDB si échec - ✅ UTILISER currentAPI
                     const response = await fetch(
-                        `${API_BASE_URL}/api/podio/public-room-info?room=${encodeURIComponent(roomName)}`,
+                        `${currentAPI}/api/podio/public-room-info?room=${encodeURIComponent(roomName)}`,
                         {
                             method: 'GET',
                             headers: {
@@ -10103,7 +10201,7 @@
                         console.log(`🔄 [PodioCache] Tentative fallback NeonDB pour salle: ${roomName}`);
                         
                         const neonResponse = await fetch(
-                            `${API_BASE_URL}/api/room/equipment?room=${encodeURIComponent(roomName)}`,
+                            `${currentAPI}/api/room/equipment?room=${encodeURIComponent(roomName)}`,
                             {
                                 method: 'GET',
                                 headers: { 'Content-Type': 'application/json' },
@@ -10529,6 +10627,12 @@
         console.log('  • Mode hybride intelligent (clair/sombre)');
         console.log('  • Détection automatique des préférences système');
         console.log('  • Bouton de retour');
+        
+        // ✅ NOUVEAU : Démarrer surveillance hybride DNS/localhost
+        setTimeout(() => {
+            startHybridMonitoring();
+            console.log('🔄 [HybridMode] Surveillance DNS/localhost démarrée');
+        }, 5000);
         </script>
 <!-- Fonction globale supprimée - utilisation de createTicketDirect -->
 <script>
