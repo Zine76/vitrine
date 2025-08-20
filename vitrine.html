@@ -62,7 +62,7 @@
   // ✅ UTILISER LE BON PORT SELON LE PROTOCOLE
   var httpsPort = (defaultProtocol === 'https') ? '7443' : '7070';
   var fallbackHttpsPort = (defaultProtocol === 'https') ? '7443' : '7070';
-  var DEV_BASE  = customBackend || (defaultProtocol + '://132.208.182.75:' + httpsPort);  // IP avec bon protocole/port
+  var DEV_BASE  = customBackend || (defaultProtocol + '://C46928_DEE.adm.gst.uqam.ca:' + httpsPort);  // DNS UQAM avec bon protocole/port
   var FALLBACK_BASE = defaultProtocol + '://localhost:' + fallbackHttpsPort;  // Fallback avec bon protocole/port
   var PROD_BASE = ''; // même domaine en prod
   var FORCE     = (location.protocol === 'file:') || customBackend;
@@ -4135,7 +4135,7 @@
         // ✅ UTILISER LE BON PORT SELON LE PROTOCOLE
         const httpsPort = defaultProtocol === 'https' ? '7443' : '7070';
         const fallbackHttpsPort = defaultProtocol === 'https' ? '7443' : '7070';
-        const API_BASE_URL = customBackend || `${defaultProtocol}://132.208.182.75:${httpsPort}`;
+        const API_BASE_URL = customBackend || `${defaultProtocol}://C46928_DEE.adm.gst.uqam.ca:${httpsPort}`;
         const FALLBACK_API_URL = `${defaultProtocol}://localhost:${fallbackHttpsPort}`;
         
         // ✅ CONFIGURATION IMAGES GITHUB
