@@ -43,7 +43,7 @@
                 
                 imgElement.onerror = function() {
                     console.log('❌ [UpdateSEALogo] Échec image locale, essai serveur distant');
-                    this.src = 'http://132.208.182.76:7070/api/assets/SEA2.png';
+                    this.src = 'http://132.208.182.75:7070/api/assets/SEA2.png';
                     
                     this.onerror = function() {
                         console.log('❌ [UpdateSEALogo] Échec serveur distant, utilisation fallback');
@@ -6266,7 +6266,7 @@
   var LOC_APP = "app-extracted.js";
 
   // 1) Load main app script from GitHub, fallback to local
-  loadScript(CDN_APP, function(err){ if(err) loadScript(LOC_APP); });
+  loadScript(CDN_APP, function(err){   if(err) {     var CDN2 = "https://cdn.jsdelivr.net/gh/Zine76/vitrine@main/app-extracted.js?v=final-1";    loadScript(CDN2, function(err2){ if(err2) loadScript(LOC_APP, function(err3){}); });  }});
 })();
 
 // Admin overlay + reset (Alt+Ctrl+K). Also adds click fallback and console hook.
