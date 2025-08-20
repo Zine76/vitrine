@@ -51,10 +51,15 @@
 <!-- API BASE PATCH v6: ultra-robuste (file://, '/api', 'api/', URLs file/null, Request & XHR) -->
 <script>
 (function(){
-  // <<< RENSEIGNE ICI TON BACKEND DEV >>> 
-  var DEV_BASE  = 'http://localhost:7070';  // ex: http://127.0.0.1:8080
-  var PROD_BASE = 'http://132.208.182.75:7070'; // même domaine en prod
-  var FORCE     = (location.protocol === 'file:');
+  // ✅ CONFIGURATION BACKEND FLEXIBLE
+  // Peut être configuré via URL param: ?backend=http://192.168.1.100:7070
+  var urlParams = new URLSearchParams(window.location.search);
+  var customBackend = urlParams.get('backend');
+  // ✅ Backend par défaut : essayer d'abord l'IP locale puis localhost
+  var DEV_BASE  = customBackend || 'http://132.208.182.75:7070';  // IP locale ou personnalisé
+  var FALLBACK_BASE = 'http://localhost:7070';  // Fallback localhost
+  var PROD_BASE = ''; // même domaine en prod
+  var FORCE     = (location.protocol === 'file:') || customBackend;
 
   var BASE = FORCE ? DEV_BASE : PROD_BASE;
 
@@ -140,7 +145,7 @@
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
 <title>Vitrine</title>
 <!-- Favicon -->
-<link href="assets/Vitrine.png" rel="icon" type="image/png"/>
+<link href="https://raw.githubusercontent.com/Zine76/vitrine/main/assets/Vitrine.png" rel="icon" type="image/png"/>
 <!-- Font Awesome pour les icônes -->
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
 <style>
@@ -3948,7 +3953,7 @@
 </button>
 </div>
 <div class="title-section" style="display: flex; align-items: center; justify-content: flex-start; gap: 2rem;">
-<img alt="Vitrine" src="assets/Vitrine.png" style="height: 80px; max-width: 300px; object-fit: contain;"/>
+<img alt="Vitrine" src="https://raw.githubusercontent.com/Zine76/vitrine/main/assets/Vitrine.png" style="height: 80px; max-width: 300px; object-fit: contain;"/>
 <p id="headerTitle" style="margin: 0; font-size: 1.1rem; font-weight: 600; color: black !important; -webkit-text-fill-color: black !important;">Diagnostic interactif et assistance audiovisuelle</p>
 </div>
 <div class="status-indicator">
@@ -4112,8 +4117,86 @@
 </div>
 
 <script>
-        // ===== CONFIGURATION =====
-        const API_BASE_URL = 'http://132.208.182.75:7070';
+        // ===== CONFIGURATION DYNAMIQUE =====
+        // Récupérer le backend depuis les paramètres URL ou utiliser IP locale par défaut
+        const urlParams = new URLSearchParams(window.location.search);
+        const customBackend = urlParams.get('backend');
+        const API_BASE_URL = customBackend || 'http://132.208.182.75:7070';
+        const FALLBACK_API_URL = 'http://localhost:7070';
+        
+        // ✅ CONFIGURATION IMAGES GITHUB
+        const GITHUB_ASSETS_BASE = 'https://raw.githubusercontent.com/Zine76/vitrine/main/assets';
+        
+        console.log(`🌐 [Config] Backend utilisé: ${API_BASE_URL}`);
+        console.log(`🖼️ [Config] Images depuis: ${GITHUB_ASSETS_BASE}`);
+        
+        // Afficher un message informatif sur la configuration
+        if (customBackend) {
+            console.log(`✅ [Config] Backend personnalisé détecté via URL: ${customBackend}`);
+        } else {
+            console.log(`ℹ️  [Config] Backend par défaut: ${API_BASE_URL} (fallback: ${FALLBACK_API_URL})`);
+            console.log(`ℹ️  [Config] Pour utiliser un autre PC: ?backend=http://IP:7070`);
+        }
+        
+        // ===== FONCTION DE TEST CONNECTIVITÉ AVEC FALLBACK =====
+        let currentAPI = API_BASE_URL;
+        let hasTestedFallback = false;
+        
+        async function testBackendConnectivity(url) {
+            try {
+                const response = await fetch(`${url}/api/health`, { 
+                    method: 'GET',
+                    signal: AbortSignal.timeout(3000) // Timeout 3s
+                });
+                return response.ok;
+            } catch (error) {
+                console.log(`⚠️ [Connectivity] Backend ${url} non disponible:`, error.message);
+                return false;
+            }
+        }
+        
+        async function ensureBackendConnection() {
+            // Test du backend principal
+            if (await testBackendConnectivity(currentAPI)) {
+                console.log(`✅ [Connectivity] Backend ${currentAPI} disponible`);
+                return currentAPI;
+            }
+            
+            // Si pas de backend personnalisé et que le principal échoue, essayer localhost
+            if (!customBackend && !hasTestedFallback) {
+                console.log(`🔄 [Connectivity] Tentative fallback vers ${FALLBACK_API_URL}`);
+                hasTestedFallback = true;
+                
+                if (await testBackendConnectivity(FALLBACK_API_URL)) {
+                    console.log(`✅ [Connectivity] Fallback ${FALLBACK_API_URL} disponible`);
+                    currentAPI = FALLBACK_API_URL;
+                    return currentAPI;
+                }
+            }
+            
+            console.log(`❌ [Connectivity] Aucun backend disponible`);
+            return currentAPI; // Garder l'original même si indisponible
+        }
+        
+        // ===== FONCTION HELPER POUR APPELS API AVEC FALLBACK =====
+        async function apiCall(endpoint, options = {}) {
+            // S'assurer qu'on utilise le bon backend
+            const activeAPI = currentAPI || API_BASE_URL;
+            const url = `${activeAPI}${endpoint}`;
+            
+            try {
+                return await fetch(url, options);
+            } catch (error) {
+                // En cas d'erreur, essayer de reconnecter
+                if (!hasTestedFallback && !customBackend) {
+                    console.log(`🔄 [API] Tentative reconnexion...`);
+                    currentAPI = await ensureBackendConnection();
+                    const fallbackUrl = `${currentAPI}${endpoint}`;
+                    return await fetch(fallbackUrl, options);
+                }
+                throw error;
+            }
+        }
         let isLoading = false;
         let messageCount = 0;
         let messagesContainer;
@@ -4133,12 +4216,12 @@
             if (imgElement) {
                 console.log('🖼️ [UpdateSEALogo] Tentative de chargement image SEA pour:', imgElement.id || 'sans ID');
                 
-                // Essayer d'abord le chemin local
-                imgElement.src = 'assets/SEA2.png';
+                // ✅ ESSAYER D'ABORD GITHUB
+                imgElement.src = `${GITHUB_ASSETS_BASE}/SEA2.png`;
                 
                 imgElement.onerror = function() {
-                    console.log('❌ [UpdateSEALogo] Échec image locale, essai serveur distant');
-                    this.src = 'http://132.208.182.76:7070/api/assets/SEA2.png';
+                    console.log('❌ [UpdateSEALogo] Échec GitHub, fallback local');
+                    this.src = 'assets/SEA2.png';
                     
                     this.onerror = function() {
                         console.log('❌ [UpdateSEALogo] Échec serveur distant, utilisation fallback');
@@ -4678,7 +4761,9 @@
          */
         async function checkConnection() {
             try {
-                const response = await fetch(`${API_BASE_URL}/api/health`);
+                // ✅ UTILISER LE SYSTÈME DE FALLBACK
+                currentAPI = await ensureBackendConnection();
+                const response = await fetch(`${currentAPI}/api/health`);
                 const wasConnected = isConnected;
                 isConnected = response.ok;
                 
@@ -5938,7 +6023,7 @@
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="si-logo" src="assets/SI.png" alt="Services Informatiques UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                        <img id="si-logo" src="https://raw.githubusercontent.com/Zine76/vitrine/main/assets/SI.png" alt="Services Informatiques UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
                     </div>
                     <div class="escalation-text">
                         <strong style="color: black !important; font-weight: 600; font-size: 1.4rem; display: block; margin-bottom: 0.5rem;">Services Informatiques UQAM</strong>
@@ -6091,7 +6176,7 @@
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="sim-logo" src="assets/SIM.png" alt="Service des Immeubles UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                        <img id="sim-logo" src="https://raw.githubusercontent.com/Zine76/vitrine/main/assets/SIM.png" alt="Service des Immeubles UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
                     </div>
                     <div class="escalation-text">
                         <strong style="color: black !important; font-weight: 600; font-size: 1.4rem; display: block; margin-bottom: 0.5rem;">Service des Immeubles UQAM</strong>
