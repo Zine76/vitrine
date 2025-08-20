@@ -57,7 +57,8 @@
   var customBackend = urlParams.get('backend');
   // ✅ DÉTECTION AUTOMATIQUE PROTOCOLE pour éviter Mixed Content
   var isSecurePage = location.protocol === 'https:';
-  var defaultProtocol = isSecurePage ? 'https' : 'http';
+  var forceHttp = urlParams.get('http') === 'true'; // Paramètre pour forcer HTTP
+  var defaultProtocol = (isSecurePage && !forceHttp) ? 'https' : 'http';
   var DEV_BASE  = customBackend || (defaultProtocol + '://132.208.182.75:7070');  // IP avec bon protocole
   var FALLBACK_BASE = defaultProtocol + '://localhost:7070';  // Fallback avec bon protocole
   var PROD_BASE = ''; // même domaine en prod
@@ -4126,7 +4127,8 @@
         
         // ✅ DÉTECTION AUTOMATIQUE PROTOCOLE (HTTPS si page HTTPS)
         const isSecurePage = location.protocol === 'https:';
-        const defaultProtocol = isSecurePage ? 'https' : 'http';
+        const forceHttp = urlParams.get('http') === 'true'; // Paramètre pour forcer HTTP
+        const defaultProtocol = (isSecurePage && !forceHttp) ? 'https' : 'http';
         const API_BASE_URL = customBackend || `${defaultProtocol}://132.208.182.75:7070`;
         const FALLBACK_API_URL = `${defaultProtocol}://localhost:7070`;
         
@@ -4140,6 +4142,12 @@
         if (isSecurePage && API_BASE_URL.startsWith('https:') && !customBackend) {
             console.warn(`⚠️  [Security] Page HTTPS détectée - backend configuré en HTTPS`);
             console.warn(`⚠️  [Security] Si erreurs SSL, configurez le backend avec certificat HTTPS`);
+            console.warn(`💡 [Solution] Ou utilisez: ?http=true pour forcer HTTP (non sécurisé)`);
+        }
+        
+        if (isSecurePage && forceHttp) {
+            console.warn(`🔓 [Security] Mode HTTP forcé depuis page HTTPS - Mixed Content possible`);
+            console.warn(`🔓 [Security] Le navigateur peut bloquer les requêtes HTTP`);
         }
         
         // Afficher un message informatif sur la configuration
@@ -4147,7 +4155,12 @@
             console.log(`✅ [Config] Backend personnalisé détecté via URL: ${customBackend}`);
         } else {
             console.log(`ℹ️  [Config] Backend par défaut: ${API_BASE_URL} (fallback: ${FALLBACK_API_URL})`);
-            console.log(`ℹ️  [Config] Pour utiliser un autre PC: ?backend=https://IP:7070 (HTTPS recommandé)`);
+            if (isSecurePage) {
+                console.log(`ℹ️  [Config] Pour HTTP forcé: ?http=true`);
+                console.log(`ℹ️  [Config] Pour autre PC: ?backend=https://IP:7070 OU ?backend=http://IP:7070&http=true`);
+            } else {
+                console.log(`ℹ️  [Config] Pour utiliser un autre PC: ?backend=http://IP:7070`);
+            }
         }
         
         // ===== FONCTION DE TEST CONNECTIVITÉ AVEC FALLBACK =====
