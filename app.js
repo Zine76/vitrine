@@ -18,7 +18,7 @@
 })();
 
 // ===== CONFIGURATION =====
-        const API_BASE_URL = 'http://localhost:7070';
+        const API_BASE_URL = (window.__API_BASE__ || '/api');
         let isLoading = false;
         let messageCount = 0;
         let messagesContainer;
@@ -5143,7 +5143,7 @@
             console.log(`💬 [Chat] Démarrage écoute SSE RÉELLE pour salle ${roomId}`);
             
                 // ✅ CORRIGÉ : Utiliser une seule connexion SSE pour éviter la duplication
-            const sseUrl = `http://localhost:7070/api/tickets/chat/stream?room_id=${roomId}`;
+            const sseUrl = `/api/api/tickets/chat/stream?room_id=${roomId}`;
             
             // ⚠️ DEBUG : Vérifier qu'on n'a pas déjà une connexion active
             if (window.vitrineChatEventSource) {
