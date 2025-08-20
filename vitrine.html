@@ -55,9 +55,11 @@
   // Peut être configuré via URL param: ?backend=http://192.168.1.100:7070
   var urlParams = new URLSearchParams(window.location.search);
   var customBackend = urlParams.get('backend');
-  // ✅ Backend par défaut : essayer d'abord l'IP locale puis localhost
-  var DEV_BASE  = customBackend || 'http://132.208.182.75:7070';  // IP locale ou personnalisé
-  var FALLBACK_BASE = 'http://localhost:7070';  // Fallback localhost
+  // ✅ DÉTECTION AUTOMATIQUE PROTOCOLE pour éviter Mixed Content
+  var isSecurePage = location.protocol === 'https:';
+  var defaultProtocol = isSecurePage ? 'https' : 'http';
+  var DEV_BASE  = customBackend || (defaultProtocol + '://132.208.182.75:7070');  // IP avec bon protocole
+  var FALLBACK_BASE = defaultProtocol + '://localhost:7070';  // Fallback avec bon protocole
   var PROD_BASE = ''; // même domaine en prod
   var FORCE     = (location.protocol === 'file:') || customBackend;
 
@@ -4121,8 +4123,12 @@
         // Récupérer le backend depuis les paramètres URL ou utiliser IP locale par défaut
         const urlParams = new URLSearchParams(window.location.search);
         const customBackend = urlParams.get('backend');
-        const API_BASE_URL = customBackend || 'http://132.208.182.75:7070';
-        const FALLBACK_API_URL = 'http://localhost:7070';
+        
+        // ✅ DÉTECTION AUTOMATIQUE PROTOCOLE (HTTPS si page HTTPS)
+        const isSecurePage = location.protocol === 'https:';
+        const defaultProtocol = isSecurePage ? 'https' : 'http';
+        const API_BASE_URL = customBackend || `${defaultProtocol}://132.208.182.75:7070`;
+        const FALLBACK_API_URL = `${defaultProtocol}://localhost:7070`;
         
         // ✅ CONFIGURATION IMAGES GITHUB
         const GITHUB_ASSETS_BASE = 'https://raw.githubusercontent.com/Zine76/vitrine/main/assets';
@@ -4130,12 +4136,18 @@
         console.log(`🌐 [Config] Backend utilisé: ${API_BASE_URL}`);
         console.log(`🖼️ [Config] Images depuis: ${GITHUB_ASSETS_BASE}`);
         
+        // ✅ AVERTISSEMENT MIXED CONTENT
+        if (isSecurePage && API_BASE_URL.startsWith('https:') && !customBackend) {
+            console.warn(`⚠️  [Security] Page HTTPS détectée - backend configuré en HTTPS`);
+            console.warn(`⚠️  [Security] Si erreurs SSL, configurez le backend avec certificat HTTPS`);
+        }
+        
         // Afficher un message informatif sur la configuration
         if (customBackend) {
             console.log(`✅ [Config] Backend personnalisé détecté via URL: ${customBackend}`);
         } else {
             console.log(`ℹ️  [Config] Backend par défaut: ${API_BASE_URL} (fallback: ${FALLBACK_API_URL})`);
-            console.log(`ℹ️  [Config] Pour utiliser un autre PC: ?backend=http://IP:7070`);
+            console.log(`ℹ️  [Config] Pour utiliser un autre PC: ?backend=https://IP:7070 (HTTPS recommandé)`);
         }
         
         // ===== FONCTION DE TEST CONNECTIVITÉ AVEC FALLBACK =====
