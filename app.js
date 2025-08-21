@@ -5560,7 +5560,12 @@
                     cursor: default;
                 `;
                 
-                // âœ… NOUVEAU : Bloquer tous les clics sur l'overlay
+                document.body.appendChild(blurOverlay);
+            }
+            
+            // ✅ CORRECTION : Vérifier que blurOverlay existe avant d'ajouter les événements
+            if (blurOverlay) {
+                // ✅ NOUVEAU : Bloquer tous les clics sur l'overlay
                 blurOverlay.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -5573,8 +5578,6 @@
                     e.stopPropagation();
                     return false;
                 });
-                
-                document.body.appendChild(blurOverlay);
             }
             
             // âœ… NOUVEAU : Bloquer le scroll sur le body
