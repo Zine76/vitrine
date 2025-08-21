@@ -621,7 +621,7 @@ function createVitrine() {
         </button>
     </div>
     <div class="title-section" style="display: flex; align-items: center; justify-content: flex-start; gap: 2rem;">
-        <img alt="Vitrine" src="https://raw.githubusercontent.com/Zine76/vitrine/refs/heads/main/assets/Vitrine.png" style="height: 80px; max-width: 300px; object-fit: contain;"/>
+        <img alt="Vitrine" src="https://zine76.github.io/vitrine/assets/Vitrine.png" style="height: 80px; max-width: 300px; object-fit: contain;"/>
         <p id="headerTitle" style="margin: 0; font-size: 1.1rem; font-weight: 600; color: black !important; -webkit-text-fill-color: black !important;">Diagnostic interactif et assistance audiovisuelle</p>
     </div>
     <div class="status-indicator">
@@ -636,7 +636,7 @@ function createVitrine() {
     <!-- Page d'accueil / Sélection de salle -->
     <div id="landing" class="landing-page">
         <div class="welcome-section">
-            <img src="https://raw.githubusercontent.com/Zine76/vitrine/refs/heads/main/assets/Vitrine.png" alt="Vitrine" class="welcome-logo">
+            <img src="https://zine76.github.io/vitrine/assets/Vitrine.png" alt="Vitrine" class="welcome-logo">
             <h2>Bienvenue sur la Vitrine SavQonnect</h2>
             <p>Sélectionnez votre salle pour commencer</p>
         </div>
