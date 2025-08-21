@@ -350,9 +350,23 @@
                 return;
             }
 
-            // Récupérer les éléments dynamiquement
-            const landingPage = document.getElementById('landingPage');
-            const assistantPage = document.getElementById('assistantPage');
+            // Récupérer/assurer la présence des éléments dynamiquement
+            let landingPage = document.getElementById('landingPage');
+            let assistantPage = document.getElementById('assistantPage');
+            if (!landingPage || !assistantPage) {
+                if (typeof createVitrine === 'function') {
+                    try {
+                        createVitrine();
+                        console.log('✅ [showAssistant] Interface (re)créée avant affichage');
+                    } catch (e) {
+                        console.error('❌ [showAssistant] Échec de création de l\'interface:', e);
+                        return;
+                    }
+                    // Rechercher à nouveau
+                    landingPage = document.getElementById('landingPage');
+                    assistantPage = document.getElementById('assistantPage');
+                }
+            }
 
             // Masquer la landing page
             if (landingPage) landingPage.style.display = 'none';
@@ -6521,6 +6535,49 @@ function createVitrine() {
     
     document.body.appendChild(container);
     console.log('✅ [createVitrine] Interface basique créée');
+
+	// Injecter le modal d'authentification technique si absent
+	if (!document.getElementById('technicalAuthModal')) {
+		const authModal = document.createElement('div');
+		authModal.id = 'technicalAuthModal';
+		authModal.className = 'technical-auth-modal';
+		authModal.style.display = 'none';
+		authModal.style.position = 'fixed';
+		authModal.style.inset = '0';
+		authModal.style.alignItems = 'center';
+		authModal.style.justifyContent = 'center';
+		authModal.style.background = 'rgba(0,0,0,0.5)';
+		authModal.style.zIndex = '10000';
+		authModal.innerHTML = `
+			<div class="technical-auth-content" style="background:#111827; color:#e5e7eb; padding:1.5rem; border-radius:0.75rem; width:100%; max-width:420px; box-shadow:0 10px 25px rgba(0,0,0,0.6);">
+				<h3 style="margin:0 0 1rem 0; font-size:1.25rem; display:flex; align-items:center; gap:.5rem;"><i class="fas fa-user-shield"></i> Mode technique</h3>
+				<div id="technicalAuthError" class="technical-auth-error" style="display:none; background:#7f1d1d; color:#fecaca; padding:.5rem .75rem; border-radius:.5rem; margin-bottom:.75rem;"></div>
+				<input type="password" id="technicalPassword" placeholder="Mot de passe" onkeypress="handleTechnicalPasswordKeypress(event)" style="width:100%; padding:.6rem .8rem; border-radius:.5rem; border:1px solid #374151; background:#0b1220; color:#e5e7eb; outline:none;">
+				<div class="technical-auth-actions" style="display:flex; gap:.75rem; justify-content:flex-end; margin-top:1rem;">
+					<button class="technical-auth-cancel" onclick="closeTechnicalAuth()" style="background:#374151; color:#e5e7eb; border:none; padding:.5rem .9rem; border-radius:.5rem; cursor:pointer;"><i class="fas fa-times"></i> Annuler</button>
+					<button class="technical-auth-submit" onclick="submitTechnicalAuth()" style="background:#10b981; color:white; border:none; padding:.5rem .9rem; border-radius:.5rem; cursor:pointer;"><i class="fas fa-unlock"></i> Accéder</button>
+				</div>
+			</div>`;
+		document.body.appendChild(authModal);
+	}
+
+	// Injecter la page technique si absente
+	if (!document.getElementById('technicalPage')) {
+		const techPage = document.createElement('div');
+		techPage.id = 'technicalPage';
+		techPage.style.display = 'none';
+		techPage.style.padding = '1rem';
+		techPage.innerHTML = `
+			<div class="technical-header" style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem;">
+				<button onclick="returnToVitrine()" style="background:#3b82f6; color:white; border:none; padding:.4rem .8rem; border-radius:.5rem; cursor:pointer;"><i class=\"fas fa-arrow-left\"></i> Retour</button>
+				<h2 style="margin:0;">Mode technique</h2>
+				<div style="margin-left:auto;">Salle: <strong id="technicalCurrentRoom"></strong></div>
+			</div>
+			<div class="technical-content" style="background:#0b1220; color:#e5e7eb; padding:1rem; border-radius:.75rem;">
+				<p>Outils techniques disponibles prochainement.</p>
+			</div>`;
+		document.body.appendChild(techPage);
+	}
 }
 
 console.log('✅ [AppJS] Fonctions globales exposées pour vitrine.html');
