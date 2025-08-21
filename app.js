@@ -6,10 +6,9 @@
         // âœ… DÃ‰TECTION AUTOMATIQUE PROTOCOLE (HTTPS si page HTTPS)
         const isSecurePage = location.protocol === 'https:';
         // âœ… CONFIGURATION INTELLIGENTE - DNS avec fallback DNS alternatif
-        // 🚫 NEUTRALITÉ GITHUB : Variables backend configurées par vitrine.html
-        // Ces variables sont définies dans vitrine.html avant le chargement de ce script
-        let API_BASE_URL = window.API_BASE_URL || 'http://localhost:7070';
-        const FALLBACK_DNS_URL = window.FALLBACK_DNS_URL || 'http://localhost:7070';
+        // ✅ IDENTIQUE À L'INTÉGRÉE
+        let API_BASE_URL = 'http://C46928_DEE.ddns.uqam.ca:7070';
+        const FALLBACK_DNS_URL = 'http://132.208.182.84:7070';
         
         // Test rapide du DNS, sinon utiliser DNS alternatif  
         async function detectBestBackend() {
@@ -59,9 +58,8 @@
         }
         
         // âœ… CONFIGURATION IMAGES LOCALES
-        // Détecter le bon chemin d'assets selon l'emplacement du fichier
-        const IS_GITHUB_VERSION_PATH = /Github-version/i.test(location.pathname || '');
-        const ASSETS_BASE = IS_GITHUB_VERSION_PATH ? '../assets' : 'assets';
+        // ✅ CONFIGURATION IMAGES (prend ASSETS_BASE global si défini, sinon 'assets')
+        const ASSETS_BASE = window.ASSETS_BASE || 'assets';
         
         // âœ… NOUVEAU: RedÃ©marrer toutes les connexions SSE aprÃ¨s changement d'API
         function restartSSEConnections() {
@@ -6595,3 +6593,220 @@ function createVitrine() {
 }
 
 console.log('✅ [AppJS] Fonctions globales exposées pour vitrine.html');
+
+// Admin overlay + reset (Alt+Ctrl+K). Also adds click fallback and console hook.
+(function(){
+  var ADMIN_CODE = 'adminsav';
+
+  function ensureStyles(){
+    if (document.getElementById('admin-reset-styles')) return;
+    var st = document.createElement('style');
+    st.id = 'admin-reset-styles';
+    st.textContent = [
+      '.admin-overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;',
+      'background:rgba(0,0,0,.45);z-index:99999;}',
+      '.admin-modal{background:#fff;max-width:420px;width:92%;border-radius:14px;',
+      'box-shadow:0 20px 60px rgba(0,0,0,.25);padding:20px 20px 16px;',
+      'font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;}',
+      '[data-theme="dark"] .admin-modal{background:#1f2937;color:#e5e7eb;}',
+      '.admin-title{font-size:18px;font-weight:700;margin:0 0 6px;}',
+      '.admin-sub{font-size:13px;color:#6b7280;margin:0 0 14px;}',
+      '[data-theme="dark"] .admin-sub{color:#9ca3af;}',
+      '.admin-input{width:100%;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;',
+      'font-size:15px;background:#fff;color:#111827;outline:none;}',
+      '[data-theme="dark"] .admin-input{background:#111827;color:#e5e7eb;border-color:#374151;}',
+      '.admin-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;}',
+      '.admin-btn{padding:10px 14px;border-radius:10px;border:1px solid #d1d5db;cursor:pointer;font-weight:600;}',
+      '.admin-btn.primary{background:#3b82f6;border-color:#2563eb;color:#fff;}',
+      '.admin-error{color:#dc2626;font-size:13px;margin-top:8px;display:none;}'
+    ].join('');
+    document.head.appendChild(st);
+  }
+
+  function clearLikelyRoomKeys(){
+    try {
+      var toRemove = [];
+      for (var i=0;i<localStorage.length;i++){
+        var k = localStorage.key(i);
+        if (!k) continue;
+        var key = k.toLowerCase();
+        if (key.includes('salle') || key.includes('room') || key.includes('vitrine') ||
+            key.includes('podio') || key.includes('cache')) {
+          toRemove.push(k);
+        }
+      }
+      toRemove.forEach(function(k){ localStorage.removeItem(k); });
+      localStorage.removeItem('nomSalle');
+      localStorage.removeItem('vitrineSalle');
+    } catch(e){}
+  }
+
+  function showAdminPrompt(){
+    ensureStyles();
+    var ov = document.createElement('div');
+    ov.className = 'admin-overlay';
+    ov.innerHTML = ''
+      + '<div class="admin-modal">'
+      + '  <h3 class="admin-title">Accès administrateur</h3>'
+      + '  <p class="admin-sub">Entrer le mot de passe pour réinitialiser la salle sur ce poste.</p>'
+      + '  <input type="password" class="admin-input" id="admin-pass" placeholder="Mot de passe">'
+      + '  <div class="admin-error" id="admin-error">Mot de passe incorrect.</div>'
+      + '  <div class="admin-actions">'
+      + '    <button class="admin-btn" id="admin-cancel">Annuler</button>'
+      + '    <button class="admin-btn primary" id="admin-ok">Valider</button>'
+      + '  </div>'
+      + '</div>';
+    document.body.appendChild(ov);
+
+    var input = ov.querySelector('#admin-pass');
+    var err = ov.querySelector('#admin-error');
+    var cancel = ov.querySelector('#admin-cancel');
+    var ok = ov.querySelector('#admin-ok');
+
+    function close(){ ov.remove(); }
+    function submit(){
+      var v = input.value || '';
+      if (v === ADMIN_CODE){
+        clearLikelyRoomKeys();
+        location.reload();
+      } else {
+        err.style.display = 'block';
+        input.select(); input.focus();
+      }
+    }
+
+    cancel.addEventListener('click', close);
+    ok.addEventListener('click', submit);
+    input.addEventListener('keydown', function(e){
+      if (e.key === 'Enter') submit();
+      if (e.key === 'Escape') close();
+    });
+    ov.addEventListener('click', function(e){ if (e.target === ov) close(); });
+    setTimeout(function(){ input.focus(); }, 50);
+  }
+
+  // expose for console
+  window.vitrineAdminReset = showAdminPrompt;
+
+  // Alt + Ctrl + K
+  document.addEventListener('keydown', function(e){
+    if (e.altKey && e.ctrlKey && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK')){
+      e.preventDefault(); e.stopPropagation();
+      showAdminPrompt();
+    }
+  }, true);
+
+  // Fallback: Ctrl+Shift+S
+  document.addEventListener('keydown', function(e){
+    if (e.ctrlKey && e.shiftKey && (e.key === 's' || e.key === 'S' || e.code === 'KeyS')){
+      e.preventDefault(); e.stopPropagation();
+      showAdminPrompt();
+    }
+  }, true);
+
+  // Fallback souris: 5 clics en haut-gauche
+  (function(){
+    var clicks = 0, t = null;
+    document.addEventListener('click', function(e){
+      if (e.clientX < 80 && e.clientY < 80){
+        clicks++;
+        if (clicks === 1){ t = setTimeout(function(){ clicks = 0; }, 2000); }
+        if (clicks >= 5){
+          clicks = 0; if (t){ clearTimeout(t); t = null; }
+          showAdminPrompt();
+        }
+      }
+    }, true);
+  })();
+})();
+
+// VITRINE LOCK ENFORCER
+(function(){
+  var KEY = 'vitrine.room.lock';
+  var ADMIN_PASS = 'vitrine'; // change si nécessaire
+
+  function get(){ try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ return null; } }
+  function set(obj){ try { localStorage.setItem(KEY, JSON.stringify(obj)); } catch(e){} }
+  function clear(){ try { localStorage.removeItem(KEY); } catch(e){} }
+  function isLocked(){ var s=get(); return !!(s && s.locked && s.name); }
+
+  function toast(msg){
+    try {
+      var el = document.getElementById('lock-toast'); if(!el){ el=document.createElement('div'); el.id='lock-toast';
+        el.style.cssText='position:fixed;bottom:18px;right:18px;background:rgba(0,0,0,.8);color:#fff;padding:10px 14px;border-radius:10px;z-index:99999;font:14px system-ui;';
+        document.body.appendChild(el);
+      }
+      el.textContent = msg; el.style.opacity='1'; clearTimeout(el._t); el._t=setTimeout(()=>el.style.opacity='0',2500);
+    } catch(e){}
+  }
+
+  function applyLockUI(){
+    if (!isLocked()) return;
+    document.documentElement.classList.add('is-room-locked');
+
+    document.addEventListener('click', function(e){
+      if (!isLocked()) return;
+      var t = e.target;
+      var el = t.closest ? t.closest('.change-room-btn,[data-action="choose-room"],[data-action="change-room"],[onclick*="changeRoom"],[href*="landing"],[data-route="landing"]') : null;
+      if (el) { e.stopImmediatePropagation(); e.preventDefault(); toast('🔒 Salle verrouillée. Alt+Ctrl+K pour modifier.'); }
+    }, true);
+
+    document.querySelectorAll('.change-room-btn,[data-action="choose-room"],[data-action="change-room"],[onclick*="changeRoom"],[href*="landing"],[data-route="landing"]').forEach(function(el){
+      el.setAttribute('disabled','disabled'); el.style.pointerEvents='none'; el.style.opacity='.5'; el.style.filter='grayscale(1)';
+    });
+  }
+
+  var originalChange = window.changeRoom;
+  window.changeRoom = function(){
+    if (isLocked()) { console.log('[LOCK] changeRoom() bloqué'); toast('🔒 Salle verrouillée. Alt+Ctrl+K pour modifier.'); return; }
+    if (typeof originalChange === 'function') return originalChange.apply(this, arguments);
+  };
+  var originalConfirm = window.confirmRoom;
+  window.confirmRoom = function(){
+    var r = (typeof originalConfirm === 'function') ? originalConfirm.apply(this, arguments) : undefined;
+    try {
+      var candidate = document.querySelector('input[type="text"],input[type="search"],input[name*="salle" i],input[id*="salle" i]');
+      var v = (candidate && candidate.value || '').trim();
+      if (v) set({ locked:true, name:v, setAt: new Date().toISOString() });
+    } catch(e){}
+    setTimeout(applyLockUI, 0);
+    return r;
+  };
+
+  document.addEventListener('click', function(e){
+    var t = e.target;
+    if (!t) return;
+    var isConfirm = false;
+    if (t.matches) {
+      isConfirm = t.matches('button[type="submit"],button.confirm,[data-action="confirm"],[data-role="confirm-room"]');
+    }
+    if (!isConfirm && t.innerText) {
+      var txt = t.innerText.trim().toLowerCase();
+      isConfirm = (txt === 'confirmer' || txt === 'confirm' || txt.includes('confirmer'));
+    }
+    if (isConfirm) {
+      if (isLocked()) { e.preventDefault(); e.stopImmediatePropagation(); toast('🔒 Salle verrouillée. Alt+Ctrl+K pour modifier.'); return; }
+      try {
+        var candidate = document.querySelector('input[type="text"],input[type="search"],input[name*="salle" i],input[id*="salle" i]');
+        var v = (candidate && candidate.value || '').trim();
+        if (v) set({ locked:true, name:v, setAt: new Date().toISOString() });
+        setTimeout(applyLockUI, 0);
+      } catch(e){}
+    }
+  }, true);
+
+  document.addEventListener('keydown', function(e){
+    if (e.altKey && e.ctrlKey && (e.key||'').toLowerCase()==='k') {
+      var pwd = prompt('Mot de passe administrateur pour modifier la salle :');
+      if (pwd === ADMIN_PASS) {
+        clear();
+        document.documentElement.classList.remove('is-room-locked');
+        toast('🔓 Déverrouillé. Vous pouvez modifier la salle.');
+      } else if (pwd != null) {
+        toast('❌ Mot de passe invalide.');
+      }
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', applyLockUI);
+})();
