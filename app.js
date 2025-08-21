@@ -6382,3 +6382,122 @@
         
         // âœ… CONFIGURATION SIMPLIFIÃ‰E - Pas de surveillance nÃ©cessaire
         console.log('✅ [Config] Backend unique configuré');
+
+// ✅ EXPOSITION DES FONCTIONS GLOBALES POUR VITRINE.HTML
+// Ces fonctions sont nécessaires pour l'interface entre vitrine.html et app.js
+
+// Fonction principale d'initialisation de Vitrine
+window.initializeVitrine = function() {
+    console.log('🚀 [initializeVitrine] Démarrage de l\'application Vitrine');
+    
+    // Créer l'interface Vitrine
+    if (typeof createVitrine === 'function') {
+        createVitrine();
+        console.log('✅ [initializeVitrine] Interface créée');
+    } else {
+        console.error('❌ [initializeVitrine] Fonction createVitrine non trouvée');
+        return false;
+    }
+    
+    // Initialiser le thème
+    if (typeof initializeTheme === 'function') {
+        initializeTheme();
+    }
+    
+    // Vérifier si une salle est verrouillée
+    if (window.__VITRINE_LOCK__ && window.__VITRINE_LOCK__.isLocked()) {
+        const lockedRoom = window.__LOCKED_ROOM_NAME__;
+        console.log('🔒 [initializeVitrine] Salle verrouillée détectée:', lockedRoom);
+        
+        // Simuler la confirmation de salle verrouillée
+        if (typeof setRoomCache === 'function' && typeof parseRoomInfo === 'function') {
+            const roomInfo = parseRoomInfo(lockedRoom);
+            if (roomInfo) {
+                setRoomCache(roomInfo);
+                if (typeof showAssistant === 'function') {
+                    showAssistant();
+                }
+            }
+        }
+    }
+    
+    console.log('✅ [initializeVitrine] Vitrine initialisée avec succès');
+    return true;
+};
+
+// Fonction de détection du meilleur backend (exposée globalement)
+window.detectBestBackend = detectBestBackend;
+
+// Fonction pour obtenir l'API courante
+window.getCurrentAPI = getCurrentAPI;
+
+// ✅ FONCTION createVitrine BASIQUE (interface HTML)
+function createVitrine() {
+    // Créer le container principal de l'application
+    const container = document.createElement('div');
+    container.innerHTML = `
+        <div class="main-container">
+            <!-- Interface basique de Vitrine -->
+            <div class="header">
+                <div class="header-top">
+                    <button class="technical-btn" onclick="openTechnicalMode()">
+                        <i class="fas fa-cog"></i>
+                        <span>Technique</span>
+                    </button>
+                    <button class="theme-toggle" onclick="toggleTheme()">
+                        <i class="fas fa-moon" id="themeIcon"></i>
+                        <span id="themeText">Mode nuit</span>
+                    </button>
+                </div>
+                <div class="title-section">
+                    <img alt="Vitrine" src="https://zine76.github.io/vitrine/assets/Vitrine.png" style="height: 80px;"/>
+                    <p id="headerTitle">Diagnostic interactif et assistance audiovisuelle</p>
+                </div>
+                <div class="status-indicator">
+                    <div class="status-dot" id="connection-indicator"></div>
+                    <span id="connection-text">Système opérationnel</span>
+                </div>
+            </div>
+            
+            <!-- Page d'accueil -->
+            <div id="landingPage" class="landing-page">
+                <div class="landing-content">
+                    <div class="welcome-section">
+                        <img src="https://zine76.github.io/vitrine/assets/Vitrine.png" alt="Vitrine" class="welcome-logo">
+                        <h2>Bienvenue sur la Vitrine SavQonnect</h2>
+                        <p>Sélectionnez votre salle pour commencer</p>
+                    </div>
+                    <div class="room-input-container">
+                        <input type="text" id="roomInput" placeholder="Ex: A-1750, B-2500" onkeypress="handleRoomKeyPress(event)">
+                        <button id="confirmRoomBtn" onclick="confirmRoom()">Confirmer</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Page assistant -->
+            <div id="assistantPage" class="assistant-page" style="display: none;">
+                <div class="room-header">
+                    <span id="currentRoomDisplay">Salle</span>
+                    <button onclick="changeRoom()">Changer de salle</button>
+                </div>
+                <div class="assistant-content">
+                    <div id="problemPalettes" class="problem-palettes">
+                        <button onclick="sendExampleMessage('Problème Vidéo')">Problème Vidéo</button>
+                        <button onclick="sendExampleMessage('Problème Audio')">Problème Audio</button>
+                        <button onclick="sendExampleMessage('Problème de réseau')">Problème Réseau</button>
+                    </div>
+                    <div class="problem-input-section">
+                        <input type="text" id="problemInput" placeholder="Décrivez votre problème...">
+                        <button id="sendBtn" onclick="sendProblemReport()">Signaler</button>
+                    </div>
+                    <div id="suggestions" class="suggestions"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(container);
+    console.log('✅ [createVitrine] Interface basique créée');
+}
+
+console.log('✅ [AppJS] Fonctions globales exposées pour vitrine.html');
