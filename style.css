@@ -1,3 +1,28 @@
+/* Masque toute UI d'accueil/landing dès le parse si verrouillé */
+.is-room-locked #landing,
+.is-room-locked .landing,
+.is-room-locked [data-route="landing"],
+.is-room-locked [data-component*="landing"],
+.is-room-locked [class*="landing"],
+.is-room-locked [id*="landing"] { display:none !important; }
+
+/* ===== EXCEPTION CHAT AUTONOME ===== */
+/* La bannière de chat peut s'afficher même quand verrouillé, mais seulement quand activée par JavaScript */
+.is-room-locked #consentBanner[style*="display: block"],
+.is-room-locked .consent-banner[style*="display: block"] {
+  display: block !important;
+  position: fixed !important;
+  z-index: 10002 !important;
+}
+
+.is-room-locked .change-room-btn,
+.is-room-locked [data-action="choose-room"],
+.is-room-locked [data-action="change-room"],
+.is-room-locked [onclick*="changeRoom"],
+.is-room-locked [href*="landing"] {
+  pointer-events:none !important; opacity:.5 !important; filter:grayscale(1);
+}
+
         /* ===== VARIABLES CSS ===== */
         :root {
             /* Couleurs principales */
