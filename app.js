@@ -166,11 +166,7 @@
         };
 
         // ===== DOM ELEMENTS =====
-        const landingPage = document.getElementById('landingPage');
-        const assistantPage = document.getElementById('assistantPage');
-        const roomInput = document.getElementById('roomInput');
-        const confirmRoomBtn = document.getElementById('confirmRoomBtn');
-        const currentRoomDisplay = document.getElementById('currentRoomDisplay');
+        // Les éléments seront récupérés dynamiquement car ils n'existent pas encore
 
         // ===== FONCTIONS DE GESTION DE LA SALLE =====
 
@@ -188,15 +184,19 @@
          * DÃ©finir un exemple de salle
          */
         function setRoomExample(roomName) {
-            roomInput.value = roomName;
-            roomInput.focus();
+            const roomInput = document.getElementById('roomInput');
+            if (roomInput) {
+                roomInput.value = roomName;
+                roomInput.focus();
+            }
         }
 
         /**
          * Confirmer la salle et passer Ã  l'assistant
          */
         function confirmRoom() {
-            const roomName = roomInput.value.trim();
+            const roomInput = document.getElementById('roomInput');
+            const roomName = roomInput ? roomInput.value.trim() : '';
             
             if (!roomName) {
                 showRoomError('âš ï¸ Veuillez entrer un numÃ©ro de salle');
@@ -350,11 +350,15 @@
                 return;
             }
 
+            // Récupérer les éléments dynamiquement
+            const landingPage = document.getElementById('landingPage');
+            const assistantPage = document.getElementById('assistantPage');
+
             // Masquer la landing page
-            landingPage.style.display = 'none';
+            if (landingPage) landingPage.style.display = 'none';
             
             // Afficher l'assistant
-            assistantPage.style.display = 'block';
+            if (assistantPage) assistantPage.style.display = 'block';
             
             // Mettre Ã  jour les affichages de salle avec infos Podio si disponibles
             updateRoomDisplayWithPodio(window.roomCache.room, window.roomCache.podioInfo);
@@ -389,7 +393,8 @@
             window.roomCache.isSet = false;
             
             // Nettoyer les inputs
-            roomInput.value = '';
+            const roomInput = document.getElementById('roomInput');
+            if (roomInput) roomInput.value = '';
             
             // ðŸ”” Fermer l'EventSource de statut
             if (statusEventSource) {
@@ -401,13 +406,16 @@
             // ðŸ”” Masquer le message de statut
             hideTicketStatusMessage();
             
-            // Retour Ã  la landing page
-            assistantPage.style.display = 'none';
-            landingPage.style.display = 'flex';
+            // Retour Ã  la landing page
+            const assistantPage = document.getElementById('assistantPage');
+            const landingPage = document.getElementById('landingPage');
+            if (assistantPage) assistantPage.style.display = 'none';
+            if (landingPage) landingPage.style.display = 'flex';
             
             // Focus sur l'input de salle
             setTimeout(() => {
-                roomInput.focus();
+                const roomInput = document.getElementById('roomInput');
+                if (roomInput) roomInput.focus();
             }, 300);
             
             console.log('ðŸ  Retour Ã  la landing page (changer de salle)');
@@ -6270,13 +6278,16 @@
         // Retour Ã  l'accueil (page des palettes) - PAS la landing page
         function returnToHome() {
             // S'assurer que la page des palettes est visible
-            document.getElementById('assistantPage').style.display = 'block';
-            document.getElementById('landingPage').style.display = 'none';
+            const assistantPage = document.getElementById('assistantPage');
+            const landingPage = document.getElementById('landingPage');
+            if (assistantPage) assistantPage.style.display = 'block';
+            if (landingPage) landingPage.style.display = 'none';
             
             // Vider les messages
-            const assistantPage = document.getElementById('assistantPage');
-            const existingMessages = assistantPage.querySelectorAll('.message');
-            existingMessages.forEach(msg => msg.remove());
+            if (assistantPage) {
+                const existingMessages = assistantPage.querySelectorAll('.message');
+                existingMessages.forEach(msg => msg.remove());
+            }
             
             // âœ… NETTOYAGE : Supprimer toutes les banniÃ¨res d'escalade
             const escalationInterfaces = document.querySelectorAll('.escalation-interface');
