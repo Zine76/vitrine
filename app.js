@@ -1,12 +1,12 @@
         // ===== CONFIGURATION DYNAMIQUE =====
-        // RÃ©cupÃ©rer le backend depuis les paramÃ¨tres URL ou utiliser IP locale par dÃ©faut
+        // Récupérer le backend depuis les paramètres URL ou utiliser IP locale par défaut
         const urlParams = new URLSearchParams(window.location.search);
         const customBackend = urlParams.get('backend');
         
-        // âœ… DÃ‰TECTION AUTOMATIQUE PROTOCOLE (HTTPS si page HTTPS)
+        // ✅ DÉTECTION AUTOMATIQUE PROTOCOLE (HTTPS si page HTTPS)
         const isSecurePage = location.protocol === 'https:';
-        // âœ… CONFIGURATION INTELLIGENTE - DNS avec fallback DNS alternatif
-        // ✅ IDENTIQUE À L'INTÉGRÉE
+        // ✅ CONFIGURATION INTELLIGENTE - DNS avec fallback DNS alternatif
+        // ? IDENTIQUE À L'INTÉGRÉE
         let API_BASE_URL = 'http://C46928_DEE.ddns.uqam.ca:7070';
         const FALLBACK_DNS_URL = 'http://132.208.182.84:7070';
         
@@ -15,35 +15,35 @@
             try {
                 const testResponse = await fetch(`${API_BASE_URL}/api/health`, { 
                     method: 'GET', 
-                    signal: AbortSignal.timeout(5000) // âœ… CORRIGÃ‰ : Timeout plus long (5s au lieu de 2s)
+                    signal: AbortSignal.timeout(5000) // ✅ CORRIGÉ : Timeout plus long (5s au lieu de 2s)
                 });
                 if (testResponse.ok) {
-                    console.log('✅ [Config] DNS accessible, utilisation du backend configuré');
+                    console.log('[Config] DNS accessible, utilisation du backend configuré');
                     return API_BASE_URL;
                 }
             } catch (error) {
-                console.log('âš ï¸ [Config] DNS timeout, bascule vers IP directe');
+                console.log('⚠️ [Config] DNS timeout, bascule vers IP directe');
                 API_BASE_URL = FALLBACK_DNS_URL;
                 currentAPI = FALLBACK_DNS_URL;
                 return FALLBACK_DNS_URL;
             }
         }
         
-        // âœ… INITIALISATION SYNCHRONE AVEC FALLBACK
-        let currentAPI = API_BASE_URL; // Par dÃ©faut
+        // ✅ INITIALISATION SYNCHRONE AVEC FALLBACK
+        let currentAPI = API_BASE_URL; // Par défaut
         let backendInitialized = false;
         
         // Fonction d'initialisation avec Promise pour attendre
         const backendInitPromise = (async function initializeBackend() {
             try {
                 const detectedAPI = await detectBestBackend();
-                currentAPI = detectedAPI || API_BASE_URL; // âœ… S'assurer que currentAPI est mis Ã  jour
+                currentAPI = detectedAPI || API_BASE_URL; // ✅ S'assurer que currentAPI est mis à jour
                 backendInitialized = true;
-                console.log(`ðŸŒ [Config] Backend utilisÃ©: ${currentAPI}`);
-                console.log(`ðŸ–¼ï¸ [Config] Images depuis: ${ASSETS_BASE}`);
+                console.log(`🌐 [Config] Backend utilisé: ${currentAPI}`);
+                console.log(`🖼️ [Config] Images depuis: ${ASSETS_BASE}`);
                 return currentAPI;
             } catch (error) {
-                console.error('âŒ [Config] Erreur initialisation backend:', error);
+                console.error('❌ [Config] Erreur initialisation backend:', error);
                 backendInitialized = true;
                 return currentAPI;
             }
@@ -57,22 +57,22 @@
             return currentAPI;
         }
         
-        // âœ… CONFIGURATION IMAGES LOCALES
-        // ✅ CONFIGURATION IMAGES (prend ASSETS_BASE global si défini, sinon 'assets')
+        // ✅ CONFIGURATION IMAGES LOCALES
+        // ? CONFIGURATION IMAGES (prend ASSETS_BASE global si d�fini, sinon 'assets')
         const ASSETS_BASE = window.ASSETS_BASE || 'assets';
         
-        // âœ… NOUVEAU: RedÃ©marrer toutes les connexions SSE aprÃ¨s changement d'API
+        // ✅ NOUVEAU: Redémarrer toutes les connexions SSE après changement d'API
         function restartSSEConnections() {
-            console.log(`ðŸ”„ [SSERestart] RedÃ©marrage connexions SSE vers: ${currentAPI}`);
+            console.log(`🔄 [SSERestart] Redémarrage connexions SSE vers: ${currentAPI}`);
             
-            // RedÃ©marrer Chat SSE
+            // Redémarrer Chat SSE
             if (getCurrentRoom()) {
                 setTimeout(() => {
                     startChatRequestListener();
                 }, 100);
             }
             
-            // RedÃ©marrer Status Events SSE
+            // Redémarrer Status Events SSE
             if (statusEventSource) {
                 statusEventSource.close();
                 statusEventSource = null;
@@ -84,9 +84,9 @@
             }
         }
         
-        // âœ… MONITORING SIMPLIFIÃ‰ - BACKEND UNIQUE
+        // ✅ MONITORING SIMPLIFIÉ - BACKEND UNIQUE
         
-        // âœ… CONFIGURATION TERMINÃ‰E
+        // ✅ CONFIGURATION TERMINÉE
         
         async function testBackendConnectivity(url) {
             try {
@@ -96,19 +96,19 @@
                 });
                 return response.ok;
             } catch (error) {
-                console.log(`âš ï¸ [Connectivity] Backend ${url} non disponible:`, error.message);
+                console.log(`⚠️ [Connectivity] Backend ${url} non disponible:`, error.message);
                 return false;
             }
         }
         
-        // âœ… FONCTION SIMPLIFIÃ‰E - BACKEND UNIQUE
+        // ✅ FONCTION SIMPLIFIÉE - BACKEND UNIQUE
         async function ensureBackendConnection() {
             const api = await getCurrentAPI();
-            console.log(`âœ… [Config] Utilisation backend unique: ${api}`);
+            console.log(`✅ [Config] Utilisation backend unique: ${api}`);
             return api;
         }
         
-        // âœ… FONCTION SIMPLIFIÃ‰E - APPELS DIRECTS
+        // ✅ FONCTION SIMPLIFIÉE - APPELS DIRECTS
         let isLoading = false;
         let messageCount = 0;
         let messagesContainer;
@@ -126,35 +126,35 @@
         // ===== IMAGE SEA2 =====
         function updateSEALogo(imgElement) {
             if (imgElement) {
-                console.log('ðŸ–¼ï¸ [UpdateSEALogo] Tentative de chargement image SEA pour:', imgElement.id || 'sans ID');
+                console.log('🖼️ [UpdateSEALogo] Tentative de chargement image SEA pour:', imgElement.id || 'sans ID');
                 
-                // âœ… UTILISER IMAGES LOCALES
+                // ✅ UTILISER IMAGES LOCALES
                 imgElement.src = `${ASSETS_BASE}/SEA2.png`;
                 
                 imgElement.onerror = function() {
-                    console.log('âŒ [UpdateSEALogo] Ã‰chec chargement local');
+                    console.log('❌ [UpdateSEALogo] Échec chargement local');
                     this.src = 'assets/SEA2.png';
                     
                     this.onerror = function() {
-                        console.log('âŒ [UpdateSEALogo] Ã‰chec serveur distant, utilisation fallback');
+                        console.log('❌ [UpdateSEALogo] Échec serveur distant, utilisation fallback');
                         // Fallback vers image directement dans le dossier Annexe
                         this.src = './SEA2.png';
                         
                         this.onerror = function() {
-                            console.log('âŒ [UpdateSEALogo] Tous les chemins Ã©chouÃ©s, image vide');
+                            console.log('❌ [UpdateSEALogo] Tous les chemins échoués, image vide');
                         };
                     };
                 };
                 
                 imgElement.onload = function() {
-                    console.log('âœ… [UpdateSEALogo] Image SEA chargÃ©e avec succÃ¨s depuis:', this.src);
+                    console.log('✅ [UpdateSEALogo] Image SEA chargée avec succès depuis:', this.src);
                 };
             } else {
-                console.log('âŒ [UpdateSEALogo] Ã‰lÃ©ment image non trouvÃ©');
+                console.log('❌ [UpdateSEALogo] Élément image non trouvé');
             }
         }
         
-        // âœ… NOUVEAU : Gestion des tickets de session
+        // ✅ NOUVEAU : Gestion des tickets de session
         let sessionTickets = [];
 
         // ===== CACHE DE SALLE PERSISTANT =====
@@ -166,7 +166,7 @@
         };
 
         // ===== DOM ELEMENTS =====
-        // Les éléments seront récupérés dynamiquement car ils n'existent pas encore
+        // Les �l�ments seront r�cup�r�s dynamiquement car ils n'existent pas encore
 
         // ===== FONCTIONS DE GESTION DE LA SALLE =====
 
@@ -181,7 +181,7 @@
         }
 
         /**
-         * DÃ©finir un exemple de salle
+         * Définir un exemple de salle
          */
         function setRoomExample(roomName) {
             const roomInput = document.getElementById('roomInput');
@@ -192,20 +192,20 @@
         }
 
         /**
-         * Confirmer la salle et passer Ã  l'assistant
+         * Confirmer la salle et passer à l'assistant
          */
         function confirmRoom() {
             const roomInput = document.getElementById('roomInput');
             const roomName = roomInput ? roomInput.value.trim() : '';
             
             if (!roomName) {
-                showRoomError('âš ï¸ Veuillez entrer un numÃ©ro de salle');
+                showRoomError('⚠️ Veuillez entrer un numéro de salle');
                 return;
             }
 
             // Valider le format de salle
             if (!isValidRoomFormat(roomName)) {
-                showRoomError('âš ï¸ Format non reconnu. Exemples : A-1750, B-2500, SH-R200');
+                showRoomError('⚠️ Format non reconnu. Exemples : A-1750, B-2500, SH-R200');
                 return;
             }
 
@@ -223,21 +223,21 @@
                     name: roomInfo.fullRoom,
                     setAt: new Date().toISOString()
                 }));
-                console.log('ðŸ”’ [Lock] Salle verrouillÃ©e:', roomInfo.fullRoom);
+                console.log('🔒 [Lock] Salle verrouillée:', roomInfo.fullRoom);
                 
-                // Appliquer l'interface verrouillÃ©e
+                // Appliquer l'interface verrouillée
                 document.documentElement.classList.add('is-room-locked');
             } catch (error) {
-                console.warn('âš ï¸ [Lock] Erreur verrouillage:', error);
+                console.warn('⚠️ [Lock] Erreur verrouillage:', error);
             }
             
-            // Passer Ã  l'assistant
+            // Passer à l'assistant
             showAssistant();
             
-            // ===== CHAT SEA : DÃ©marrer l'Ã©coute des demandes de chat =====
+            // ===== CHAT SEA : Démarrer l'écoute des demandes de chat =====
             startChatRequestListener();
             
-            // ===== STATUS EVENTS : DÃ©marrer l'Ã©coute des changements de statut =====
+            // ===== STATUS EVENTS : Démarrer l'écoute des changements de statut =====
             startStatusEventSource();
         }
 
@@ -269,7 +269,7 @@
         }
 
         /**
-         * DÃ©finir le cache de salle (version de base)
+         * Définir le cache de salle (version de base)
          */
         function setRoomCache(roomInfo) {
             window.roomCache = {
@@ -280,9 +280,9 @@
                 podioInfo: null // Sera enrichi par setRoomCacheWithPodio
             };
 
-            console.log(`ðŸ¢ [RoomCache] Salle dÃ©finie : ${roomInfo.fullRoom}, Pavillon : ${roomInfo.pavilion}`);
+            console.log(`🏢 [RoomCache] Salle définie : ${roomInfo.fullRoom}, Pavillon : ${roomInfo.pavilion}`);
             
-            // ðŸ†• Enrichir automatiquement avec infos Podio
+            // 🆕 Enrichir automatiquement avec infos Podio
             enrichRoomWithPodioInfo(roomInfo.fullRoom);
         }
 
@@ -291,37 +291,37 @@
          */
         async function enrichRoomWithPodioInfo(roomName) {
             try {
-                console.log(`ðŸ¢ [PodioEnrich] Enrichissement Podio pour: ${roomName}`);
+                console.log(`🏢 [PodioEnrich] Enrichissement Podio pour: ${roomName}`);
                 
                 const podioInfo = await podioRoomCache.getRoomInfo(roomName);
                 
                 if (podioInfo && window.roomCache && window.roomCache.isSet) {
-                    // ðŸ†• Enrichir le cache existant
+                    // 🆕 Enrichir le cache existant
                     window.roomCache.podioInfo = podioInfo;
                     
-                    console.log(`âœ… [PodioEnrich] Cache enrichi:`, podioInfo);
+                    console.log(`✅ [PodioEnrich] Cache enrichi:`, podioInfo);
                     
-                    // ðŸŽ¨ Mettre Ã  jour l'affichage
+                    // 🎨 Mettre à jour l'affichage
                     updateRoomDisplayWithPodio(roomName, podioInfo);
                 } else {
-                    console.warn(`âš ï¸ [PodioEnrich] Pas d'infos Podio pour ${roomName} - affichage normal`);
+                    console.warn(`⚠️ [PodioEnrich] Pas d'infos Podio pour ${roomName} - affichage normal`);
                 }
                 
             } catch (error) {
-                console.warn(`âŒ [PodioEnrich] Erreur enrichissement pour ${roomName}:`, error.message);
+                console.warn(`❌ [PodioEnrich] Erreur enrichissement pour ${roomName}:`, error.message);
                 // Degradation graceful - l'affichage normal continue
             }
         }
 
         /**
-         * Mettre Ã  jour l'affichage de la salle avec les infos Podio
+         * Mettre à jour l'affichage de la salle avec les infos Podio
          */
         function updateRoomDisplayWithPodio(roomName, podioInfo = null) {
             const currentRoomDisplay = document.getElementById('currentRoomDisplay');
             if (!currentRoomDisplay) return;
             
             if (podioInfo) {
-                // ðŸ†• Affichage enrichi avec infos Podio - COULEURS ADAPTATIVES
+                // 🆕 Affichage enrichi avec infos Podio - COULEURS ADAPTATIVES
                 const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
                 const textColor = isDarkMode ? 'white' : '#3b82f6';
                 const iconColor = isDarkMode ? 'white' : '#3b82f6';
@@ -329,15 +329,15 @@
                 currentRoomDisplay.innerHTML = `
                     <strong style="color: ${textColor}; font-weight: 700;">${roomName}</strong>
                     <small style="display: block; color: ${textColor}; font-size: 0.9rem; margin-top: 0.5rem; line-height: 1.4; font-weight: 600; text-shadow: ${isDarkMode ? '0 2px 4px rgba(0,0,0,0.8)' : 'none'};">
-                        ðŸ“ ${podioInfo.pavillon} - ${podioInfo.bassin}<br>
-                        ðŸ›ï¸ ${podioInfo.type} | <span style="color: ${textColor} !important; font-weight: 800; font-size: 1.1rem; text-shadow: ${isDarkMode ? '0 2px 6px rgba(0,0,0,0.9)' : 'none'};"><i class="fas fa-users" style="color: ${isDarkMode ? 'white' : '#3b82f6'} !important; -webkit-text-fill-color: ${isDarkMode ? 'white' : '#3b82f6'} !important;"></i> <span style="color: ${textColor} !important;">${podioInfo.capacite}</span></span>
+                        &#128205; ${podioInfo.pavillon} - ${podioInfo.bassin}<br>
+                        &#127979; ${podioInfo.type} | <span style="color: ${textColor} !important; font-weight: 800; font-size: 1.1rem; text-shadow: ${isDarkMode ? '0 2px 6px rgba(0,0,0,0.9)' : 'none'};"><i class="fas fa-users" style="color: ${isDarkMode ? 'white' : '#3b82f6'} !important; -webkit-text-fill-color: ${isDarkMode ? 'white' : '#3b82f6'} !important;"></i> <span style="color: ${textColor} !important;">${podioInfo.capacite}</span></span>
                     </small>
                 `;
-                console.log(`ðŸŽ¨ [RoomDisplay] Affichage enrichi pour ${roomName}`);
+                console.log(`🎨 [RoomDisplay] Affichage enrichi pour ${roomName}`);
             } else {
-                // ðŸ”„ Affichage normal (fallback)
+                // 🔄 Affichage normal (fallback)
                 currentRoomDisplay.textContent = roomName;
-                console.log(`ðŸŽ¨ [RoomDisplay] Affichage normal pour ${roomName}`);
+                console.log(`🎨 [RoomDisplay] Affichage normal pour ${roomName}`);
             }
         }
 
@@ -357,9 +357,9 @@
                 if (typeof createVitrine === 'function') {
                     try {
                         createVitrine();
-                        console.log('✅ [showAssistant] Interface (re)créée avant affichage');
+                        console.log('[showAssistant] Interface (re)créée avant affichage');
                     } catch (e) {
-                        console.error('❌ [showAssistant] Échec de création de l\'interface:', e);
+                        console.error('[showAssistant] échec de création de l\'interface:', e);
                         return;
                     }
                     // Rechercher à nouveau
@@ -374,24 +374,24 @@
             // Afficher l'assistant
             if (assistantPage) assistantPage.style.display = 'block';
             
-            // Mettre Ã  jour les affichages de salle avec infos Podio si disponibles
+            // Mettre à jour les affichages de salle avec infos Podio si disponibles
             updateRoomDisplayWithPodio(window.roomCache.room, window.roomCache.podioInfo);
             
             // Initialiser la connexion au backend
             checkConnection().then(connected => {
-                console.log(`ðŸ”— Connexion backend: ${connected ? 'OK' : 'Ã‰CHEC'}`);
-                // âœ… NOUVEAU : Mettre Ã  jour le statut initial
+                console.log(`🔗 Connexion backend: ${connected ? 'OK' : 'ÉCHEC'}`);
+                // ✅ NOUVEAU : Mettre à jour le statut initial
                 updateSystemStatus(connected);
             });
             
-            // âœ… NOUVEAU : VÃ©rification pÃ©riodique de la connexion (toutes les 10 secondes)
+            // ✅ NOUVEAU : Vérification périodique de la connexion (toutes les 10 secondes)
             setInterval(async () => {
                 await checkConnection();
             }, 10000);
             
             // Focus sur l'input principal
             setTimeout(() => {
-                // Focus sur la premiÃ¨re palette
+                // Focus sur la première palette
                 const firstPalette = document.querySelector('.palette');
                 if (firstPalette) {
                     firstPalette.focus();
@@ -400,27 +400,27 @@
         }
 
         /**
-         * Changer de salle (retour Ã  la landing page)
+         * Changer de salle (retour à la landing page)
          */
         function changeRoom() {
-            // RÃ©initialiser le cache
+            // Réinitialiser le cache
             window.roomCache.isSet = false;
             
             // Nettoyer les inputs
             const roomInput = document.getElementById('roomInput');
             if (roomInput) roomInput.value = '';
             
-            // ðŸ”” Fermer l'EventSource de statut
+            // 🔔 Fermer l'EventSource de statut
             if (statusEventSource) {
                 statusEventSource.close();
                 statusEventSource = null;
-                console.log('ðŸ”” [StatusEvents] EventSource de statut fermÃ©');
+                console.log('🔔 [StatusEvents] EventSource de statut fermé');
             }
             
-            // ðŸ”” Masquer le message de statut
+            // 🔔 Masquer le message de statut
             hideTicketStatusMessage();
             
-            // Retour Ã  la landing page
+            // Retour �  la landing page
             const assistantPage = document.getElementById('assistantPage');
             const landingPage = document.getElementById('landingPage');
             if (assistantPage) assistantPage.style.display = 'none';
@@ -432,11 +432,11 @@
                 if (roomInput) roomInput.focus();
             }, 300);
             
-            console.log('ðŸ  Retour Ã  la landing page (changer de salle)');
+            console.log('🏠 Retour à la landing page (changer de salle)');
         }
         
         /**
-         * Gestion du thÃ¨me hybride intelligent
+         * Gestion du thème hybride intelligent
          */
         function toggleTheme() {
             const body = document.body;
@@ -452,7 +452,7 @@
                 localStorage.setItem('vitrine-theme', 'light');
                 // Mode jour : titre en NOIR
                 if (headerTitle) headerTitle.style.color = 'black';
-                console.log('ðŸŒž Mode clair activÃ©');
+                console.log('🌞 Mode clair activé');
             } else {
                 // Passer au mode sombre
                 body.setAttribute('data-theme', 'dark');
@@ -461,18 +461,18 @@
                 localStorage.setItem('vitrine-theme', 'dark');
                 // Mode nuit : titre reste NOIR (demande utilisateur)
                 if (headerTitle) headerTitle.style.color = 'black';
-                console.log('ðŸŒ™ Mode sombre activÃ©');
+                console.log('🌙 Mode sombre activé');
             }
         }
         
         /**
-         * Initialisation automatique du thÃ¨me
+         * Initialisation automatique du thème
          */
         function initializeTheme() {
             const savedTheme = localStorage.getItem('vitrine-theme');
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             
-            // PrioritÃ© : 1) Sauvegarde utilisateur, 2) PrÃ©fÃ©rence systÃ¨me, 3) Mode clair par dÃ©faut
+            // Priorité : 1) Sauvegarde utilisateur, 2) Préférence système, 3) Mode clair par défaut
             if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
                 document.body.setAttribute('data-theme', 'dark');
                 const themeIcon = document.getElementById('themeIcon');
@@ -481,28 +481,28 @@
                     themeIcon.className = 'fas fa-sun';
                     themeText.textContent = 'Mode jour';
                 }
-                console.log('ðŸŒ™ Mode sombre initialisÃ© (prÃ©fÃ©rence systÃ¨me ou sauvegarde)');
+                console.log('🌙 Mode sombre initialisé (préférence système ou sauvegarde)');
             } else {
                 document.body.removeAttribute('data-theme');
-                console.log('ðŸŒž Mode clair initialisÃ©');
+                console.log('🌞 Mode clair initialisé');
             }
         }
         
         /**
-         * Ã‰couter les changements de prÃ©fÃ©rence systÃ¨me
+         * Écouter les changements de préférence système
          */
         function setupThemeListener() {
             const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
             
             mediaQuery.addEventListener('change', (e) => {
-                // Seulement si l'utilisateur n'a pas dÃ©fini de prÃ©fÃ©rence manuelle
+                // Seulement si l'utilisateur n'a pas défini de préférence manuelle
                 if (!localStorage.getItem('vitrine-theme')) {
                     if (e.matches) {
                         document.body.setAttribute('data-theme', 'dark');
-                        console.log('ðŸŒ™ Mode sombre activÃ© (prÃ©fÃ©rence systÃ¨me)');
+                        console.log('🌙 Mode sombre activé (préférence système)');
                     } else {
                         document.body.removeAttribute('data-theme');
-                        console.log('ðŸŒž Mode clair activÃ© (prÃ©fÃ©rence systÃ¨me)');
+                        console.log('🌞 Mode clair activé (préférence système)');
                     }
                 }
             });
@@ -516,7 +516,7 @@
             let errorDiv = document.querySelector('.room-error-message');
             
             if (!errorDiv) {
-                // CrÃ©er le message d'erreur
+                // Créer le message d'erreur
                 errorDiv = document.createElement('div');
                 errorDiv.className = 'room-error-message';
                 errorDiv.style.cssText = `
@@ -530,14 +530,14 @@
                     font-weight: 500;
                 `;
                 
-                // InsÃ©rer aprÃ¨s le container de saisie
+                // Insérer après le container de saisie
                 const container = document.querySelector('.room-input-container');
                 container.parentNode.insertBefore(errorDiv, container.nextSibling);
             }
             
             errorDiv.textContent = message;
             
-            // Supprimer aprÃ¨s 3 secondes
+            // Supprimer après 3 secondes
             setTimeout(() => {
                 if (errorDiv && errorDiv.parentNode) {
                     errorDiv.remove();
@@ -553,14 +553,14 @@
         }
 
         /**
-         * VÃ©rifie si une salle est dÃ©finie
+         * Vérifie si une salle est définie
          */
         function hasRoomSet() {
             return window.roomCache && window.roomCache.isSet;
         }
 
         /**
-         * Met Ã  jour les suggestions
+         * Met à jour les suggestions
          */
         function updateSuggestions(suggestions) {
             const suggestionsContainer = document.getElementById('suggestions');
@@ -572,7 +572,7 @@
         }
 
         /**
-         * Met Ã  jour le bouton d'envoi
+         * Met à jour le bouton d'envoi
          */
         function updateSendButton(loading) {
             const sendBtn = document.getElementById('sendBtn');
@@ -580,19 +580,73 @@
             
             if (loading) {
                 sendBtn.disabled = true;
-                sendBtn.innerHTML = 'â³ Traitement...';
+                sendBtn.innerHTML = '⏳ Traitement...';
             } else if (!isConnected) {
                 sendBtn.disabled = true;
-                sendBtn.innerHTML = 'âš ï¸ SystÃ¨me non prÃªt';
+                sendBtn.innerHTML = '⚠️ Système non prêt';
             } else {
                 sendBtn.disabled = false;
-                sendBtn.innerHTML = 'ðŸ“¤ Signaler';
+                sendBtn.innerHTML = '📤 Signaler';
             }
         }
 
-        // âœ… NOUVEAU : Fonction pour dÃ©tecter les salles mentionnÃ©es dans les messages
+        // ======= MOJIBAKE SANITIZER =======
+        function normalizeMojibake(text) {
+            if (!text) return text;
+            const replacements = [
+                [/Syst�me/g, 'Système'], [/op�rationnel/g, 'opérationnel'], [/pr�t/g, 'prêt'],
+                [/D�/g, 'Dé'], [/d�/g, 'dé'],
+                [/�/g, ''],
+                [/\?\?\?/g, ''], [/\?\?/g, ''], [/\?/g, '']
+            ];
+            let out = text;
+            for (const [pattern, repl] of replacements) out = out.replace(pattern, repl);
+            return out;
+        }
+
+        function sanitizeTextNodes(root) {
+            const walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, null);
+            const nodes = [];
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+            for (const node of nodes) {
+                const fixed = normalizeMojibake(node.nodeValue);
+                if (fixed !== node.nodeValue) node.nodeValue = fixed;
+            }
+        }
+
+        function startMojibakeObserver() {
+            if (!document || !document.body) return;
+            sanitizeTextNodes(document.body);
+            const observer = new MutationObserver(muts => {
+                for (const m of muts) {
+                    if (m.type === 'childList') {
+                        m.addedNodes && m.addedNodes.forEach(n => {
+                            if (n.nodeType === Node.TEXT_NODE) {
+                                const fixed = normalizeMojibake(n.nodeValue);
+                                if (fixed !== n.nodeValue) n.nodeValue = fixed;
+                            } else if (n.nodeType === Node.ELEMENT_NODE) {
+                                sanitizeTextNodes(n);
+                            }
+                        });
+                    } else if (m.type === 'characterData' && m.target && m.target.nodeType === Node.TEXT_NODE) {
+                        const tn = m.target;
+                        const fixed = normalizeMojibake(tn.nodeValue);
+                        if (fixed !== tn.nodeValue) tn.nodeValue = fixed;
+                    }
+                }
+            });
+            observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startMojibakeObserver);
+        } else {
+            startMojibakeObserver();
+        }
+
+        // ✅ NOUVEAU : Fonction pour détecter les salles mentionnées dans les messages
         function detectRoomInMessage(message) {
-            // Pattern pour dÃ©tecter les salles (ex: A-1750, B-2500, J-2430)
+            // Pattern pour détecter les salles (ex: A-1750, B-2500, J-2430)
             const roomPattern = /\b([a-zA-Z]{1,2})-?([a-zA-Z]?\d{3,4})\b/gi;
             const matches = message.match(roomPattern);
             
@@ -610,13 +664,13 @@
             return null;
         }
 
-        // âœ… NOUVEAU : Fonction pour vÃ©rifier si un ticket existe dÃ©jÃ 
+        // ✅ NOUVEAU : Fonction pour vérifier si un ticket existe déjà
         function hasExistingTicket(room = null) {
             const targetRoom = room || getCurrentRoom();
             return sessionTickets.some(ticket => ticket.room === targetRoom);
         }
         
-        // âœ… NOUVEAU : Fonction pour ajouter un ticket Ã  la session
+        // ✅ NOUVEAU : Fonction pour ajouter un ticket à la session
         function addTicketToSession(ticketData) {
             const ticket = {
                 number: ticketData.ticket_number || ticketData.id,
@@ -627,30 +681,30 @@
             };
             
             sessionTickets.push(ticket);
-            console.log(`ðŸŽ« [Session] Ticket ajoutÃ©:`, ticket);
+            console.log(`🎫 [Session] Ticket ajouté:`, ticket);
             return ticket;
         }
         
-        // âœ… NOUVEAU : Fonction pour obtenir le dernier ticket de la session
+        // ✅ NOUVEAU : Fonction pour obtenir le dernier ticket de la session
         function getLastSessionTicket(room = null) {
             const targetRoom = room || getCurrentRoom();
             const roomTickets = sessionTickets.filter(ticket => ticket.room === targetRoom);
             return roomTickets.length > 0 ? roomTickets[roomTickets.length - 1] : null;
         }
 
-        // ===== FONCTIONS PRINCIPALES RÃ‰ELLES =====
+        // ===== FONCTIONS PRINCIPALES RÉELLES =====
 
         function clearInput() {
             if (!problemInput) problemInput = document.getElementById('problemInput');
             if (problemInput) problemInput.value = '';
             
-            // âœ… NOUVEAU: Afficher Ã  nouveau les palettes de problÃ¨mes
+            // ✅ NOUVEAU: Afficher à nouveau les palettes de problèmes
             const problemPalettes = document.getElementById('problemPalettes');
             if (problemPalettes) {
                 problemPalettes.style.display = 'block';
             }
             
-            // âœ… NOUVEAU : Supprimer TOUS les messages et interfaces prÃ©cÃ©dents
+            // ✅ NOUVEAU : Supprimer TOUS les messages et interfaces précédents
             const assistantResponse = document.getElementById('assistantResponse');
             if (assistantResponse) {
                 assistantResponse.remove();
@@ -676,13 +730,13 @@
                 simBanner.remove();
             }
             
-            // âœ… NOUVEAU : Vider les suggestions
+            // ✅ NOUVEAU : Vider les suggestions
             const suggestions = document.getElementById('suggestions');
             if (suggestions) {
                 suggestions.innerHTML = '';
             }
             
-            // Supprimer tous les rÃ©sultats d'actions automatiques
+            // Supprimer tous les résultats d'actions automatiques
             const autoResults = document.querySelectorAll('.auto-result');
             autoResults.forEach(result => result.remove());
             
@@ -692,17 +746,17 @@
         }
 
         /**
-         * VÃ©rifie la connexion au backend
+         * Vérifie la connexion au backend
          */
         async function checkConnection() {
             try {
-                // âœ… BACKEND UNIQUE - PAS BESOIN DE MODIFICATION
+                // ✅ BACKEND UNIQUE - PAS BESOIN DE MODIFICATION
                 const apiUrl = await ensureBackendConnection();
                 const response = await fetch(`${apiUrl}/api/health`);
                 const wasConnected = isConnected;
                 isConnected = response.ok;
                 
-                // âœ… NOUVEAU : Mettre Ã  jour le statut si changement
+                // ✅ NOUVEAU : Mettre à jour le statut si changement
                 if (wasConnected !== isConnected) {
                     updateSystemStatus(isConnected);
                 }
@@ -713,7 +767,7 @@
                 const wasConnected = isConnected;
                 isConnected = false;
                 
-                // âœ… NOUVEAU : Mettre Ã  jour le statut en cas d'erreur
+                // ✅ NOUVEAU : Mettre à jour le statut en cas d'erreur
                 if (wasConnected !== isConnected) {
                     updateSystemStatus(isConnected);
                 }
@@ -723,7 +777,7 @@
         }
 
         /**
-         * âœ… NOUVEAU : Met Ã  jour l'indicateur de statut systÃ¨me
+         * ✅ NOUVEAU : Met à jour l'indicateur de statut système
          */
         function updateSystemStatus(connected) {
             const statusIndicator = document.querySelector('.status-indicator span');
@@ -731,17 +785,17 @@
             
             if (statusIndicator && statusDot) {
                 if (connected) {
-                    statusIndicator.textContent = 'SystÃ¨me opÃ©rationnel';
+                    statusIndicator.textContent = 'Syst�me op�rationnel';
                     statusDot.classList.remove('offline');
-                    console.log('âœ… [SystemStatus] SystÃ¨me opÃ©rationnel');
+                    console.log('? [SystemStatus] Syst�me op�rationnel');
                 } else {
-                    statusIndicator.textContent = 'SystÃ¨me hors ligne';
+                    statusIndicator.textContent = 'Syst�me hors ligne';
                     statusDot.classList.add('offline');
-                    console.log('âŒ [SystemStatus] SystÃ¨me hors ligne');
+                    console.log('? [SystemStatus] Syst�me hors ligne');
                 }
             }
             
-            // Mettre Ã  jour l'Ã©tat du bouton d'envoi
+            // Mettre à jour l'état du bouton d'envoi
             updateSendButton(false);
         }
 
@@ -749,17 +803,17 @@
          * Envoie un message d'exemple (comme dans l'original)
          */
         function sendExampleMessage(message) {
-            // GÃ©rer les suggestions spÃ©ciales
-            if (message === 'Nouveau problÃ¨me AV' || message === 'Nouveau problÃ¨me') {
+            // Gérer les suggestions spéciales
+            if (message === 'Nouveau problème AV' || message === 'Nouveau problème') {
                 clearInput();
                 if (!problemInput) problemInput = document.getElementById('problemInput');
                 if (problemInput) problemInput.focus();
                 return;
             }
             
-            if (message === 'Autre problÃ¨me audio') {
+            if (message === 'Autre problème audio') {
                 clearInput();
-                addMessage('system', 'ðŸ”Š DÃ©crivez votre problÃ¨me audio :', {
+                addMessage('system', '🔊 Décrivez votre problème audio :', {
                     suggestions: ['Pas de son', 'Microphone en sourdine', 'Bruit parasite', 'Volume trop bas']
                 });
                 if (!problemInput) problemInput = document.getElementById('problemInput');
@@ -767,10 +821,10 @@
                 return;
             }
             
-            if (message === 'Autre problÃ¨me vidÃ©o') {
+            if (message === 'Autre problème vidéo') {
                 clearInput();
-                addMessage('system', 'ðŸ“½ï¸ DÃ©crivez votre problÃ¨me vidÃ©o :', {
-                    suggestions: ['Ã‰cran noir', 'Pas d\'image', 'QualitÃ© dÃ©gradÃ©e', 'Projecteur ne s\'allume pas']
+                addMessage('system', '📽️ Décrivez votre problème vidéo :', {
+                    suggestions: ['Écran noir', 'Pas d\'image', 'Qualité dégradée', 'Projecteur ne s\'allume pas']
                 });
                 if (!problemInput) problemInput = document.getElementById('problemInput');
                 if (problemInput) problemInput.focus();
@@ -787,75 +841,75 @@
             if (message === 'Autre salle') {
                 clearInput();
                 problemInput.focus();
-                addMessage('system', 'ðŸ“ <strong>Nom de la salle ?</strong>', {
+                addMessage('system', '📍 <strong>Nom de la salle ?</strong>', {
                     suggestions: ['A-1750', 'B-2500', 'C-3000', 'D-4000', 'SH-R200', 'DS-4000']
                 });
                 return;
             }
             
-            if (message === 'Copier numÃ©ro ticket') {
-                // Chercher le dernier numÃ©ro de ticket dans les messages
+            if (message === 'Copier numéro ticket') {
+                // Chercher le dernier numéro de ticket dans les messages
                 const messages = document.querySelectorAll('.message.system');
                 for (let i = messages.length - 1; i >= 0; i--) {
                     const messageContent = messages[i].textContent;
-                    const ticketMatch = messageContent.match(/NumÃ©ro\s*:\s*([A-Z0-9-]+)/);
+                    const ticketMatch = messageContent.match(/Numéro\s*:\s*([A-Z0-9-]+)/);
                     if (ticketMatch) {
                         const ticketNumber = ticketMatch[1];
                         navigator.clipboard.writeText(ticketNumber).then(() => {
-                            addMessage('system', `ðŸ“‹ NumÃ©ro de ticket <strong>${ticketNumber}</strong> copiÃ© dans le presse-papier.`, {
-                                suggestions: ['Nouveau problÃ¨me', 'Merci']
+                            addMessage('system', `📋 Numéro de ticket <strong>${ticketNumber}</strong> copié dans le presse-papier.`, {
+                                suggestions: ['Nouveau problème', 'Merci']
                             });
                         }).catch(() => {
-                            addMessage('system', `ðŸ“‹ NumÃ©ro de ticket: <strong>${ticketNumber}</strong> (copie manuelle nÃ©cessaire)`, {
-                                suggestions: ['Nouveau problÃ¨me', 'Merci']
+                            addMessage('system', `📋 Numéro de ticket: <strong>${ticketNumber}</strong> (copie manuelle nécessaire)`, {
+                                suggestions: ['Nouveau problème', 'Merci']
                             });
                         });
                         return;
                     }
                 }
-                addMessage('system', 'âŒ Aucun numÃ©ro de ticket trouvÃ© Ã  copier.', {
-                    suggestions: ['Nouveau problÃ¨me']
+                addMessage('system', '❌ Aucun numéro de ticket trouvé à copier.', {
+                    suggestions: ['Nouveau problème']
                 });
                 return;
             }
             
             if (message === 'Merci pour l\'information') {
-                addMessage('system', 'ðŸ‘ N\'hÃ©sitez pas Ã  revenir pour tout problÃ¨me audiovisuel !', {
-                    suggestions: ['ProblÃ¨me projecteur', 'ProblÃ¨me audio', 'ProblÃ¨me rÃ©seau']
+                addMessage('system', '👍 N\'hésitez pas à revenir pour tout problème audiovisuel !', {
+                    suggestions: ['Problème projecteur', 'Problème audio', 'Problème réseau']
                 });
                 return;
             }
             
-            // Pour les problÃ¨mes rÃ©seau, afficher la banniÃ¨re Services Informatiques
-            if (message === 'ProblÃ¨me de rÃ©seau') {
+            // Pour les problèmes réseau, afficher la bannière Services Informatiques
+            if (message === 'Problème de réseau') {
                 handleNetworkProblem(message);
                 return;
             }
             
-            // Pour les autres problÃ¨mes (systÃ¨me qui ne rÃ©pond plus), afficher banniÃ¨re SIM
-            if (message === 'SystÃ¨me qui ne rÃ©pond plus') {
+            // Pour les autres problèmes (système qui ne répond plus), afficher bannière SIM
+            if (message === 'Système qui ne répond plus') {
                 handleNonAudiovisualProblem(message);
                 return;
             }
             
-            // Pour les problÃ¨mes audio/vidÃ©o, envoyer au backend
+            // Pour les problèmes audio/vidéo, envoyer au backend
             if (isConnected) {
-                // âœ… NOUVEAU: DÃ©marrer timer d'escalade pour les clics palette
+                // ✅ NOUVEAU: Démarrer timer d'escalade pour les clics palette
                 const currentRoom = getCurrentRoom();
                 let problemType = null;
                 
-                if (message === 'ProblÃ¨me VidÃ©o' || message.toLowerCase().includes('vidÃ©o') || message.toLowerCase().includes('projecteur')) {
+                if (message === 'Problème Vidéo' || message.toLowerCase().includes('vidéo') || message.toLowerCase().includes('projecteur')) {
                     problemType = 'video';
-                    // âœ… CORRECTION BACKEND : Message simple comme la rÃ©fÃ©rence qui fonctionne
-                    if (message === 'ProblÃ¨me VidÃ©o') {
-                        message = 'Ã‰cran noir projecteur';
+                    // ✅ CORRECTION BACKEND : Message simple comme la référence qui fonctionne
+                    if (message === 'Problème Vidéo') {
+                        message = 'Écran noir projecteur';
                     }
-                } else if (message === 'ProblÃ¨me Audio' || message.toLowerCase().includes('audio') || message.toLowerCase().includes('son')) {
+                } else if (message === 'Problème Audio' || message.toLowerCase().includes('audio') || message.toLowerCase().includes('son')) {
                     problemType = 'audio';
                 }
                 
                 if (problemType && !escalationTimeoutId) {
-                    console.log(`â° [EscalationTimeout] DÃ©marrage timer palette pour problÃ¨me ${problemType}`);
+                    console.log(`⏰ [EscalationTimeout] Démarrage timer palette pour problème ${problemType}`);
                     startEscalationTimeout(problemType, currentRoom);
                 }
                 
@@ -865,7 +919,7 @@
                     sendProblemReport();
                 }
             } else {
-                addMessage('system', 'âš ï¸ SystÃ¨me en cours d\'initialisation. Veuillez patienter.', {
+                addMessage('system', '⚠️ Système en cours d\'initialisation. Veuillez patienter.', {
                     suggestions: ['Patienter', 'Recharger la page']
                 });
             }
@@ -875,75 +929,75 @@
 
 
 
-        // Fonction principale pour envoyer le problÃ¨me au backend
+        // Fonction principale pour envoyer le problème au backend
         async function sendProblemReport() {
             if (!problemInput) problemInput = document.getElementById('problemInput');
             const message = problemInput ? problemInput.value.trim() : '';
             
             if (!message) {
-                addMessage('system', 'âŒ Veuillez dÃ©crire votre problÃ¨me.', {
-                    suggestions: ['ProblÃ¨me projecteur', 'ProblÃ¨me audio', 'ProblÃ¨me rÃ©seau']
+                addMessage('system', '❌ Veuillez décrire votre problème.', {
+                    suggestions: ['Problème projecteur', 'Problème audio', 'Problème réseau']
                 });
                 return;
             }
             
             if (!isConnected) {
-                addMessage('system', 'âš ï¸ SystÃ¨me en cours d\'initialisation. Veuillez patienter ou recharger la page.', {
+                addMessage('system', '⚠️ Système en cours d\'initialisation. Veuillez patienter ou recharger la page.', {
                     suggestions: ['Patienter', 'Recharger la page']
                 });
                 return;
             }
 
-            // âœ… NOUVEAU : Afficher l'overlay de chargement diagnostic
+            // ✅ NOUVEAU : Afficher l'overlay de chargement diagnostic
             showDiagnosticLoading();
             
-            // âœ… NOUVEAU: DÃ©marrer le timer d'escalade pour Ã©viter les blocages
+            // ✅ NOUVEAU: Démarrer le timer d'escalade pour éviter les blocages
             const currentRoom = getCurrentRoom();
             
-            // Identifier le type de problÃ¨me pour le timer
+            // Identifier le type de problème pour le timer
             let problemType = null;
-            if (message.toLowerCase().includes('vidÃ©o') || message.toLowerCase().includes('projecteur') || message.toLowerCase().includes('Ã©cran')) {
+            if (message.toLowerCase().includes('vidéo') || message.toLowerCase().includes('projecteur') || message.toLowerCase().includes('écran')) {
                 problemType = 'video';
             } else if (message.toLowerCase().includes('audio') || message.toLowerCase().includes('son') || message.toLowerCase().includes('micro')) {
                 problemType = 'audio';
             }
             
-            // DÃ©marrer le timer d'escalade si c'est un problÃ¨me AV (Ã©viter les doublons)
+            // Démarrer le timer d'escalade si c'est un problème AV (éviter les doublons)
             if (problemType && !escalationTimeoutId) {
-                console.log(`â° [EscalationTimeout] DÃ©marrage timer d'escalade pour problÃ¨me ${problemType}`);
+                console.log(`⏰ [EscalationTimeout] Démarrage timer d'escalade pour problème ${problemType}`);
                 startEscalationTimeout(problemType, currentRoom);
             }
             
-            // âœ… NOUVELLE VALIDATION : VÃ©rifier la cohÃ©rence de salle
+            // ✅ NOUVELLE VALIDATION : Vérifier la cohérence de salle
             const detectedRooms = detectRoomInMessage(message);
             
             if (detectedRooms && detectedRooms.length > 0) {
-                // VÃ©rifier si une salle diffÃ©rente est mentionnÃ©e
-                const mentionedRoom = detectedRooms[0]; // PremiÃ¨re salle dÃ©tectÃ©e
+                // Vérifier si une salle différente est mentionnée
+                const mentionedRoom = detectedRooms[0]; // Première salle détectée
                 
                 if (mentionedRoom !== currentRoom) {
-                    addMessage('system', `âš ï¸ <strong>Attention :</strong> Vous Ãªtes prÃ©sentement dans la salle <strong>${currentRoom}</strong>.<br><br>Je suis votre assistant uniquement pour cette salle. Si vous avez un problÃ¨me dans une autre salle, veuillez vous y rendre et utiliser l'assistant local.`, {
-                        suggestions: ['Continuer avec ' + currentRoom, 'Changer de salle', 'Nouveau problÃ¨me']
+                    addMessage('system', `⚠️ <strong>Attention :</strong> Vous êtes présentement dans la salle <strong>${currentRoom}</strong>.<br><br>Je suis votre assistant uniquement pour cette salle. Si vous avez un problème dans une autre salle, veuillez vous y rendre et utiliser l'assistant local.`, {
+                        suggestions: ['Continuer avec ' + currentRoom, 'Changer de salle', 'Nouveau problème']
                     });
                     return;
                 }
             }
             
-            // âœ… NOUVELLE VALIDATION : VÃ©rifier les tickets existants
+            // ✅ NOUVELLE VALIDATION : Vérifier les tickets existants
             if (hasExistingTicket(currentRoom)) {
                 const lastTicket = getLastSessionTicket(currentRoom);
                 showExistingTicketBanner(lastTicket);
                 return;
             }
             
-            // âœ… NOUVELLE STRATÃ‰GIE : Analyser le type de problÃ¨me avec salle toujours connue
+            // ✅ NOUVELLE STRATÉGIE : Analyser le type de problème avec salle toujours connue
             const messageAnalysis = analyzeMessageType(message);
-            console.log(`ðŸ” [MessageAnalysis] Salle: ${getCurrentRoom()}, Type: ${messageAnalysis.type}, CatÃ©gorie: ${messageAnalysis.category}`);
+            console.log(`🔍 [MessageAnalysis] Salle: ${getCurrentRoom()}, Type: ${messageAnalysis.type}, Catégorie: ${messageAnalysis.category}`);
             
-            // Variable pour stocker le rÃ©sultat d'analyse d'Ã©quipement
+            // Variable pour stocker le résultat d'analyse d'équipement
             let analysisResult = null;
             
-            // Traiter selon le type de problÃ¨me
+            // Traiter selon le type de problème
             switch (messageAnalysis.type) {
                 case 4: // Hors scope
                     handleOutOfScopeMessage(message);
@@ -957,57 +1011,57 @@
                     handleExternalAVProblemWithRoom(message);
                     return;
                 
-                case 1: // AV systÃ¨me - Analyse amÃ©liorÃ©e avec Ã©quipements de la salle
-                    console.log(`ðŸŽ¯ [SystemAV] Analyse systÃ¨me pour salle ${getCurrentRoom()}: "${message}"`);
+                case 1: // AV système - Analyse améliorée avec équipements de la salle
+                    console.log(`🎯 [SystemAV] Analyse système pour salle ${getCurrentRoom()}: "${message}"`);
                     
-                    // âœ… NOUVEAU : Mettre Ã  jour le texte de chargement
-                    updateDiagnosticLoadingText('Analyse des Ã©quipements...', 'Identification des dispositifs audiovisuels');
+                    // ✅ NOUVEAU : Mettre à jour le texte de chargement
+                    updateDiagnosticLoadingText('Analyse des équipements...', 'Identification des dispositifs audiovisuels');
                     
-                    // Nouvelle logique : Analyser les Ã©quipements avant de continuer
+                    // Nouvelle logique : Analyser les équipements avant de continuer
                     analysisResult = await analyzeRoomEquipmentForProblem(message);
                     if (analysisResult.shouldEscalate) {
-                        return; // L'escalade a Ã©tÃ© gÃ©rÃ©e dans la fonction (message utilisateur dÃ©jÃ  ajoutÃ©)
+                        return; // L'escalade a été gérée dans la fonction (message utilisateur déjà ajouté)
                     }
                     
-                    // Continuer avec l'analyse systÃ¨me si pas d'escalade
+                    // Continuer avec l'analyse système si pas d'escalade
                     break;
                 
                 default:
-                    // Par dÃ©faut, traiter comme type 4 (hors scope)
+                    // Par défaut, traiter comme type 4 (hors scope)
                     handleOutOfScopeMessage(message);
                     return;
             }
             
-            // DÃ©sactiver le bouton pendant le traitement
+            // Désactiver le bouton pendant le traitement
             updateSendButton(true);
             
-            // âœ… NOUVEAU : Ne pas afficher le message utilisateur pour les actions automatiques
+            // ✅ NOUVEAU : Ne pas afficher le message utilisateur pour les actions automatiques
             const isAutoActionMessage = message.toLowerCase().includes('pas de son') || 
                                        message.toLowerCase().includes('micro') ||
                                        message.toLowerCase().includes('son') ||
                                        message.toLowerCase().includes('audio') ||
                                        message.toLowerCase().includes('sourdine');
             
-            // âœ… CORRECTION : Ajouter le message utilisateur seulement si pas d'analyse d'Ã©quipement ET pas d'action automatique
+            // ✅ CORRECTION : Ajouter le message utilisateur seulement si pas d'analyse d'équipement ET pas d'action automatique
             if (!(analysisResult && analysisResult.userMessageAdded) && !isAutoActionMessage) {
                 addMessage('user', message, {});
             }
             
-            // âœ… CORRECTION UI : Vider l'input seulement aprÃ¨s succÃ¨s, pas immÃ©diatement
-            // problemInput.value = '';  // DÃ©placÃ© plus tard
+            // ✅ CORRECTION UI : Vider l'input seulement après succès, pas immédiatement
+            // problemInput.value = '';  // Déplacé plus tard
             
             try {
-                // âœ… NOUVELLE STRATÃ‰GIE : Envoyer au backend avec salle toujours incluse
+                // ✅ NOUVELLE STRATÉGIE : Envoyer au backend avec salle toujours incluse
                 const currentRoom = getCurrentRoom();
                 const fullMessage = `${message} (Salle: ${currentRoom})`;
                 
-                // âœ… NOUVEAU : Mettre Ã  jour le texte de chargement
+                // ✅ NOUVEAU : Mettre à jour le texte de chargement
                 updateDiagnosticLoadingText('Analyse intelligente...', 'Recherche de solutions automatiques');
                 
-                // ðŸ” DEBUG : Afficher le message exact envoyÃ© au backend
-                console.log(`ðŸŽ¯ [DEBUG] Message envoyÃ© au RAG backend: "${fullMessage}"`);
+                // 🔍 DEBUG : Afficher le message exact envoyé au backend
+                console.log(`🎯 [DEBUG] Message envoyé au RAG backend: "${fullMessage}"`);
                 
-                // âœ… S'assurer d'utiliser le bon backend
+                // ✅ S'assurer d'utiliser le bon backend
                 await ensureBackendConnection();
                 
                 const response = await fetch(`${currentAPI}/api/copilot/vitrine`, {
@@ -1038,11 +1092,11 @@
                 const data = await response.json();
                 
                 if (data.status === 'success') {
-                    // Traiter la rÃ©ponse du Copilot
-                    console.log(`ðŸ“¥ [Backend] RÃ©ponse reÃ§ue:`, data);
+                    // Traiter la réponse du Copilot
+                    console.log(`📥 [Backend] Réponse reçue:`, data);
                     processResponse(data);
                     
-                    // âœ… CORRECTION UI : Vider l'input seulement aprÃ¨s succÃ¨s
+                    // ✅ CORRECTION UI : Vider l'input seulement après succès
                     if (!problemInput) problemInput = document.getElementById('problemInput');
                     if (problemInput) problemInput.value = '';
                 } else {
@@ -1053,9 +1107,9 @@
                 console.error('Erreur lors de l\'envoi:', error);
                 
                 // CORRECTION : Ne pas afficher d'erreur bloquante, continuer avec l'analyse
-                console.log(`ðŸ”§ [ErrorHandling] Erreur API â†’ Continuer avec l'analyse locale`);
+                console.log(`🔧 [ErrorHandling] Erreur API → Continuer avec l'analyse locale`);
                 
-                // CrÃ©er un contexte RAG local pour continuer le processus
+                // Créer un contexte RAG local pour continuer le processus
                 latestRAGContext = {
                     intent: 'technical_issue',
                     confidence: 0.8,
@@ -1064,60 +1118,60 @@
                         room: getCurrentRoom(),
                         device: null,
                         severity: 'medium',
-                        reason: 'ProblÃ¨me signalÃ© nÃ©cessitant intervention'
+                        reason: 'Problème signalé nécessitant intervention'
                     }],
                     solutions: [],
                     escalation_needed: true,
-                    escalation_reason: "ProblÃ¨me technique signalÃ© - intervention recommandÃ©e."
+                    escalation_reason: "Problème technique signalé - intervention recommandée."
                 };
                 
                 // Afficher un message informatif et proposer l'escalade
-                addMessage('system', `ðŸ”§ Analyse terminÃ©e pour la salle ${getCurrentRoom()}. Une intervention technique est recommandÃ©e.`, {
-                    suggestions: ['CrÃ©er un ticket SEA', 'Appeler SEA au 6135', 'Nouveau problÃ¨me']
+                addMessage('system', `🔧 Analyse terminée pour la salle ${getCurrentRoom()}. Une intervention technique est recommandée.`, {
+                    suggestions: ['Créer un ticket SEA', 'Appeler SEA au 6135', 'Nouveau problème']
                 });
                 
-                // âœ… NOUVEAU : Masquer le sablier uniquement quand on affiche des suggestions (pas de banniÃ¨re)
+                // ✅ NOUVEAU : Masquer le sablier uniquement quand on affiche des suggestions (pas de bannière)
                 hideDiagnosticLoading();
                 
             } finally {
-                // RÃ©activer le bouton
+                // Réactiver le bouton
                 updateSendButton(false);
                 
-                // CORRECTION : Ne pas faire de retour automatique pour Ã©viter les interruptions
-                // L'utilisateur doit choisir explicitement de crÃ©er un ticket
+                // CORRECTION : Ne pas faire de retour automatique pour éviter les interruptions
+                // L'utilisateur doit choisir explicitement de créer un ticket
                 
-                // âœ… NOUVEAU : Le sablier reste affichÃ© jusqu'Ã  ce qu'une banniÃ¨re spÃ©cifique le remplace
-                // Plus de masquage systÃ©matique ici - seules les banniÃ¨res masquent le sablier
+                // ✅ NOUVEAU : Le sablier reste affiché jusqu'à ce qu'une bannière spécifique le remplace
+                // Plus de masquage systématique ici - seules les bannières masquent le sablier
             }
         }
 
-        // ===== FONCTIONS DE DIAGNOSTIC RÃ‰EL =====
+        // ===== FONCTIONS DE DIAGNOSTIC RÉEL =====
 
         /**
-         * VÃ©rifie si un message concerne un problÃ¨me audio
+         * Vérifie si un message concerne un problème audio
          */
         function isAudioProblem(message) {
-            const audioKeywords = ['audio', 'son', 'microphone', 'micro', 'haut-parleur', 'haut parleur', 'volume', 'mute', 'sourdine', 'bruit', 'Ã©cho'];
+            const audioKeywords = ['audio', 'son', 'microphone', 'micro', 'haut-parleur', 'haut parleur', 'volume', 'mute', 'sourdine', 'bruit', 'écho'];
             return audioKeywords.some(keyword => message.includes(keyword));
         }
 
         /**
-         * VÃ©rifie si un message concerne un problÃ¨me vidÃ©o
+         * Vérifie si un message concerne un problème vidéo
          */
         function isVideoProblem(message) {
-            const videoKeywords = ['vidÃ©o', 'projecteur', 'Ã©cran', 'image', 'affichage', 'proj', 'hdmi', 'vga', 'connecteur'];
+            const videoKeywords = ['vidéo', 'projecteur', 'écran', 'image', 'affichage', 'proj', 'hdmi', 'vga', 'connecteur'];
             return videoKeywords.some(keyword => message.includes(keyword));
         }
 
         /**
-         * âœ… FONCTION UNIVERSELLE : DÃ©tecte le type d'Ã©quipement disponible dans une salle
+         * ✅ FONCTION UNIVERSELLE : Détecte le type d'équipement disponible dans une salle
          */
         function analyzeRoomEquipmentTypes(devices) {
             if (!devices || !Array.isArray(devices)) {
-                return { hasAudio: false, hasVideo: false, summary: 'Aucun Ã©quipement dÃ©tectÃ©' };
+                return { hasAudio: false, hasVideo: false, summary: 'Aucun équipement détecté' };
             }
 
-            // âœ… CORRECTION: DÃ©tection Ã©quipements AUDIO (TCC2, Sennheiser, microphones)
+            // ✅ CORRECTION: Détection équipements AUDIO (TCC2, Sennheiser, microphones)
             const audioDevices = devices.filter(device => 
                 (device.type && (device.type.toLowerCase().includes('audio') || device.type.toLowerCase().includes('microphone'))) ||
                 (device.model_name && (device.model_name.toLowerCase().includes('sennheiser') || device.model_name.toLowerCase().includes('tcc2'))) ||
@@ -1125,7 +1179,7 @@
                 (device.family_name && device.family_name.toLowerCase().includes('sennheiser'))
             );
 
-            // âœ… CORRECTION: DÃ©tection Ã©quipements VIDÃ‰O (Projecteurs, Ã©crans, affichages)
+            // ✅ CORRECTION: Détection équipements VIDÉO (Projecteurs, écrans, affichages)
             const videoDevices = devices.filter(device => 
                 (device.type && device.type.toLowerCase().includes('projector')) ||
                 (device.model_name && device.model_name.toLowerCase().includes('projector')) ||
@@ -1139,59 +1193,59 @@
                 hasVideo: videoDevices.length > 0,
                 audioCount: audioDevices.length,
                 videoCount: videoDevices.length,
-                summary: `Audio: ${audioDevices.length}, VidÃ©o: ${videoDevices.length}`
+                summary: `Audio: ${audioDevices.length}, Vidéo: ${videoDevices.length}`
             };
 
-            console.log(`ðŸ” [EquipmentTypes] Analyse salle: ${result.summary}`);
+            console.log(`🔍 [EquipmentTypes] Analyse salle: ${result.summary}`);
             return result;
         }
 
         /**
-         * âœ… RÃˆGLE UNIVERSELLE : Applique la logique d'escalation symÃ©trique
+         * ✅ RÈGLE UNIVERSELLE : Applique la logique d'escalation symétrique
          */
         function shouldEscalateBasedOnEquipment(problemType, equipmentTypes, currentRoom) {
-            // RÃˆGLE 1: ProblÃ¨me AUDIO + Aucun Ã©quipement AUDIO â†’ Escalade
+            // RÈGLE 1: Problème AUDIO + Aucun équipement AUDIO → Escalade
             if (problemType === 'audio' && !equipmentTypes.hasAudio) {
-                console.log(`ðŸ”Š [UniversalRule] Salle ${currentRoom}: ProblÃ¨me AUDIO dÃ©tectÃ© mais aucun Ã©quipement audio â†’ ESCALADE DIRECTE`);
+                console.log(`🔊 [UniversalRule] Salle ${currentRoom}: Problème AUDIO détecté mais aucun équipement audio → ESCALADE DIRECTE`);
                 return {
                     shouldEscalate: true,
-                    reason: `Aucun Ã©quipement audio trouvÃ© dans la salle ${currentRoom}`,
+                    reason: `Aucun équipement audio trouvé dans la salle ${currentRoom}`,
                     intent: 'audio_problem'
                 };
             }
 
-            // RÃˆGLE 2: ProblÃ¨me VIDÃ‰O + Aucun Ã©quipement VIDÃ‰O â†’ Escalade  
+            // RÈGLE 2: Problème VIDÉO + Aucun équipement VIDÉO → Escalade  
             if (problemType === 'video' && !equipmentTypes.hasVideo) {
-                console.log(`ðŸ“½ï¸ [UniversalRule] Salle ${currentRoom}: ProblÃ¨me VIDÃ‰O dÃ©tectÃ© mais aucun Ã©quipement vidÃ©o â†’ ESCALADE DIRECTE`);
+                console.log(`📽️ [UniversalRule] Salle ${currentRoom}: Problème VIDÉO détecté mais aucun équipement vidéo → ESCALADE DIRECTE`);
                 return {
                     shouldEscalate: true,
-                    reason: `Aucun Ã©quipement vidÃ©o trouvÃ© dans la salle ${currentRoom}`,
+                    reason: `Aucun équipement vidéo trouvé dans la salle ${currentRoom}`,
                     intent: 'video_problem'
                 };
             }
 
-            // RÃˆGLE 3: Ã‰quipement du bon type disponible â†’ Continuer analyse
-            console.log(`âœ… [UniversalRule] Salle ${currentRoom}: Ã‰quipement ${problemType} disponible â†’ Continuer avec diagnostic automatique`);
+            // RÈGLE 3: Équipement du bon type disponible → Continuer analyse
+            console.log(`✅ [UniversalRule] Salle ${currentRoom}: Équipement ${problemType} disponible → Continuer avec diagnostic automatique`);
             return {
                 shouldEscalate: false,
-                reason: `Ã‰quipement ${problemType} disponible pour diagnostic automatique`,
+                reason: `Équipement ${problemType} disponible pour diagnostic automatique`,
                 intent: `${problemType}_problem`
             };
         }
 
         /**
-         * RÃ©cupÃ¨re les Ã©quipements disponibles dans une salle
+         * Récupère les équipements disponibles dans une salle
          */
         async function fetchRoomEquipment(room) {
             try {
-                console.log(`ðŸ“‹ [FetchRoomEquipment] RÃ©cupÃ©ration Ã©quipements pour salle ${room}`);
+                console.log(`📋 [FetchRoomEquipment] Récupération équipements pour salle ${room}`);
                 
-                // âœ… STRATÃ‰GIE HYBRIDE: VÃ©rifier d'abord si on a des infos de cache (Podio ou NeonDB)
+                // ✅ STRATÉGIE HYBRIDE: Vérifier d'abord si on a des infos de cache (Podio ou NeonDB)
                 const roomInfo = await podioRoomCache.getRoomInfo(room);
                 
                 if (roomInfo && roomInfo.source === 'neondb' && roomInfo.devices) {
-                    // Salle trouvÃ©e via NeonDB avec Ã©quipements
-                    console.log(`ðŸ“‹ [FetchRoomEquipment] âœ… Utilisation Ã©quipements NeonDB pour ${room} (${roomInfo.devices.length})`);
+                    // Salle trouvée via NeonDB avec équipements
+                    console.log(`📋 [FetchRoomEquipment] ✅ Utilisation équipements NeonDB pour ${room} (${roomInfo.devices.length})`);
                     
                     const adaptedDevices = roomInfo.devices.map(device => ({
                         id: device.id,
@@ -1213,8 +1267,8 @@
                     };
                 }
                 
-                // âœ… PODIO ou pas d'info cachÃ©e: Essayer l'API Ã©quipements traditionnelle
-                console.log(`ðŸ“‹ [FetchRoomEquipment] Tentative API Ã©quipements traditionnelle pour ${room}`);
+                // ✅ PODIO ou pas d'info cachée: Essayer l'API équipements traditionnelle
+                console.log(`📋 [FetchRoomEquipment] Tentative API équipements traditionnelle pour ${room}`);
                 
                 // Essayer d'abord la route /api/devices/public
                 let response = await fetch(`${API_BASE_URL}/api/devices/public`, {
@@ -1224,7 +1278,7 @@
                 
                 // Si 404, essayer la route /api/devices
                 if (response.status === 404) {
-                    console.log(`ðŸ“‹ [FetchRoomEquipment] Route /api/devices/public non trouvÃ©e, essai avec /api/devices`);
+                    console.log(`📋 [FetchRoomEquipment] Route /api/devices/public non trouvée, essai avec /api/devices`);
                     response = await fetch(`${API_BASE_URL}/api/devices`, {
                         method: 'GET',
                         headers: { 'Content-Type': 'application/json' }
@@ -1232,28 +1286,28 @@
                 }
                 
                 if (!response.ok) {
-                    // Permissions ou erreurs â†’ Essayer fallback NeonDB direct si pas dÃ©jÃ  fait
+                    // Permissions ou erreurs → Essayer fallback NeonDB direct si pas déjà fait
                     if (!roomInfo || roomInfo.source !== 'neondb') {
-                        console.log(`ðŸ“‹ [FetchRoomEquipment] Ã‰chec API traditionnelle â†’ Tentative NeonDB directe`);
+                        console.log(`📋 [FetchRoomEquipment] Échec API traditionnelle → Tentative NeonDB directe`);
                         return await fetchRoomEquipmentFromNeonDB(room);
                     }
                     
-                    console.log(`ðŸ“‹ [FetchRoomEquipment] Ã‰chec complet pour ${room}`);
+                    console.log(`📋 [FetchRoomEquipment] Échec complet pour ${room}`);
                     return { devices: [], total: 0, noAccess: true };
                 }
                 
                 const allDevices = await response.json();
                 if (!Array.isArray(allDevices)) {
-                    console.warn('ðŸ“‹ [FetchRoomEquipment] RÃ©ponse API inattendue:', allDevices);
+                    console.warn('📋 [FetchRoomEquipment] Réponse API inattendue:', allDevices);
                     return { devices: [], total: 0, noAccess: true };
                 }
                 
-                // Filtrer les Ã©quipements de la salle spÃ©cifique
+                // Filtrer les équipements de la salle spécifique
                 const roomDevices = allDevices.filter(device => 
                     device.room_name && device.room_name.toLowerCase() === room.toLowerCase()
                 );
                 
-                console.log(`ðŸ“‹ [FetchRoomEquipment] Salle ${room}: ${roomDevices.length} Ã©quipement(s) trouvÃ©(s) via API traditionnelle`);
+                console.log(`📋 [FetchRoomEquipment] Salle ${room}: ${roomDevices.length} équipement(s) trouvé(s) via API traditionnelle`);
                 
                 return {
                     devices: roomDevices,
@@ -1263,18 +1317,18 @@
                 };
                 
             } catch (error) {
-                console.error('ðŸ“‹ [FetchRoomEquipment] Erreur:', error);
+                console.error('📋 [FetchRoomEquipment] Erreur:', error);
                 // Fallback final vers NeonDB
                 return await fetchRoomEquipmentFromNeonDB(room);
             }
         }
 
         /**
-         * âœ… NOUVEAU: Fonction dÃ©diÃ©e pour rÃ©cupÃ©rer Ã©quipements depuis NeonDB directement
+         * ✅ NOUVEAU: Fonction dédiée pour récupérer équipements depuis NeonDB directement
          */
         async function fetchRoomEquipmentFromNeonDB(room) {
             try {
-                console.log(`ðŸ“‹ [FetchRoomEquipmentFromNeonDB] RÃ©cupÃ©ration directe NeonDB pour ${room}`);
+                console.log(`📋 [FetchRoomEquipmentFromNeonDB] Récupération directe NeonDB pour ${room}`);
                 
                 const response = await fetch(`${currentAPI}/api/room/equipment?room=${encodeURIComponent(room)}`, {
                     method: 'GET',
@@ -1282,11 +1336,11 @@
                 });
                 
                 if (!response.ok) {
-                    console.log(`ðŸ“‹ [FetchRoomEquipmentFromNeonDB] Erreur HTTP ${response.status}`);
+                    console.log(`📋 [FetchRoomEquipmentFromNeonDB] Erreur HTTP ${response.status}`);
                     
-                    // âœ… CONTOURNEMENT : Ã‰quipements en dur pour J-2430 si API Ã©choue
+                    // ✅ CONTOURNEMENT : Équipements en dur pour J-2430 si API échoue
                     if (room === 'J-2430') {
-                        console.log(`ðŸ”§ [FallbackJ2430] Utilisation Ã©quipements en dur pour J-2430`);
+                        console.log(`🔧 [FallbackJ2430] Utilisation équipements en dur pour J-2430`);
                         return {
                             devices: [
                                 {
@@ -1325,7 +1379,7 @@
                 
                 const data = await response.json();
                 if ((data.status !== 'success' && !data.success) || !Array.isArray(data.devices)) {
-                    console.warn('ðŸ“‹ [FetchRoomEquipmentFromNeonDB] RÃ©ponse invalide:', data);
+                    console.warn('📋 [FetchRoomEquipmentFromNeonDB] Réponse invalide:', data);
                     return { devices: [], total: 0, noAccess: true };
                 }
                 
@@ -1333,19 +1387,19 @@
                     id: device.id,
                     device_name: device.device_name || device.name,
                     name: device.name,
-                    host: device.address, // âœ… Adapter address â†’ host
-                    protocol: device.technology, // âœ… Adapter technology â†’ protocol  
+                    host: device.address, // ✅ Adapter address → host
+                    protocol: device.technology, // ✅ Adapter technology → protocol  
                     device_model_name: device.device_model_name,
                     device_family_name: device.device_family_name,
-                    family_type: device.technology, // âœ… Utiliser technology comme family_type
+                    family_type: device.technology, // ✅ Utiliser technology comme family_type
                     room_name: device.room_name || room,
-                    address: device.address, // âœ… Garder address aussi
-                    technology: device.technology, // âœ… Garder technology aussi
-                    status: device.status, // âœ… Ajouter status
-                    port: device.port // âœ… Ajouter port
+                    address: device.address, // ✅ Garder address aussi
+                    technology: device.technology, // ✅ Garder technology aussi
+                    status: device.status, // ✅ Ajouter status
+                    port: device.port // ✅ Ajouter port
                 }));
                 
-                console.log(`ðŸ“‹ [FetchRoomEquipmentFromNeonDB] Salle ${room}: ${adaptedDevices.length} Ã©quipement(s) trouvÃ©(s)`);
+                console.log(`📋 [FetchRoomEquipmentFromNeonDB] Salle ${room}: ${adaptedDevices.length} équipement(s) trouvé(s)`);
                 
                 return {
                     devices: adaptedDevices,
@@ -1355,110 +1409,110 @@
                 };
                 
             } catch (error) {
-                console.error('ðŸ“‹ [FetchRoomEquipmentFromNeonDB] Erreur:', error);
+                console.error('📋 [FetchRoomEquipmentFromNeonDB] Erreur:', error);
                 return { devices: [], total: 0, noAccess: true };
             }
         }
 
         /**
-         * Analyse les Ã©quipements disponibles dans la salle pour dÃ©terminer si une escalade immÃ©diate est nÃ©cessaire
+         * Analyse les équipements disponibles dans la salle pour déterminer si une escalade immédiate est nécessaire
          */
         async function analyzeRoomEquipmentForProblem(message) {
             const currentRoom = getCurrentRoom();
             const lowerMessage = message.toLowerCase();
             
             try {
-                // RÃ©cupÃ©rer les Ã©quipements de la salle
+                // Récupérer les équipements de la salle
                 const roomEquipment = await fetchRoomEquipment(currentRoom);
                 
-                // Si pas d'accÃ¨s direct aux Ã©quipements, escalader pour les problÃ¨mes vidÃ©o/audio
+                // Si pas d'accès direct aux équipements, escalader pour les problèmes vidéo/audio
                 if (!roomEquipment || roomEquipment.noAccess) {
-                    console.log(`ðŸ¢ [RoomAnalysis] Pas d'accÃ¨s direct aux Ã©quipements â†’ VÃ©rifier si escalade nÃ©cessaire`);
+                    console.log(`🏢 [RoomAnalysis] Pas d'accès direct aux équipements → Vérifier si escalade nécessaire`);
                     
-                    // âœ… CORRECTION CRITIQUE : PERMETTRE AU BACKEND D'ANALYSER LES PROBLÃˆMES VIDÃ‰O AVANT ESCALADE
+                    // ✅ CORRECTION CRITIQUE : PERMETTRE AU BACKEND D'ANALYSER LES PROBLÈMES VIDÉO AVANT ESCALADE
                     if (isVideoProblem(lowerMessage)) {
-                        console.log(`ðŸ“½ï¸ [VideoAnalysis] ProblÃ¨me vidÃ©o dÃ©tectÃ© â†’ TENTER DIAGNOSTIC AUTOMATIQUE BACKEND AVANT ESCALADE`);
-                        // âœ… CORRECTION CRITIQUE : PERMETTRE AU BACKEND D'ANALYSER AVANT D'ESCALADER
-                        // Le backend peut dÃ©tecter et corriger automatiquement des problÃ¨mes comme projecteur Ã©teint + AV mute
-                        console.log(`ðŸŽ¯ [VideoAnalysis] Continuer avec analyse Copilot pour correction automatique possible`);
+                        console.log(`📽️ [VideoAnalysis] Problème vidéo détecté → TENTER DIAGNOSTIC AUTOMATIQUE BACKEND AVANT ESCALADE`);
+                        // ✅ CORRECTION CRITIQUE : PERMETTRE AU BACKEND D'ANALYSER AVANT D'ESCALADER
+                        // Le backend peut détecter et corriger automatiquement des problèmes comme projecteur éteint + AV mute
+                        console.log(`🎯 [VideoAnalysis] Continuer avec analyse Copilot pour correction automatique possible`);
                         return { shouldEscalate: false, userMessageAdded: false };
                     }
                     
                     if (isAudioProblem(lowerMessage)) {
-                        console.log(`ðŸ”Š [AudioAnalysis] ProblÃ¨me audio dÃ©tectÃ© â†’ TENTER DIAGNOSTIC AUTOMATIQUE BACKEND AVANT ESCALADE`);
+                        console.log(`🔊 [AudioAnalysis] Problème audio détecté → TENTER DIAGNOSTIC AUTOMATIQUE BACKEND AVANT ESCALADE`);
                         
-                        // âœ… CORRECTION CRITIQUE : PERMETTRE AU BACKEND D'ANALYSER AVANT D'ESCALADER
-                        // Le backend peut dÃ©tecter et corriger automatiquement des problÃ¨mes comme TCC2 en sourdine
-                        console.log(`ðŸŽ¯ [AudioAnalysis] Continuer avec analyse Copilot pour correction automatique possible`);
+                        // ✅ CORRECTION CRITIQUE : PERMETTRE AU BACKEND D'ANALYSER AVANT D'ESCALADER
+                        // Le backend peut détecter et corriger automatiquement des problèmes comme TCC2 en sourdine
+                        console.log(`🎯 [AudioAnalysis] Continuer avec analyse Copilot pour correction automatique possible`);
                         return { shouldEscalate: false, userMessageAdded: false };
                     }
                     
-                    // Pour les autres types de problÃ¨mes, continuer avec l'analyse Copilot
-                    console.log(`ðŸ”§ [EquipmentAnalysis] Pas d'accÃ¨s Ã©quipements â†’ Continuer avec l'analyse Copilot`);
+                    // Pour les autres types de problèmes, continuer avec l'analyse Copilot
+                    console.log(`🔧 [EquipmentAnalysis] Pas d'accès équipements → Continuer avec l'analyse Copilot`);
                     return { shouldEscalate: false, userMessageAdded: false };
                 }
                 
-                // âœ… NOUVELLE LOGIQUE UNIVERSELLE : Analyser les Ã©quipements avec rÃ¨gles symÃ©triques
+                // ✅ NOUVELLE LOGIQUE UNIVERSELLE : Analyser les équipements avec règles symétriques
                 if (roomEquipment.devices && roomEquipment.devices.length > 0) {
-                    console.log(`ðŸ”§ [EquipmentAnalysis] ${roomEquipment.devices.length} Ã©quipement(s) trouvÃ©(s) pour la salle ${currentRoom}`);
+                    console.log(`🔧 [EquipmentAnalysis] ${roomEquipment.devices.length} équipement(s) trouvé(s) pour la salle ${currentRoom}`);
                     
-                    // âœ… Analyser les types d'Ã©quipements disponibles
+                    // ✅ Analyser les types d'équipements disponibles
                     const equipmentTypes = analyzeRoomEquipmentTypes(roomEquipment.devices);
-                    console.log(`ðŸ” [EquipmentAnalysis] ${equipmentTypes.summary}`);
+                    console.log(`🔍 [EquipmentAnalysis] ${equipmentTypes.summary}`);
                     
-                    // âœ… DÃ©terminer le type de problÃ¨me et appliquer la rÃ¨gle universelle
+                    // ✅ Déterminer le type de problème et appliquer la règle universelle
                     let problemType = null;
                     if (isAudioProblem(lowerMessage)) {
                         problemType = 'audio';
                     } else if (isVideoProblem(lowerMessage)) {
                         problemType = 'video';
                         
-                        // âœ… CRITIQUE : Analyse spÃ©cifique des problÃ¨mes vidÃ©o avec gestion projecteurs
-                        console.log(`ðŸ“½ï¸ [EquipmentAnalysis] ProblÃ¨me vidÃ©o dÃ©tectÃ© â†’ Analyse spÃ©cifique projecteurs`);
+                        // ✅ CRITIQUE : Analyse spécifique des problèmes vidéo avec gestion projecteurs
+                        console.log(`📽️ [EquipmentAnalysis] Problème vidéo détecté → Analyse spécifique projecteurs`);
                         const videoHandled = await handleVideoProblemAnalysis(message, roomEquipment);
                         if (videoHandled) {
-                            // Escalade effectuÃ©e par handleVideoProblemAnalysis
+                            // Escalade effectuée par handleVideoProblemAnalysis
                             return { shouldEscalate: true, userMessageAdded: true };
                         }
-                        // Sinon, continuer avec RAG backend (projecteurs dÃ©tectÃ©s)
-                        console.log(`ðŸ“½ï¸ [EquipmentAnalysis] Projecteurs dÃ©tectÃ©s â†’ Continuer analyse RAG backend`);
+                        // Sinon, continuer avec RAG backend (projecteurs détectés)
+                        console.log(`📽️ [EquipmentAnalysis] Projecteurs détectés → Continuer analyse RAG backend`);
                         return { shouldEscalate: false, userMessageAdded: false };
                     }
                     
                     if (problemType === 'audio') {
-                        // âœ… Logique audio existante
-                        console.log(`ðŸ”§ [EquipmentAnalysis] ProblÃ¨me audio dÃ©tectÃ© â†’ Tenter diagnostic automatique Copilot`);
+                        // ✅ Logique audio existante
+                        console.log(`🔧 [EquipmentAnalysis] Problème audio détecté → Tenter diagnostic automatique Copilot`);
                         
-                        // âœ… VÃ©rifier si Ã©quipements appropriÃ©s disponibles pour diagnostic
+                        // ✅ Vérifier si équipements appropriés disponibles pour diagnostic
                         const hasAppropriateEquipment = equipmentTypes.hasAudio;
                         
-                        // âœ… CORRECTION CRITIQUE : TOUJOURS PERMETTRE AU BACKEND D'ANALYSER D'ABORD
-                        // MÃªme si les Ã©quipements ne sont pas dÃ©tectÃ©s localement, le backend peut avoir
-                        // une meilleure connaissance des Ã©quipements et peut corriger automatiquement
-                        console.log(`ðŸŽ¯ [EquipmentAnalysis] ProblÃ¨me audio â†’ FORCER ANALYSE BACKEND AVANT ESCALADE`);
-                        console.log(`ðŸ”§ [EquipmentAnalysis] Ã‰quipements dÃ©tectÃ©s: ${hasAppropriateEquipment ? 'OUI' : 'NON'} - Backend peut avoir plus d'infos`);
+                        // ✅ CORRECTION CRITIQUE : TOUJOURS PERMETTRE AU BACKEND D'ANALYSER D'ABORD
+                        // Même si les équipements ne sont pas détectés localement, le backend peut avoir
+                        // une meilleure connaissance des équipements et peut corriger automatiquement
+                        console.log(`🎯 [EquipmentAnalysis] Problème audio → FORCER ANALYSE BACKEND AVANT ESCALADE`);
+                        console.log(`🔧 [EquipmentAnalysis] Équipements détectés: ${hasAppropriateEquipment ? 'OUI' : 'NON'} - Backend peut avoir plus d'infos`);
                         
-                        // Laisser le backend analyser et dÃ©cider s'il peut corriger automatiquement (ex: TCC2 sourdine)
+                        // Laisser le backend analyser et décider s'il peut corriger automatiquement (ex: TCC2 sourdine)
                         return { shouldEscalate: false, userMessageAdded: false };
                     }
                     
                 }
                 
-                // Si pas d'Ã©quipements trouvÃ©s, continuer avec l'analyse Copilot
-                console.log(`ðŸ”§ [EquipmentAnalysis] Aucun Ã©quipement trouvÃ© â†’ Continuer avec l'analyse Copilot`);
+                // Si pas d'équipements trouvés, continuer avec l'analyse Copilot
+                console.log(`🔧 [EquipmentAnalysis] Aucun équipement trouvé → Continuer avec l'analyse Copilot`);
                 return { shouldEscalate: false, userMessageAdded: false };
                 
             } catch (error) {
-                console.error('ðŸ”§ [EquipmentAnalysis] Erreur lors de l\'analyse:', error);
+                console.error('🔧 [EquipmentAnalysis] Erreur lors de l\'analyse:', error);
                 // En cas d'erreur, continuer avec l'analyse Copilot
                 return { shouldEscalate: false, userMessageAdded: false };
             }
         }
 
-        // ðŸ†• FONCTION POUR VÃ‰RIFIER L'Ã‰TAT TEMPS RÃ‰EL D'UN PROJECTEUR
+        // 🆕 FONCTION POUR VÉRIFIER L'ÉTAT TEMPS RÉEL D'UN PROJECTEUR
         async function fetchProjectorRealtimeStatus(deviceName) {
             try {
-                console.log(`ðŸ” [RealtimeStatus] VÃ©rification temps rÃ©el pour: ${deviceName}`);
+                console.log(`🔍 [RealtimeStatus] Vérification temps réel pour: ${deviceName}`);
                 
                 const response = await fetch(`${API_BASE_URL}/api/device/public/realtime-status/${deviceName}`, {
                     method: 'GET',
@@ -1466,29 +1520,29 @@
                 });
                 
                 if (!response.ok) {
-                    console.log(`âŒ [RealtimeStatus] Erreur HTTP ${response.status} pour ${deviceName}`);
+                    console.log(`❌ [RealtimeStatus] Erreur HTTP ${response.status} pour ${deviceName}`);
                     return null;
                 }
                 
                 const status = await response.json();
-                console.log(`âœ… [RealtimeStatus] Ã‰tat temps rÃ©el rÃ©cupÃ©rÃ© pour ${deviceName}:`, status);
+                console.log(`✅ [RealtimeStatus] État temps réel récupéré pour ${deviceName}:`, status);
                 
                 return status;
                 
             } catch (error) {
-                console.error(`âŒ [RealtimeStatus] Erreur pour ${deviceName}:`, error);
+                console.error(`❌ [RealtimeStatus] Erreur pour ${deviceName}:`, error);
                 return null;
             }
         }
         
         /**
-         * âœ… FONCTION MANQUANTE CRITIQUE : Analyse spÃ©cifique des problÃ¨mes vidÃ©o
-         * CopiÃ©e depuis assistant-salle-av-copie.html
+         * ✅ FONCTION MANQUANTE CRITIQUE : Analyse spécifique des problèmes vidéo
+         * Copiée depuis assistant-salle-av-copie.html
          */
         async function handleVideoProblemAnalysis(message, roomEquipment) {
             const currentRoom = getCurrentRoom();
             
-            // VÃ©rifier s'il y a des projecteurs dans la salle
+            // Vérifier s'il y a des projecteurs dans la salle
             const projectors = (roomEquipment && roomEquipment.devices) ? roomEquipment.devices.filter(device => 
                 device.device_type === 'projector' || 
                 device.device_family_name?.toLowerCase().includes('projecteur') ||
@@ -1496,13 +1550,13 @@
                 device.technology?.toLowerCase().includes('pjlink')
             ) : [];
             
-            console.log(`ðŸ“½ï¸ [VideoAnalysis] Salle ${currentRoom}: ${projectors.length} projecteur(s) dÃ©tectÃ©(s)`);
+            console.log(`📽️ [VideoAnalysis] Salle ${currentRoom}: ${projectors.length} projecteur(s) détecté(s)`);
             
             if (projectors.length === 0) {
-                // Aucun projecteur dÃ©tectÃ©, escalade immÃ©diate avec interface standard
-                console.log(`ðŸ“½ï¸ [VideoAnalysis] Aucun projecteur dÃ©tectÃ© â†’ Escalade directe`);
+                // Aucun projecteur détecté, escalade immédiate avec interface standard
+                console.log(`📽️ [VideoAnalysis] Aucun projecteur détecté → Escalade directe`);
                 
-                // CrÃ©er un contexte RAG artificiel pour l'escalade vidÃ©o
+                // Créer un contexte RAG artificiel pour l'escalade vidéo
                 latestRAGContext = {
                     intent: 'video_problem',
                     confidence: 0.9,
@@ -1514,28 +1568,28 @@
                     }],
                     solutions: [],
                     escalation_needed: true,
-                    escalation_reason: "Aucun projecteur dÃ©tectÃ© dans cette salle. L'Ã©quipement vidÃ©o pourrait ne pas Ãªtre rÃ©fÃ©rencÃ© dans le systÃ¨me de monitoring."
+                    escalation_reason: "Aucun projecteur détecté dans cette salle. L'équipement vidéo pourrait ne pas être référencé dans le système de monitoring."
                 };
                 
-                console.log('ðŸŽ« [VideoEscalation] Contexte RAG artificiel crÃ©Ã© avec salle:', currentRoom);
+                console.log('🎫 [VideoEscalation] Contexte RAG artificiel créé avec salle:', currentRoom);
                 
-                // âœ… PAS DE MESSAGE EN BAS - BanniÃ¨re SEA directe plus propre
-                console.log(`ðŸ“½ï¸ [VideoAnalysis] Aucun projecteur â†’ Escalade SEA directe sans message intermÃ©diaire`);
+                // ✅ PAS DE MESSAGE EN BAS - Bannière SEA directe plus propre
+                console.log(`📽️ [VideoAnalysis] Aucun projecteur → Escalade SEA directe sans message intermédiaire`);
                 
-                // âœ… ESCALADE SEA IMMÃ‰DIATE au lieu d'attendre le timeout
+                // ✅ ESCALADE SEA IMMÉDIATE au lieu d'attendre le timeout
                 setTimeout(() => {
                     showSEAEscalationBanner(latestRAGContext);
-                }, 500); // 0.5 seconde pour feedback immÃ©diat
+                }, 500); // 0.5 seconde pour feedback immédiat
                 
-                return true; // Escalade effectuÃ©e
+                return true; // Escalade effectuée
             }
             
-            // âœ… CRITIQUE : Il y a des projecteurs, crÃ©er actions automatiques locales
-            console.log(`ðŸ“½ï¸ [VideoAnalysis] ${projectors.length} projecteur(s) trouvÃ©(s) â†’ CrÃ©er actions automatiques locales`);
+            // ✅ CRITIQUE : Il y a des projecteurs, créer actions automatiques locales
+            console.log(`📽️ [VideoAnalysis] ${projectors.length} projecteur(s) trouvé(s) → Créer actions automatiques locales`);
             
-            // CrÃ©er un contexte RAG artificiel avec actions automatiques pour projecteur
+            // Créer un contexte RAG artificiel avec actions automatiques pour projecteur
             const projector = projectors[0]; // Prendre le premier projecteur
-            console.log(`ðŸŽ¯ [VideoActions] CrÃ©ation actions automatiques pour projecteur: ${projector.device_name || projector.name}`);
+            console.log(`🎯 [VideoActions] Création actions automatiques pour projecteur: ${projector.device_name || projector.name}`);
             
             latestRAGContext = {
                 intent: 'video_problem',
@@ -1545,7 +1599,7 @@
                     room: currentRoom,
                     device: projector.device_name || projector.name,
                     severity: 'high',
-                    reason: 'ProblÃ¨me vidÃ©o projecteur - Ã©cran noir'
+                    reason: 'Problème vidéo projecteur - écran noir'
                 }],
                 solutions: [],
                 escalation_needed: false,
@@ -1553,7 +1607,7 @@
                     {
                         type: 'pjlink_power',
                         device_id: projector.id || 31,
-                        command: 'power_on', // âœ… Format backend
+                        command: 'power_on', // ✅ Format backend
                         description: `Allumer ${projector.device_name || projector.name}`,
                         parameters: {
                             device_name: projector.device_name || projector.name,
@@ -1561,10 +1615,10 @@
                         }
                     },
                     {
-                        type: 'pjlink_av_unmute', // âœ… Nom correct
+                        type: 'pjlink_av_unmute', // ✅ Nom correct
                         device_id: projector.id || 31,
-                        command: 'av_unmute', // âœ… Format backend
-                        description: `DÃ©sactiver AV Mute sur ${projector.device_name || projector.name}`,
+                        command: 'av_unmute', // ✅ Format backend
+                        description: `Désactiver AV Mute sur ${projector.device_name || projector.name}`,
                         parameters: {
                             device_name: projector.device_name || projector.name,
                             video_mute: false,
@@ -1575,111 +1629,111 @@
                 auto_executed: true
             };
             
-            // âœ… VÃ‰RIFIER D'ABORD L'Ã‰TAT RÃ‰EL DU PROJECTEUR AVANT D'AFFICHER BANNIÃˆRE
-            console.log(`ðŸ” [VideoActions] VÃ©rification Ã©tat rÃ©el projecteur avant affichage banniÃ¨re...`);
+            // ✅ VÉRIFIER D'ABORD L'ÉTAT RÉEL DU PROJECTEUR AVANT D'AFFICHER BANNIÈRE
+            console.log(`🔍 [VideoActions] Vérification état réel projecteur avant affichage bannière...`);
             
             try {
-                // âœ… Ã‰TAPE 1 : VÃ©rifier l'Ã©tat d'alimentation (power) du projecteur
-                console.log(`ðŸ”Œ [VideoActions] VÃ©rification Ã©tat d'alimentation du projecteur...`);
+                // ✅ ÉTAPE 1 : Vérifier l'état d'alimentation (power) du projecteur
+                console.log(`🔌 [VideoActions] Vérification état d'alimentation du projecteur...`);
                 
-                // âœ… ESSAI 1 : Endpoint power-status (nouveau)
+                // ✅ ESSAI 1 : Endpoint power-status (nouveau)
                 let powerData = null;
                 try {
                     const powerResponse = await fetch(`${API_BASE_URL}/api/pjlink/power-status?device=PROJ-${currentRoom}`);
                     if (powerResponse.ok) {
                         powerData = await powerResponse.json();
-                        console.log(`ðŸ”Œ [VideoActions] Ã‰tat alimentation (power-status):`, powerData);
+                        console.log(`🔌 [VideoActions] État alimentation (power-status):`, powerData);
                     }
                 } catch (powerError) {
-                    console.log(`âš ï¸ [VideoActions] Endpoint power-status non disponible: ${powerError.message}`);
+                    console.log(`⚠️ [VideoActions] Endpoint power-status non disponible: ${powerError.message}`);
                 }
                 
-                // âœ… ESSAI 2 : Fallback vers av-mute-status (existant) pour dÃ©tecter si projecteur rÃ©pond
+                // ✅ ESSAI 2 : Fallback vers av-mute-status (existant) pour détecter si projecteur répond
                 if (!powerData) {
-                    console.log(`ðŸ”„ [VideoActions] Fallback vers av-mute-status pour dÃ©tecter connectivitÃ©...`);
+                    console.log(`🔄 [VideoActions] Fallback vers av-mute-status pour détecter connectivité...`);
                     const avMuteResponse = await fetch(`${API_BASE_URL}/api/pjlink/av-mute-status?device=PROJ-${currentRoom}`);
                     
                     if (avMuteResponse.ok) {
                         const avMuteData = await avMuteResponse.json();
-                        console.log(`ðŸ”‡ [VideoActions] Ã‰tat AV Mute (fallback):`, avMuteData);
+                        console.log(`🔇 [VideoActions] État AV Mute (fallback):`, avMuteData);
                         
-                        // âœ… Si projecteur rÃ©pond mais pas de AV Mute â†’ ESCALADE DIRECTE
+                        // ✅ Si projecteur répond mais pas de AV Mute → ESCALADE DIRECTE
                         if (!avMuteData.av_muted && avMuteData.device) {
-                            console.log(`ðŸŽ¯ [VideoActions] Projecteur RÃ‰POND + PAS AV Mute â†’ ESCALADE DIRECTE`);
+                            console.log(`🎯 [VideoActions] Projecteur RÉPOND + PAS AV Mute → ESCALADE DIRECTE`);
                             showSEAEscalationBanner(latestRAGContext);
-                            return; // âœ… ARRÃŠTER ICI - Pas de banniÃ¨re d'attente
+                            return; // ✅ ARRÊTER ICI - Pas de bannière d'attente
                         }
                         
-                        // âœ… Si projecteur rÃ©pond ET AV Mute actif â†’ Continuer avec correction
+                        // ✅ Si projecteur répond ET AV Mute actif → Continuer avec correction
                         if (avMuteData.av_muted) {
-                            console.log(`ðŸ”‡ [VideoActions] Projecteur RÃ‰POND + AV Mute actif â†’ Correction automatique`);
+                            console.log(`🔇 [VideoActions] Projecteur RÉPOND + AV Mute actif → Correction automatique`);
                         }
                     } else {
-                        // âœ… Si projecteur ne rÃ©pond pas â†’ Probablement Ã©teint, continuer avec allumage
-                        console.log(`ðŸ”Œ [VideoActions] Projecteur ne rÃ©pond pas â†’ Probablement Ã©teint, continuer avec allumage`);
+                        // ✅ Si projecteur ne répond pas → Probablement éteint, continuer avec allumage
+                        console.log(`🔌 [VideoActions] Projecteur ne répond pas → Probablement éteint, continuer avec allumage`);
                     }
                 } else {
-                    // âœ… Endpoint power-status disponible
+                    // ✅ Endpoint power-status disponible
                     if (powerData.power === 'off' || powerData.power === 'OFF' || !powerData.power) {
-                        console.log(`ðŸ”Œ [VideoActions] Projecteur Ã‰TEINT â†’ Continuer avec allumage automatique`);
+                        console.log(`🔌 [VideoActions] Projecteur ÉTEINT → Continuer avec allumage automatique`);
                     } else {
-                        // âœ… Projecteur allumÃ© â†’ VÃ©rifier AV Mute
-                        console.log(`ðŸ”Œ [VideoActions] Projecteur ALLUMÃ‰ â†’ VÃ©rifier AV Mute...`);
+                        // ✅ Projecteur allumé → Vérifier AV Mute
+                        console.log(`🔌 [VideoActions] Projecteur ALLUMÉ → Vérifier AV Mute...`);
                         const avMuteResponse = await fetch(`${API_BASE_URL}/api/pjlink/av-mute-status?device=PROJ-${currentRoom}`);
                         
                         if (avMuteResponse.ok) {
                             const avMuteData = await avMuteResponse.json();
-                            console.log(`ðŸ”‡ [VideoActions] Ã‰tat AV Mute:`, avMuteData);
+                            console.log(`🔇 [VideoActions] État AV Mute:`, avMuteData);
                             
-                            // âœ… Si projecteur allumÃ© ET pas de AV Mute â†’ ESCALADE DIRECTE
+                            // ✅ Si projecteur allumé ET pas de AV Mute → ESCALADE DIRECTE
                             if (!avMuteData.av_muted && avMuteData.device) {
-                                console.log(`ðŸŽ¯ [VideoActions] Projecteur ALLUMÃ‰ + PAS AV Mute â†’ ESCALADE DIRECTE`);
+                                console.log(`🎯 [VideoActions] Projecteur ALLUMÉ + PAS AV Mute → ESCALADE DIRECTE`);
                                 showSEAEscalationBanner(latestRAGContext);
-                                return; // âœ… ARRÃŠTER ICI - Pas de banniÃ¨re d'attente
+                                return; // ✅ ARRÊTER ICI - Pas de bannière d'attente
                             }
                         }
                     }
                 }
             } catch (error) {
-                console.log(`âš ï¸ [VideoActions] Erreur vÃ©rification Ã©tat: ${error.message} - Continuer avec banniÃ¨re d'attente`);
+                console.log(`⚠️ [VideoActions] Erreur vérification état: ${error.message} - Continuer avec bannière d'attente`);
             }
             
-            // âœ… BANNIÃˆRE D'ATTENTE ORANGE pour diagnostic et actions (minimum 15 secondes)
-            showWaitingBanner('ðŸ” Diagnostic du projecteur...', 'VÃ©rification de l\'Ã©tat et correction en cours');
+            // ✅ BANNIÈRE D'ATTENTE ORANGE pour diagnostic et actions (minimum 15 secondes)
+            showWaitingBanner('🔍 Diagnostic du projecteur...', 'Vérification de l\'état et correction en cours');
             
-            // âœ… MÃ©moriser le moment d'affichage pour dÃ©lai minimum
+            // ✅ Mémoriser le moment d'affichage pour délai minimum
             window.waitingBannerStartTime = Date.now();
             
-            // âœ… MESSAGE ADAPTATIF selon l'Ã©tat probable du projecteur
-            console.log(`ðŸ¤– [VideoActions] Envoi message adaptatif au RAG (seulement si pas escalade directe)`);
+            // ✅ MESSAGE ADAPTATIF selon l'état probable du projecteur
+            console.log(`🤖 [VideoActions] Envoi message adaptatif au RAG (seulement si pas escalade directe)`);
             
-            // Si c'est un nouveau clic aprÃ¨s une correction, changer le message
+            // Si c'est un nouveau clic après une correction, changer le message
             const sessionCorrections = sessionStorage.getItem(`corrections_${currentRoom}`) || '0';
             const nbCorrections = parseInt(sessionCorrections);
             
             let adaptiveMessage;
             if (nbCorrections > 0) {
-                // AprÃ¨s une correction, focus sur l'AV Mute
-                adaptiveMessage = "Le projecteur est allumÃ© mais l'image n'apparaÃ®t pas - Ã©cran noir avec AV Mute";
-                console.log(`ðŸŽ¯ [VideoActions] ${nbCorrections} correction(s) prÃ©cÃ©dente(s) â†’ Focus AV Mute`);
+                // Après une correction, focus sur l'AV Mute
+                adaptiveMessage = "Le projecteur est allumé mais l'image n'apparaît pas - écran noir avec AV Mute";
+                console.log(`🎯 [VideoActions] ${nbCorrections} correction(s) précédente(s) → Focus AV Mute`);
             } else {
-                // Premier problÃ¨me : power on classique
-                adaptiveMessage = "Le projecteur ne s'allume pas et l'Ã©cran reste noir";
-                console.log(`ðŸŽ¯ [VideoActions] Premier problÃ¨me â†’ Focus Power ON`);
+                // Premier problème : power on classique
+                adaptiveMessage = "Le projecteur ne s'allume pas et l'écran reste noir";
+                console.log(`🎯 [VideoActions] Premier problème → Focus Power ON`);
             }
             
             sendProblemToVitrine(adaptiveMessage, currentRoom);
             
-            return true; // Traitement effectuÃ© localement
+            return true; // Traitement effectué localement
         }
         
         // ===== FONCTION POUR APPEL VITRINE =====
         
         async function sendProblemToVitrine(message, roomName) {
-            console.log(`ðŸŒ [VitrineCall] Envoi vers /api/copilot/vitrine: "${message}"`);
+            console.log(`🌐 [VitrineCall] Envoi vers /api/copilot/vitrine: "${message}"`);
             
             try {
-                // âœ… S'assurer d'utiliser le bon backend
+                // ✅ S'assurer d'utiliser le bon backend
                 await ensureBackendConnection();
                 
                 const response = await fetch(`${currentAPI}/api/copilot/vitrine`, {
@@ -1696,8 +1750,8 @@
                             timestamp: new Date().toISOString(),
                             room_info: {
                                 room: roomName,
-                                pavilion: roomName.split('-')[0], // Ex: J-2430 â†’ J
-                                room_number: roomName.split('-')[1] // Ex: J-2430 â†’ 2430
+                                pavilion: roomName.split('-')[0], // Ex: J-2430 → J
+                                room_number: roomName.split('-')[1] // Ex: J-2430 → 2430
                             },
                             equipment_context: roomName === 'J-2430' ? {
                                 projectors: [{
@@ -1705,8 +1759,8 @@
                                     name: 'PROJ-J-2430',
                                     address: '132.208.119.121',
                                     technology: 'PJLINK',
-                                    status: 'online', // âœ… Projecteur maintenant allumÃ©
-                                    issues: ['av_mute_active'] // âœ… Mais AV Mute actif
+                                    status: 'online', // ✅ Projecteur maintenant allumé
+                                    issues: ['av_mute_active'] // ✅ Mais AV Mute actif
                                 }],
                                 mersive: [{
                                     id: 32,
@@ -1725,14 +1779,14 @@
                 }
                 
                 const data = await response.json();
-                console.log(`ðŸ“¥ [VitrineCall] RÃ©ponse reÃ§ue:`, data);
+                console.log(`📥 [VitrineCall] Réponse reçue:`, data);
                 
-                // Traiter la rÃ©ponse comme les autres rÃ©ponses backend
+                // Traiter la réponse comme les autres réponses backend
                 processResponse(data);
                 
             } catch (error) {
-                console.error(`âŒ [VitrineCall] Erreur:`, error);
-                // En cas d'erreur, afficher un message Ã  l'utilisateur
+                console.error(`❌ [VitrineCall] Erreur:`, error);
+                // En cas d'erreur, afficher un message à l'utilisateur
                 showAutoActionResult(
                     { type: 'error', description: 'Appel backend' }, 
                     { success: false, message: `Erreur de connexion backend: ${error.message}` }
@@ -1744,196 +1798,196 @@
         function analyzeMessageType(message) {
             const lowerMessage = message.toLowerCase();
             
-            // Mots-clÃ©s pour Ã©quipements AV dans le systÃ¨me SavQonnect
+            // Mots-clés pour équipements AV dans le système SavQonnect
             const avSystemKeywords = [
                 // Projecteurs
-                'projecteur', 'projector', 'pjlink', 'Ã©cran', 'screen', 'affichage', 'display',
-                'image', 'vidÃ©o', 'video', 'noir', 'blanc', 'flou', 'floue', 'pixelisÃ©',
+                'projecteur', 'projector', 'pjlink', 'écran', 'screen', 'affichage', 'display',
+                'image', 'vidéo', 'video', 'noir', 'blanc', 'flou', 'floue', 'pixelisé',
                 
                 // Audio Sennheiser
                 'microphone', 'micro', 'son', 'audio', 'volume', 'sennheiser', 'tcc2',
-                'mute', 'muet', 'sourdine', 'grÃ©sille', 'parasite', 'larsen',
+                'mute', 'muet', 'sourdine', 'grésille', 'parasite', 'larsen',
                 
                 // Crestron
-                'crestron', 'Ã©cran tactile', 'touchscreen', 'panneau de contrÃ´le',
-                'interface de contrÃ´le', 'tÃ©lÃ©commande'
+                'crestron', 'écran tactile', 'touchscreen', 'panneau de contrôle',
+                'interface de contrôle', 'télécommande'
             ];
             
-            // Mots-clÃ©s pour Ã©quipements AV hors systÃ¨me (mais toujours SEA)
+            // Mots-clés pour équipements AV hors système (mais toujours SEA)
             const avExternalKeywords = [
-                // Ã‰quipements AV gÃ©nÃ©riques non spÃ©cifiques au systÃ¨me
+                // Équipements AV génériques non spécifiques au système
                 'haut-parleur', 'speaker', 'amplificateur', 'ampli', 'console audio',
-                'table de mixage', 'mixer', 'camÃ©ra', 'webcam', 'visualiseur',
+                'table de mixage', 'mixer', 'caméra', 'webcam', 'visualiseur',
                 'dvd', 'blu-ray', 'lecteur', 'player', 'hdmi', 'vga', 'usb',
                 'casque', 'headset', 'casque audio', 'jack', 'connecteur',
-                'cÃ¢ble audio', 'cÃ¢ble vidÃ©o', 'adaptateur', 'convertisseur'
+                'câble audio', 'câble vidéo', 'adaptateur', 'convertisseur'
             ];
             
-            // Mots-clÃ©s pour problÃ¨mes non-audiovisuels
+            // Mots-clés pour problèmes non-audiovisuels
             const nonAVKeywords = [
-                // Ã‰lectricitÃ©
-                'Ã©lectricitÃ©', 'Ã©lectrique', 'prise', 'prises', 'courant', 'lumiÃ¨re', 'Ã©clairage',
-                'ampoule', 'lampe', 'nÃ©on', 'disjoncteur', 'fusible', 'interrupteur',
+                // Électricité
+                'électricité', 'électrique', 'prise', 'prises', 'courant', 'lumière', 'éclairage',
+                'ampoule', 'lampe', 'néon', 'disjoncteur', 'fusible', 'interrupteur',
                 
                 // Plomberie
                 'plomberie', 'eau', 'robinet', 'toilette', 'chasse d\'eau', 'lavabo',
-                'Ã©vier', 'fuite', 'bouchon', 'inondation', 'dÃ©gÃ¢t d\'eau',
+                'évier', 'fuite', 'bouchon', 'inondation', 'dégât d\'eau',
                 
                 // Chauffage/Climatisation
-                'chauffage', 'radiateur', 'calorifÃ¨re', 'thermopompe', 'thermostat',
-                'climatisation', 'clim', 'air conditionnÃ©', 'ventilation', 'tempÃ©rature',
+                'chauffage', 'radiateur', 'calorifère', 'thermopompe', 'thermostat',
+                'climatisation', 'clim', 'air conditionné', 'ventilation', 'température',
                 
                 // Mobilier et structure
-                'mobilier', 'chaise', 'table', 'bureau', 'porte', 'fenÃªtre', 'serrure',
-                'clÃ©', 'nettoyage', 'mÃ©nage', 'poubelle', 'dÃ©chets'
+                'mobilier', 'chaise', 'table', 'bureau', 'porte', 'fenêtre', 'serrure',
+                'clé', 'nettoyage', 'ménage', 'poubelle', 'déchets'
             ];
             
-            // Mots-clÃ©s hors scope (pas des problÃ¨mes)
+            // Mots-clés hors scope (pas des problèmes)
             const outOfScopeKeywords = [
                 // Salutations
                 'bonjour', 'bonsoir', 'salut', 'hello', 'hi',
                 
-                // Questions gÃ©nÃ©rales
-                'comment Ã§a va', 'quoi de neuf', 'comment allez-vous',
+                // Questions générales
+                'comment ça va', 'quoi de neuf', 'comment allez-vous',
                 'qu\'est-ce que tu fais', 'que fais-tu',
                 
-                // Demandes d'aide gÃ©nÃ©rale
+                // Demandes d'aide générale
                 'aide-moi', 'peux-tu m\'aider', 'j\'ai besoin d\'aide',
-                'que peux-tu faire', 'tes fonctionnalitÃ©s',
+                'que peux-tu faire', 'tes fonctionnalités',
                 
                 // Discussions
                 'parle-moi', 'raconte-moi', 'dis-moi', 'explique-moi',
-                'mÃ©tÃ©o', 'actualitÃ©', 'nouvelles', 'sport'
+                'météo', 'actualité', 'nouvelles', 'sport'
             ];
             
-            // VÃ©rifier si c'est un problÃ¨me technique valide
+            // Vérifier si c'est un problème technique valide
             const problemIndicators = [
-                'problÃ¨me', 'panne', 'ne fonctionne pas', 'ne marche pas', 'dÃ©faillant',
-                'en panne', 'cassÃ©', 'ne s\'allume pas', 'ne rÃ©pond pas', 'dysfonctionnement',
-                'pas de', 'aucun', 'rien', 'bloquÃ©', 'figÃ©', 'lent', 'erreur'
+                'problème', 'panne', 'ne fonctionne pas', 'ne marche pas', 'défaillant',
+                'en panne', 'cassé', 'ne s\'allume pas', 'ne répond pas', 'dysfonctionnement',
+                'pas de', 'aucun', 'rien', 'bloqué', 'figé', 'lent', 'erreur'
             ];
             
             const hasProblemIndicator = problemIndicators.some(indicator => 
                 lowerMessage.includes(indicator)
             );
             
-            // Classification par prioritÃ©
+            // Classification par priorité
             
-            // 1. VÃ©rifier si c'est hors scope
+            // 1. Vérifier si c'est hors scope
             if (outOfScopeKeywords.some(keyword => lowerMessage.includes(keyword))) {
                 return {
                     type: 4,
                     category: 'out_of_scope',
-                    description: 'Demande hors scope - pas un problÃ¨me audiovisuel',
+                    description: 'Demande hors scope - pas un problème audiovisuel',
                     needsRoom: false
                 };
             }
             
-            // 2. VÃ©rifier si c'est non-audiovisuel (prioritÃ© haute)
+            // 2. Vérifier si c'est non-audiovisuel (priorité haute)
             if (nonAVKeywords.some(keyword => lowerMessage.includes(keyword))) {
-                console.log(`ðŸ¢ [NonAV] DÃ©tection problÃ¨me non-audiovisuel: "${message}" contient mot-clÃ© immeubles`);
+                console.log(`🏢 [NonAV] Détection problème non-audiovisuel: "${message}" contient mot-clé immeubles`);
                 return {
                     type: 3,
                     category: 'non_audiovisual',
-                    description: 'ProblÃ¨me non-audiovisuel - service des immeubles',
+                    description: 'Problème non-audiovisuel - service des immeubles',
                     needsRoom: false
                 };
             }
             
-            // 3. VÃ©rifier si c'est AV dans le systÃ¨me
+            // 3. Vérifier si c'est AV dans le système
             if (avSystemKeywords.some(keyword => lowerMessage.includes(keyword))) {
                 return {
                     type: 1,
                     category: 'av_system',
-                    description: 'ProblÃ¨me Ã©quipement AV dans le systÃ¨me SavQonnect',
+                    description: 'Problème équipement AV dans le système SavQonnect',
                     needsRoom: !hasRoomInformation(message),
                     hasEquipment: true
                 };
             }
             
-            // 4. VÃ©rifier si c'est AV externe
+            // 4. Vérifier si c'est AV externe
             if (avExternalKeywords.some(keyword => lowerMessage.includes(keyword))) {
                 return {
                     type: 2,
                     category: 'av_external',
-                    description: 'ProblÃ¨me Ã©quipement AV hors systÃ¨me - redirection SEA',
+                    description: 'Problème équipement AV hors système - redirection SEA',
                     needsRoom: !hasRoomInformation(message),
                     hasEquipment: true
                 };
             }
             
-            // 5. Si c'est un problÃ¨me mais pas clairement catÃ©gorisÃ©
+            // 5. Si c'est un problème mais pas clairement catégorisé
             if (hasProblemIndicator) {
-                // Assumer que c'est potentiellement AV si c'est un problÃ¨me technique
+                // Assumer que c'est potentiellement AV si c'est un problème technique
                 return {
                     type: 1,
                     category: 'av_system_assumed',
-                    description: 'ProblÃ¨me technique - assume Ã©quipement AV systÃ¨me',
+                    description: 'Problème technique - assume équipement AV système',
                     needsRoom: !hasRoomInformation(message),
                     hasEquipment: false
                 };
             }
             
-            // 6. Par dÃ©faut, considÃ©rer comme hors scope
+            // 6. Par défaut, considérer comme hors scope
             return {
                 type: 4,
                 category: 'out_of_scope',
-                description: 'Demande non identifiÃ©e - hors scope',
+                description: 'Demande non identifiée - hors scope',
                 needsRoom: false
             };
         }
 
         /**
-         * VÃ©rifie si le message contient des informations sur la salle
+         * Vérifie si le message contient des informations sur la salle
          */
         function hasRoomInformation(message) {
             // Rechercher les patterns de salle (ex: A-1750, a-1730, B-2500, SH-R200, DS-4000, etc.)
             const roomPattern = /\b([a-zA-Z]{1,2})-?([a-zA-Z]?\d{3,4})\b/i;
             const hasRoom = roomPattern.test(message);
             
-            // Rechercher mentions de pavillon/bÃ¢timent
-            const buildingPattern = /\b(pavillon|bÃ¢timent|building)\s+([a-zA-Z]{1,2})\b/i;
+            // Rechercher mentions de pavillon/bâtiment
+            const buildingPattern = /\b(pavillon|bâtiment|building)\s+([a-zA-Z]{1,2})\b/i;
             const hasBuilding = buildingPattern.test(message);
             
-            console.log(`ðŸ” [RoomDetection] Message: "${message}", Pattern dÃ©tectÃ©: ${hasRoom || hasBuilding}`);
+            console.log(`🔍 [RoomDetection] Message: "${message}", Pattern détecté: ${hasRoom || hasBuilding}`);
             return hasRoom || hasBuilding;
         }
 
         /**
-         * GÃ¨re les messages hors scope
+         * Gère les messages hors scope
          */
         function handleOutOfScopeMessage(message) {
-            addMessage('system', 'ðŸ¤– Je suis votre assistant audiovisuel pour cette salle. Je peux vous aider avec les problÃ¨mes de projecteur, microphone, son, etc. Que puis-je faire pour vous ?', {
-                suggestions: ['ProblÃ¨me projecteur', 'ProblÃ¨me audio', 'ProblÃ¨me rÃ©seau']
+            addMessage('system', '🤖 Je suis votre assistant audiovisuel pour cette salle. Je peux vous aider avec les problèmes de projecteur, microphone, son, etc. Que puis-je faire pour vous ?', {
+                suggestions: ['Problème projecteur', 'Problème audio', 'Problème réseau']
             });
         }
 
         /**
-         * GÃ¨re les problÃ¨mes rÃ©seau avec banniÃ¨re moderne Services Informatiques
+         * Gère les problèmes réseau avec bannière moderne Services Informatiques
          */
         function handleNetworkProblem(message) {
-            console.log('ðŸ’» [SIEscalation] Affichage de la banniÃ¨re Services Informatiques pour problÃ¨me rÃ©seau');
+            console.log('💻 [SIEscalation] Affichage de la bannière Services Informatiques pour problème réseau');
             
-            // âœ… CORRECTION: Fermer toutes les banniÃ¨res SI existantes AVANT d'en crÃ©er une nouvelle
+            // ✅ CORRECTION: Fermer toutes les bannières SI existantes AVANT d'en créer une nouvelle
             const existingSiBanners = document.querySelectorAll('[id^="escalation_si_"]');
             const existingSiOverlays = document.querySelectorAll('[id^="overlay_escalation_si_"]');
             
             existingSiBanners.forEach(banner => {
-                console.log(`ðŸš« [CleanupSIBanner] Suppression banniÃ¨re SI existante: ${banner.id}`);
+                console.log(`🚫 [CleanupSIBanner] Suppression bannière SI existante: ${banner.id}`);
                 banner.remove();
             });
             
             existingSiOverlays.forEach(overlay => {
-                console.log(`ðŸš« [CleanupSIOverlay] Suppression overlay SI existant: ${overlay.id}`);
+                console.log(`🚫 [CleanupSIOverlay] Suppression overlay SI existant: ${overlay.id}`);
                 overlay.remove();
             });
             
             const currentRoom = getCurrentRoom();
             
-            // CrÃ©er la banniÃ¨re SI avec overlay plein Ã©cran
+            // Créer la bannière SI avec overlay plein écran
             const escalationId = `escalation_si_${Date.now()}`;
             
-            // CrÃ©er l'overlay plein Ã©cran avec flou agressif
+            // Créer l'overlay plein écran avec flou agressif
             const overlayDiv = document.createElement('div');
             overlayDiv.id = `overlay_${escalationId}`;
             overlayDiv.style.cssText = `
@@ -1948,7 +2002,7 @@
                 cursor: pointer;
             `;
             
-            // CrÃ©er la banniÃ¨re SI
+            // Créer la bannière SI
             const escalationDiv = document.createElement('div');
             escalationDiv.id = escalationId;
             escalationDiv.className = 'escalation-compact fade-in';
@@ -1977,23 +2031,23 @@
                     </div>
                     <div class="escalation-text">
                         <strong style="color: black !important; font-weight: 600; font-size: 1.4rem; display: block; margin-bottom: 0.5rem;">Services Informatiques UQAM</strong>
-                        <span class="escalation-subtitle" style="color: black !important; font-weight: 700; font-size: 1.1rem;">ProblÃ¨me rÃ©seau - Salle ${currentRoom}</span>
+                        <span class="escalation-subtitle" style="color: black !important; font-weight: 700; font-size: 1.1rem;">Problème réseau - Salle ${currentRoom}</span>
                     </div>
                     </div>
                     
                 <div class="si-contact-content" style="margin: 1.5rem 0; text-align: left;">
                     <p style="color: black !important; font-size: 1rem; line-height: 1.5; margin-bottom: 1.5rem;">
-                        Pour les problÃ¨mes de rÃ©seau, connectivitÃ© Internet, Wi-Fi, ou Ã©quipements informatiques dans la salle ${currentRoom}, veuillez contacter les Services Informatiques.
+                        Pour les problèmes de réseau, connectivité Internet, Wi-Fi, ou équipements informatiques dans la salle ${currentRoom}, veuillez contacter les Services Informatiques.
                     </p>
                     
                     <div class="si-contact-info" style="background: rgba(0,0,0,0.05); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
                         <div class="si-contact-primary" style="display: flex; align-items: center; margin-bottom: 0.75rem; gap: 0.5rem;">
-                            <span style="font-size: 1.2rem;">ðŸ“ž</span>
+                            <span style="font-size: 1.2rem;">📞</span>
                             <strong style="color: black !important; font-size: 1.1rem;">SI : 514-987-3000</strong>
                             <span style="color: black !important; opacity: 0.7; font-size: 0.9rem;">(poste 5050)</span>
                             </div>
                         <div class="si-contact-secondary" style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.2rem;">ðŸŒ</span>
+                            <span style="font-size: 1.2rem;">🌐</span>
                             <a href="https://servicesinformatiques.uqam.ca/" target="_blank" style="color: #2196F3; text-decoration: none; font-weight: 500;">servicesinformatiques.uqam.ca</a>
                         </div>
                             </div>
@@ -2011,7 +2065,7 @@
                         font-size: 0.9rem;
                         transition: all 0.3s ease;
                     " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                        âœ• Fermer
+                        ✕ Fermer
                     </button>
                     <button class="escalation-btn primary" onclick="window.open('tel:514-987-3000', '_self')" style="
                         color: black !important;
@@ -2024,7 +2078,7 @@
                         font-size: 0.9rem;
                         transition: all 0.3s ease;
                     " onmouseover="this.style.background='rgba(255,255,255,1)'" onmouseout="this.style.background='rgba(255,255,255,0.9)'">
-                        ðŸ“ž Appeler SI
+                        📞 Appeler SI
                     </button>
                     <button class="escalation-btn primary" onclick="window.open('https://servicesinformatiques.uqam.ca/', '_blank')" style="
                         color: black !important;
@@ -2037,56 +2091,56 @@
                         font-size: 0.9rem;
                         transition: all 0.3s ease;
                     " onmouseover="this.style.background='rgba(255,255,255,1)'" onmouseout="this.style.background='rgba(255,255,255,0.9)'">
-                        ðŸŒ Site web
+                        🌐 Site web
                     </button>
                         </div>
             `;
             
-            // âœ… CORRECTION: Fermer au clic sur l'overlay mais PAS sur les Ã©lÃ©ments internes
+            // ✅ CORRECTION: Fermer au clic sur l'overlay mais PAS sur les éléments internes
             overlayDiv.onclick = (event) => {
                 if (event.target === overlayDiv) {
                     closeEscalationBanner(escalationId);
                 }
             };
             
-            // âœ… EmpÃªcher la propagation des Ã©vÃ©nements depuis la banniÃ¨re
+            // ✅ Empêcher la propagation des événements depuis la bannière
             escalationDiv.onclick = (event) => {
                 event.stopPropagation();
             };
             
-            // Ajouter l'overlay et la banniÃ¨re au body
+            // Ajouter l'overlay et la bannière au body
             document.body.appendChild(overlayDiv);
             document.body.appendChild(escalationDiv);
             
-            console.log(`ðŸ’» [SIBanner] BanniÃ¨re Services Informatiques affichÃ©e pour salle ${currentRoom}`);
+            console.log(`💻 [SIBanner] Bannière Services Informatiques affichée pour salle ${currentRoom}`);
         }
 
         /**
-         * GÃ¨re les problÃ¨mes non-audiovisuels avec banniÃ¨re moderne SIM
+         * Gère les problèmes non-audiovisuels avec bannière moderne SIM
          */
         function handleNonAudiovisualProblem(message) {
-            console.log('ðŸ¢ [SIMEscalation] Affichage de la banniÃ¨re SIM pour problÃ¨me non-audiovisuel');
+            console.log('🏢 [SIMEscalation] Affichage de la bannière SIM pour problème non-audiovisuel');
             
-            // âœ… CORRECTION: Fermer toutes les banniÃ¨res SIM existantes AVANT d'en crÃ©er une nouvelle
+            // ✅ CORRECTION: Fermer toutes les bannières SIM existantes AVANT d'en créer une nouvelle
             const existingSimBanners = document.querySelectorAll('[id^="escalation_sim_"]');
             const existingSimOverlays = document.querySelectorAll('[id^="overlay_escalation_sim_"]');
             
             existingSimBanners.forEach(banner => {
-                console.log(`ðŸš« [CleanupSIMBanner] Suppression banniÃ¨re SIM existante: ${banner.id}`);
+                console.log(`🚫 [CleanupSIMBanner] Suppression bannière SIM existante: ${banner.id}`);
                 banner.remove();
             });
             
             existingSimOverlays.forEach(overlay => {
-                console.log(`ðŸš« [CleanupSIMOverlay] Suppression overlay SIM existant: ${overlay.id}`);
+                console.log(`🚫 [CleanupSIMOverlay] Suppression overlay SIM existant: ${overlay.id}`);
                 overlay.remove();
             });
             
             const currentRoom = getCurrentRoom();
             
-            // CrÃ©er la banniÃ¨re SIM avec overlay plein Ã©cran
+            // Créer la bannière SIM avec overlay plein écran
             const escalationId = `escalation_sim_${Date.now()}`;
             
-            // CrÃ©er l'overlay plein Ã©cran avec flou agressif
+            // Créer l'overlay plein écran avec flou agressif
             const overlayDiv = document.createElement('div');
             overlayDiv.id = `overlay_${escalationId}`;
             overlayDiv.style.cssText = `
@@ -2101,7 +2155,7 @@
                 cursor: pointer;
             `;
             
-            // CrÃ©er la banniÃ¨re SIM
+            // Créer la bannière SIM
             const escalationDiv = document.createElement('div');
             escalationDiv.id = escalationId;
             escalationDiv.className = 'escalation-compact fade-in';
@@ -2130,23 +2184,23 @@
                     </div>
                     <div class="escalation-text">
                         <strong style="color: black !important; font-weight: 600; font-size: 1.4rem; display: block; margin-bottom: 0.5rem;">Service des Immeubles UQAM</strong>
-                        <span class="escalation-subtitle" style="color: black !important; font-weight: 700; font-size: 1.1rem;">ProblÃ¨me non-audiovisuel - Salle ${currentRoom}</span>
+                        <span class="escalation-subtitle" style="color: black !important; font-weight: 700; font-size: 1.1rem;">Problème non-audiovisuel - Salle ${currentRoom}</span>
                     </div>
                 </div>
                 
                 <div class="sim-contact-content" style="margin: 1.5rem 0; text-align: left;">
                     <p style="color: black !important; font-size: 1rem; line-height: 1.5; margin-bottom: 1.5rem;">
-                        Pour les problÃ¨mes d'infrastructure, d'Ã©lectricitÃ©, de plomberie, de chauffage ou de climatisation dans la salle ${currentRoom}, veuillez contacter le Service des Immeubles.
+                        Pour les problèmes d'infrastructure, d'électricité, de plomberie, de chauffage ou de climatisation dans la salle ${currentRoom}, veuillez contacter le Service des Immeubles.
                     </p>
                     
                     <div class="sim-contact-info" style="background: rgba(0,0,0,0.05); padding: 1rem; border-radius: 8px; margin: 1rem 0;">
                         <div class="sim-contact-primary" style="display: flex; align-items: center; margin-bottom: 0.75rem; gap: 0.5rem;">
-                            <span style="font-size: 1.2rem;">ðŸ“ž</span>
+                            <span style="font-size: 1.2rem;">📞</span>
                             <strong style="color: black !important; font-size: 1.1rem;">SIM : 514-987-3141</strong>
                             <span style="color: black !important; opacity: 0.7; font-size: 0.9rem;">(poste 3141)</span>
                         </div>
                         <div class="sim-contact-secondary" style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-size: 1.2rem;">ðŸŒ</span>
+                            <span style="font-size: 1.2rem;">🌐</span>
                             <a href="https://sim.uqam.ca/" target="_blank" style="color: #2196F3; text-decoration: none; font-weight: 500;">sim.uqam.ca</a>
                         </div>
                     </div>
@@ -2164,7 +2218,7 @@
                         font-size: 0.9rem;
                         transition: all 0.3s ease;
                     " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                        âœ• Fermer
+                        ✕ Fermer
                     </button>
                     <button class="escalation-btn primary" onclick="window.open('tel:514-987-3141', '_self')" style="
                         color: black !important;
@@ -2177,7 +2231,7 @@
                         font-size: 0.9rem;
                         transition: all 0.3s ease;
                     " onmouseover="this.style.background='rgba(255,255,255,1)'" onmouseout="this.style.background='rgba(255,255,255,0.9)'">
-                        ðŸ“ž Appeler SIM
+                        📞 Appeler SIM
                     </button>
                     <button class="escalation-btn primary" onclick="window.open('https://sim.uqam.ca/', '_blank')" style="
                         color: black !important;
@@ -2190,56 +2244,56 @@
                         font-size: 0.9rem;
                         transition: all 0.3s ease;
                     " onmouseover="this.style.background='rgba(255,255,255,1)'" onmouseout="this.style.background='rgba(255,255,255,0.9)'">
-                        ðŸŒ Site web
+                        🌐 Site web
                     </button>
                 </div>
             `;
             
-            // âœ… CORRECTION: Fermer au clic sur l'overlay mais PAS sur les Ã©lÃ©ments internes
+            // ✅ CORRECTION: Fermer au clic sur l'overlay mais PAS sur les éléments internes
             overlayDiv.onclick = (event) => {
                 if (event.target === overlayDiv) {
                     closeEscalationBanner(escalationId);
                 }
             };
             
-            // âœ… EmpÃªcher la propagation des Ã©vÃ©nements depuis la banniÃ¨re
+            // ✅ Empêcher la propagation des événements depuis la bannière
             escalationDiv.onclick = (event) => {
                 event.stopPropagation();
             };
             
-            // Ajouter l'overlay et la banniÃ¨re au body
+            // Ajouter l'overlay et la bannière au body
             document.body.appendChild(overlayDiv);
             document.body.appendChild(escalationDiv);
             
-            console.log(`ðŸ¢ [SIMBanner] BanniÃ¨re SIM affichÃ©e pour salle ${currentRoom}`);
+            console.log(`🏢 [SIMBanner] Bannière SIM affichée pour salle ${currentRoom}`);
         }
 
         /**
-         * GÃ¨re les problÃ¨mes AV externes avec salle
+         * Gère les problèmes AV externes avec salle
          */
         function handleExternalAVProblemWithRoom(message) {
             const currentRoom = getCurrentRoom();
-            addMessage('system', `ðŸ“ž <strong>Contact SEA</strong><br><br>Pour ce type d'Ã©quipement dans la salle ${currentRoom}, veuillez contacter directement le SEA au <strong>6135</strong>.`, {
-                suggestions: ['Appeler SEA', 'ProblÃ¨me systÃ¨me', 'Autre salle']
+            addMessage('system', `📞 <strong>Contact SEA</strong><br><br>Pour ce type d'équipement dans la salle ${currentRoom}, veuillez contacter directement le SEA au <strong>6135</strong>.`, {
+                suggestions: ['Appeler SEA', 'Problème système', 'Autre salle']
             });
         }
 
-        // âœ… NOUVEAU: Timer d'escalade automatique pour Ã©viter les blocages
+        // ✅ NOUVEAU: Timer d'escalade automatique pour éviter les blocages
         let escalationTimeoutId = null;
         
         function startEscalationTimeout(problemType, room) {
-            // Annuler le timer prÃ©cÃ©dent si existant
+            // Annuler le timer précédent si existant
             if (escalationTimeoutId) {
                 clearTimeout(escalationTimeoutId);
             }
             
             escalationTimeoutId = setTimeout(() => {
-                console.log(`â° [EscalationTimeout] Timeout atteint pour problÃ¨me ${problemType} â†’ Escalade forcÃ©e`);
+                console.log(`⏰ [EscalationTimeout] Timeout atteint pour problème ${problemType} → Escalade forcée`);
                 
-                // âœ… CORRECTION: VÃ©rifier les tickets existants AVANT l'escalade par timeout
+                // ✅ CORRECTION: Vérifier les tickets existants AVANT l'escalade par timeout
                 if (hasExistingTicket(room)) {
                     const lastTicket = getLastSessionTicket(room);
-                    console.log(`ðŸŽ« [EscalationTimeout] Timeout mais ticket ${lastTicket.number} existe â†’ BanniÃ¨re ticket existant`);
+                    console.log(`🎫 [EscalationTimeout] Timeout mais ticket ${lastTicket.number} existe → Bannière ticket existant`);
                     showExistingTicketBanner(lastTicket);
                 } else {
                     showSEAEscalationBanner({
@@ -2247,36 +2301,36 @@
                         confidence: 0.95,
                         room: room,
                         escalation_needed: true,
-                        escalation_reason: `Aucune correction automatique trouvÃ©e - Intervention technique requise`
+                        escalation_reason: `Aucune correction automatique trouvée - Intervention technique requise`
                     });
                 }
-            }, 10000); // âœ… 10 secondes pour laisser le temps au RAG de rÃ©pondre
+            }, 10000); // ✅ 10 secondes pour laisser le temps au RAG de répondre
         }
         
         function clearEscalationTimeout() {
             if (escalationTimeoutId) {
                 clearTimeout(escalationTimeoutId);
                 escalationTimeoutId = null;
-                console.log('â° [EscalationTimeout] Timer d\'escalade annulÃ©');
+                console.log('⏰ [EscalationTimeout] Timer d\'escalade annulé');
             }
         }
 
-        // ===== BANNIÃˆRE D'ALLUMAGE PROJECTEUR (inspirÃ©e modale PJLink) =====
+        // ===== BANNIÈRE D'ALLUMAGE PROJECTEUR (inspirée modale PJLink) =====
         
         function showProjectorPoweringBanner(roomName) {
-            console.log(`ðŸ”Œ [ProjectorPower] BanniÃ¨re allumage projecteur pour ${roomName}`);
+            console.log(`🔌 [ProjectorPower] Bannière allumage projecteur pour ${roomName}`);
             
-            // âœ… CORRECTION : Masquer le sablier diagnostic car banniÃ¨re projecteur prend le relais
+            // ✅ CORRECTION : Masquer le sablier diagnostic car bannière projecteur prend le relais
             hideDiagnosticLoading();
-            console.log('âœ… [ProjectorPower] Sablier diagnostic masquÃ© - BanniÃ¨re projecteur prend le relais');
+            console.log('✅ [ProjectorPower] Sablier diagnostic masqué - Bannière projecteur prend le relais');
             
-            // Supprimer une Ã©ventuelle banniÃ¨re existante
+            // Supprimer une éventuelle bannière existante
             const existingBanner = document.getElementById('projector-powering-banner');
             if (existingBanner) {
                 existingBanner.remove();
             }
             
-            // CrÃ©er la banniÃ¨re d'allumage
+            // Créer la bannière d'allumage
             const banner = document.createElement('div');
             banner.id = 'projector-powering-banner';
             banner.className = 'projector-powering-banner show';
@@ -2287,7 +2341,7 @@
                         <i class="fas fa-power-off warming-rotation"></i>
                     </div>
                     <div class="powering-text">
-                        <h3>ðŸ”Œ Allumage du projecteur en cours...</h3>
+                        <h3>🔌 Allumage du projecteur en cours...</h3>
                         <p>Salle ${roomName} - Patientez pendant la mise sous tension</p>
                         <div class="power-progress">
                             <div class="progress-bar">
@@ -2300,22 +2354,22 @@
             
             document.body.appendChild(banner);
             
-            // Commencer la surveillance de l'Ã©tat du projecteur
+            // Commencer la surveillance de l'état du projecteur
             startProjectorStatusMonitoring(roomName);
         }
         
         function startProjectorStatusMonitoring(roomName) {
-            console.log(`ðŸ‘ï¸ [ProjectorMonitoring] Surveillance Ã©tat projecteur ${roomName}`);
+            console.log(`👁️ [ProjectorMonitoring] Surveillance état projecteur ${roomName}`);
             
             let checkCount = 0;
             const maxChecks = 30; // 30 checks = 30 secondes max
             
             const monitoringInterval = setInterval(async () => {
                 checkCount++;
-                console.log(`ðŸ” [ProjectorMonitoring] Check ${checkCount}/${maxChecks} pour ${roomName}`);
+                console.log(`🔍 [ProjectorMonitoring] Check ${checkCount}/${maxChecks} pour ${roomName}`);
                 
                 try {
-                    // âœ… UTILISER API TEMPS RÃ‰EL au lieu du cache
+                    // ✅ UTILISER API TEMPS RÉEL au lieu du cache
                     const response = await fetch(`${currentAPI}/api/room/equipment?room=${encodeURIComponent(roomName)}&refresh=true`);
                     
                     if (response.ok) {
@@ -2324,9 +2378,9 @@
                             const projector = data.devices.find(d => d.technology === 'PJLINK' || d.family_type === 'PJLINK');
                             
                             if (projector) {
-                                console.log(`ðŸ“Š [ProjectorMonitoring] Ã‰tat projecteur: ${projector.status}, Power: ${projector.power_state}`);
+                                console.log(`📊 [ProjectorMonitoring] État projecteur: ${projector.status}, Power: ${projector.power_state}`);
                                 
-                                // âœ… CRITÃˆRES PLUS LARGES pour dÃ©tecter l'allumage
+                                // ✅ CRITÈRES PLUS LARGES pour détecter l'allumage
                                 const isProjectorOn = projector.status === 'online' || 
                                                     projector.status === 'ON' || 
                                                     projector.power_state === 'ON' ||
@@ -2334,16 +2388,16 @@
                                                     projector.power_state === 'WARMING_UP';
                                 
                                 if (isProjectorOn) {
-                                    console.log(`âœ… [ProjectorMonitoring] Projecteur allumÃ© ! Transition vers AV Mute`);
+                                    console.log(`✅ [ProjectorMonitoring] Projecteur allumé ! Transition vers AV Mute`);
                                     clearInterval(monitoringInterval);
                                     
-                                    // âœ… ATTENDRE 3 SECONDES avant AV Mute (temps de stabilisation)
+                                    // ✅ ATTENDRE 3 SECONDES avant AV Mute (temps de stabilisation)
                                     setTimeout(() => {
                                         updateProjectorBannerToAVMute(roomName);
                                         
-                                                                // âœ… VÃ‰RIFIER ET CORRIGER AV MUTE automatiquement
+                                                                // ✅ VÉRIFIER ET CORRIGER AV MUTE automatiquement
                         setTimeout(async () => {
-                            console.log(`ðŸŽ¯ [ProjectorMonitoring] VÃ©rification Ã©tat AV Mute temps rÃ©el`);
+                            console.log(`🎯 [ProjectorMonitoring] Vérification état AV Mute temps réel`);
                             await checkAndFixAVMuteStatus(roomName, projector.name || projector.device_name || `PROJ-${roomName}`);
                         }, 2000);
                                     }, 3000);
@@ -2353,26 +2407,26 @@
                         }
                     }
                     
-                    // âœ… FALLBACK : Si aprÃ¨s 10 checks toujours pas dÃ©tectÃ©, forcer AV Mute
+                    // ✅ FALLBACK : Si après 10 checks toujours pas détecté, forcer AV Mute
                     if (checkCount >= 10) {
-                        console.log(`ðŸŽ¯ [ProjectorMonitoring] Fallback aprÃ¨s 10s â†’ Forcer correction AV Mute`);
+                        console.log(`🎯 [ProjectorMonitoring] Fallback après 10s → Forcer correction AV Mute`);
                         clearInterval(monitoringInterval);
                         updateProjectorBannerToAVMute(roomName);
                         
                         setTimeout(async () => {
-                            console.log(`ðŸŽ¯ [ProjectorMonitoring] Fallback - VÃ©rification AV Mute`);
-                            await checkAndFixAVMuteStatus(roomName, `PROJ-${roomName}`); // Nom basÃ© sur la salle
+                            console.log(`🎯 [ProjectorMonitoring] Fallback - Vérification AV Mute`);
+                            await checkAndFixAVMuteStatus(roomName, `PROJ-${roomName}`); // Nom basé sur la salle
                         }, 2000);
                         return;
                     }
                     
                 } catch (error) {
-                    console.log(`âš ï¸ [ProjectorMonitoring] Erreur surveillance: ${error.message}`);
+                    console.log(`⚠️ [ProjectorMonitoring] Erreur surveillance: ${error.message}`);
                 }
                 
-                // Timeout aprÃ¨s 30 secondes
+                // Timeout après 30 secondes
                 if (checkCount >= maxChecks) {
-                    console.log(`â° [ProjectorMonitoring] Timeout surveillance pour ${roomName}`);
+                    console.log(`⏰ [ProjectorMonitoring] Timeout surveillance pour ${roomName}`);
                     clearInterval(monitoringInterval);
                     hideProjectorPoweringBanner();
                 }
@@ -2383,9 +2437,9 @@
             const banner = document.getElementById('projector-powering-banner');
             if (!banner) return;
             
-            console.log(`ðŸŽ¯ [ProjectorBanner] Transition vers AV Mute pour ${roomName}`);
+            console.log(`🎯 [ProjectorBanner] Transition vers AV Mute pour ${roomName}`);
             
-            // Mettre Ã  jour le contenu pour AV Mute
+            // Mettre à jour le contenu pour AV Mute
             const content = banner.querySelector('.powering-content');
             if (content) {
                 content.innerHTML = `
@@ -2393,7 +2447,7 @@
                         <i class="fas fa-eye-slash av-mute-pulse"></i>
                     </div>
                     <div class="powering-text">
-                        <h3>ðŸ“º Projecteur allumÃ© - Correction AV Mute...</h3>
+                        <h3>📺 Projecteur allumé - Correction AV Mute...</h3>
                         <p>Salle ${roomName} - Activation de l'affichage</p>
                         <div class="power-progress">
                             <div class="progress-bar">
@@ -2404,7 +2458,7 @@
                 `;
             }
             
-            // Auto-hide aprÃ¨s 15 secondes (plus de temps pour voir)
+            // Auto-hide après 15 secondes (plus de temps pour voir)
             setTimeout(() => {
                 hideProjectorPoweringBanner();
             }, 15000);
@@ -2419,41 +2473,41 @@
                         banner.parentNode.removeChild(banner);
                     }
                 }, 300);
-                console.log(`ðŸš« [ProjectorBanner] BanniÃ¨re allumage masquÃ©e`);
+                console.log(`🚫 [ProjectorBanner] Bannière allumage masquée`);
             }
         }
         
-        // âœ… NOUVELLE FONCTION : VÃ©rifier et corriger AV Mute temps rÃ©el
+        // ✅ NOUVELLE FONCTION : Vérifier et corriger AV Mute temps réel
         async function checkAndFixAVMuteStatus(roomName, projectorName) {
-            console.log(`ðŸ”‡ [AVMuteCheck] VÃ©rification Ã©tat AV Mute pour ${projectorName} (${roomName})`);
+            console.log(`🔇 [AVMuteCheck] Vérification état AV Mute pour ${projectorName} (${roomName})`);
             
             try {
-                // âœ… Ã‰TAPE 1 : VÃ©rifier l'Ã©tat actuel AV Mute
-                console.log(`ðŸŒ [AVMuteCheck] URL appelÃ©e: ${API_BASE_URL}/api/pjlink/av-mute-status?device=${encodeURIComponent(projectorName)}`);
+                // ✅ ÉTAPE 1 : Vérifier l'état actuel AV Mute
+                console.log(`🌐 [AVMuteCheck] URL appelée: ${API_BASE_URL}/api/pjlink/av-mute-status?device=${encodeURIComponent(projectorName)}`);
                 const statusResponse = await fetch(`${API_BASE_URL}/api/pjlink/av-mute-status?device=${encodeURIComponent(projectorName)}`);
                 
-                console.log(`ðŸ“¡ [AVMuteCheck] RÃ©ponse statut: ${statusResponse.status} ${statusResponse.statusText}`);
+                console.log(`📡 [AVMuteCheck] Réponse statut: ${statusResponse.status} ${statusResponse.statusText}`);
                 
                 if (!statusResponse.ok) {
-                    console.log(`âŒ [AVMuteCheck] Erreur rÃ©cupÃ©ration statut: ${statusResponse.status}`);
+                    console.log(`❌ [AVMuteCheck] Erreur récupération statut: ${statusResponse.status}`);
                     const errorText = await statusResponse.text();
-                    console.log(`ðŸ“„ [AVMuteCheck] DÃ©tails erreur: ${errorText}`);
+                    console.log(`📄 [AVMuteCheck] Détails erreur: ${errorText}`);
                     return;
                 }
                 
                 const statusData = await statusResponse.json();
-                console.log(`ðŸ“Š [AVMuteCheck] Statut AV Mute:`, statusData);
+                console.log(`📊 [AVMuteCheck] Statut AV Mute:`, statusData);
                 
-                // âœ… Ã‰TAPE 2 : Si AV Mute actif â†’ Le corriger
+                // ✅ ÉTAPE 2 : Si AV Mute actif → Le corriger
                 if (statusData.av_muted) {
-                    console.log(`ðŸ”‡ [AVMuteCheck] AV Mute dÃ©tectÃ© â†’ Correction automatique`);
+                    console.log(`🔇 [AVMuteCheck] AV Mute détecté → Correction automatique`);
                     
-                    // âœ… BANNIÃˆRE D'ATTENTE ORANGE pendant correction (minimum 15 secondes)
-                    showWaitingBanner('ðŸ”§ Correction AV Mute en cours...', 'DÃ©sactivation du mode muet sur le projecteur');
-                    window.waitingBannerStartTime = Date.now(); // âœ… Nouveau timestamp
+                    // ✅ BANNIÈRE D'ATTENTE ORANGE pendant correction (minimum 15 secondes)
+                    showWaitingBanner('🔧 Correction AV Mute en cours...', 'Désactivation du mode muet sur le projecteur');
+                    window.waitingBannerStartTime = Date.now(); // ✅ Nouveau timestamp
                     
-                    // âœ… Utiliser l'endpoint direct AV Mute public (sans auth)
-                    console.log(`ðŸ”§ [AVMuteCheck] Correction directe AV Mute sur ${projectorName}`);
+                    // ✅ Utiliser l'endpoint direct AV Mute public (sans auth)
+                    console.log(`🔧 [AVMuteCheck] Correction directe AV Mute sur ${projectorName}`);
                     const fixResponse = await fetch(`${API_BASE_URL}/api/pjlink/av-mute-control`, {
                         method: 'POST',
                         headers: {
@@ -2468,169 +2522,169 @@
                     
                     if (fixResponse.ok) {
                         const fixData = await fixResponse.json();
-                        console.log(`âœ… [AVMuteCheck] AV Mute corrigÃ© avec succÃ¨s:`, fixData);
+                        console.log(`✅ [AVMuteCheck] AV Mute corrigé avec succès:`, fixData);
                         
-                        // âœ… ATTENDRE MINIMUM 15 SECONDES pour que le client voie la banniÃ¨re d'attente
-                        console.log(`â³ [AVMuteCheck] BanniÃ¨re d'attente visible pendant 15s minimum...`);
+                        // ✅ ATTENDRE MINIMUM 15 SECONDES pour que le client voie la bannière d'attente
+                        console.log(`⏳ [AVMuteCheck] Bannière d'attente visible pendant 15s minimum...`);
                         setTimeout(async () => {
-                            console.log(`ðŸ” [AVMuteCheck] VÃ©rification post-correction...`);
+                            console.log(`🔍 [AVMuteCheck] Vérification post-correction...`);
                             const verifyResponse = await fetch(`${API_BASE_URL}/api/pjlink/av-mute-status?device=${encodeURIComponent(projectorName)}`);
                             if (verifyResponse.ok) {
                                 const verifyData = await verifyResponse.json();
-                                console.log(`ðŸ“Š [AVMuteCheck] Ã‰tat post-correction:`, verifyData);
+                                console.log(`📊 [AVMuteCheck] État post-correction:`, verifyData);
                                 
                                 if (!verifyData.av_muted) {
-                                    console.log(`ðŸŽ‰ [AVMuteCheck] SUCCÃˆS CONFIRMÃ‰ : AV Mute vraiment dÃ©sactivÃ© !`);
+                                    console.log(`🎉 [AVMuteCheck] SUCCÈS CONFIRMÉ : AV Mute vraiment désactivé !`);
                                 } else {
-                                    console.log(`âš ï¸ [AVMuteCheck] PROBLÃˆME : AV Mute toujours actif aprÃ¨s correction !`);
+                                    console.log(`⚠️ [AVMuteCheck] PROBLÈME : AV Mute toujours actif après correction !`);
                                 }
                             }
                             
-                            // âœ… MASQUER BANNIÃˆRE D'ATTENTE et afficher succÃ¨s
-                            console.log(`ðŸŽ¯ [AVMuteCheck] Masquer banniÃ¨re d'attente aprÃ¨s 15s minimum`);
+                            // ✅ MASQUER BANNIÈRE D'ATTENTE et afficher succès
+                            console.log(`🎯 [AVMuteCheck] Masquer bannière d'attente après 15s minimum`);
                             hideWaitingBanner();
                             setTimeout(() => {
-                                // âœ… AFFICHER BANNIÃˆRE SUCCÃˆS APRÃˆS masquage banniÃ¨re d'attente
+                                // ✅ AFFICHER BANNIÈRE SUCCÈS APRÈS masquage bannière d'attente
                                 showAutoActionResult(
                                     { 
                                         type: 'av_mute_correction', 
-                                        description: 'Correction AV Mute terminÃ©e' 
+                                        description: 'Correction AV Mute terminée' 
                                     }, 
                                     { 
                                         success: true, 
-                                        message: `AV Mute dÃ©sactivÃ© sur ${projectorName} - Image restaurÃ©e !` 
+                                        message: `AV Mute désactivé sur ${projectorName} - Image restaurée !` 
                                     }
                                 );
                             }, 500);
-                        }, 15000); // âœ… 15 secondes minimum pour banniÃ¨re d'attente
+                        }, 15000); // ✅ 15 secondes minimum pour bannière d'attente
                         
                     } else {
                         const errorData = await fixResponse.json();
-                        console.log(`âŒ [AVMuteCheck] Ã‰chec correction AV Mute: ${fixResponse.status}`, errorData);
+                        console.log(`❌ [AVMuteCheck] Échec correction AV Mute: ${fixResponse.status}`, errorData);
                     }
                     
                 } else {
-                    console.log(`âœ… [AVMuteCheck] AV Mute dÃ©jÃ  inactif - Aucune correction nÃ©cessaire`);
+                    console.log(`✅ [AVMuteCheck] AV Mute déjà inactif - Aucune correction nécessaire`);
                     
-                    // âœ… CORRECTION : Ne pas afficher de banniÃ¨re de succÃ¨s prÃ©maturÃ©e
-                    // Laisser la banniÃ¨re d'attente active jusqu'Ã  la fin complÃ¨te du processus
-                    console.log(`ðŸŽ¯ [AVMuteCheck] Projecteur opÃ©rationnel - Continuer avec la sÃ©quence normale`);
+                    // ✅ CORRECTION : Ne pas afficher de bannière de succès prématurée
+                    // Laisser la bannière d'attente active jusqu'à la fin complète du processus
+                    console.log(`🎯 [AVMuteCheck] Projecteur opérationnel - Continuer avec la séquence normale`);
                     
-                    // âœ… La banniÃ¨re d'attente sera masquÃ©e par la logique principale quand tout sera terminÃ©
+                    // ✅ La bannière d'attente sera masquée par la logique principale quand tout sera terminé
                 }
                 
                             } catch (error) {
-                console.log(`âš ï¸ [AVMuteCheck] Erreur vÃ©rification AV Mute: ${error.message}`);
+                console.log(`⚠️ [AVMuteCheck] Erreur vérification AV Mute: ${error.message}`);
             }
         }
         
-        // âœ… FONCTION DE TEST MANUAL (temporaire)
+        // ✅ FONCTION DE TEST MANUAL (temporaire)
         window.testAVMute = function() {
             const room = getCurrentRoom();
             if (room) {
-                console.log(`ðŸ§ª [TEST] Test manuel AV Mute pour ${room}`);
+                console.log(`🧪 [TEST] Test manuel AV Mute pour ${room}`);
                 checkAndFixAVMuteStatus(room, `PROJ-${room}`);
             } else {
-                console.log(`âŒ [TEST] Aucune salle sÃ©lectionnÃ©e`);
+                console.log(`❌ [TEST] Aucune salle sélectionnée`);
             }
         }
 
-        // âœ… NOUVELLE FONCTION DE TEST : VÃ©rifier banniÃ¨re d'attente
+        // ✅ NOUVELLE FONCTION DE TEST : Vérifier bannière d'attente
         window.testWaitingBanner = function() {
-            console.log(`ðŸ§ª [TEST] Test banniÃ¨re d'attente`);
-            showWaitingBanner('ðŸ§ª Test banniÃ¨re d\'attente', 'Ceci est un test de la banniÃ¨re orange');
+            console.log(`🧪 [TEST] Test bannière d'attente`);
+            showWaitingBanner('🧪 Test bannière d\'attente', 'Ceci est un test de la bannière orange');
             
-            // Masquer automatiquement aprÃ¨s 5 secondes
+            // Masquer automatiquement après 5 secondes
             setTimeout(() => {
                 hideWaitingBanner();
-                console.log(`âœ… [TEST] BanniÃ¨re d'attente masquÃ©e automatiquement`);
+                console.log(`✅ [TEST] Bannière d'attente masquée automatiquement`);
             }, 5000);
         }
 
-        // âœ… NOUVELLE FONCTION DE TEST : VÃ©rifier Ã©tat complet projecteur
+        // ✅ NOUVELLE FONCTION DE TEST : Vérifier état complet projecteur
         window.testProjectorStatus = async function() {
             const room = getCurrentRoom();
             if (!room) {
-                console.log(`âŒ [TEST] Aucune salle sÃ©lectionnÃ©e`);
+                console.log(`❌ [TEST] Aucune salle sélectionnée`);
                 return;
             }
             
-            console.log(`ðŸ§ª [TEST] Test Ã©tat complet projecteur pour ${room}`);
+            console.log(`🧪 [TEST] Test état complet projecteur pour ${room}`);
             
             try {
                 // Test 1: Power status
-                console.log(`ðŸ”Œ [TEST] Test endpoint power-status...`);
+                console.log(`🔌 [TEST] Test endpoint power-status...`);
                 const powerResponse = await fetch(`${API_BASE_URL}/api/pjlink/power-status?device=PROJ-${room}`);
                 if (powerResponse.ok) {
                     const powerData = await powerResponse.json();
-                    console.log(`âœ… [TEST] Power status:`, powerData);
+                    console.log(`✅ [TEST] Power status:`, powerData);
                 } else {
-                    console.log(`âŒ [TEST] Power status non disponible: ${powerResponse.status}`);
+                    console.log(`❌ [TEST] Power status non disponible: ${powerResponse.status}`);
                 }
                 
                 // Test 2: AV Mute status
-                console.log(`ðŸ”‡ [TEST] Test endpoint av-mute-status...`);
+                console.log(`🔇 [TEST] Test endpoint av-mute-status...`);
                 const avMuteResponse = await fetch(`${API_BASE_URL}/api/pjlink/av-mute-status?device=PROJ-${room}`);
                 if (avMuteResponse.ok) {
                     const avMuteData = await avMuteResponse.json();
-                    console.log(`âœ… [TEST] AV Mute status:`, avMuteData);
+                    console.log(`✅ [TEST] AV Mute status:`, avMuteData);
                 } else {
-                    console.log(`âŒ [TEST] AV Mute status non disponible: ${avMuteResponse.status}`);
+                    console.log(`❌ [TEST] AV Mute status non disponible: ${avMuteResponse.status}`);
                 }
                 
             } catch (error) {
-                console.log(`âŒ [TEST] Erreur test: ${error.message}`);
+                console.log(`❌ [TEST] Erreur test: ${error.message}`);
             }
         }
 
-        // âœ… NOUVELLE FONCTION DE TEST : Forcer masquage banniÃ¨re d'attente
+        // ✅ NOUVELLE FONCTION DE TEST : Forcer masquage bannière d'attente
         window.forceHideWaitingBanner = function() {
-            console.log(`ðŸ§ª [TEST] ForÃ§age masquage banniÃ¨re d'attente`);
+            console.log(`🧪 [TEST] Forçage masquage bannière d'attente`);
             hideWaitingBanner();
-            console.log(`âœ… [TEST] BanniÃ¨re d'attente forcÃ©ment masquÃ©e`);
+            console.log(`✅ [TEST] Bannière d'attente forcément masquée`);
         }
 
         /**
-         * Traite la rÃ©ponse du backend (comme dans l'original)
+         * Traite la réponse du backend (comme dans l'original)
          */
         function processResponse(data) {
             if (!data) return;
 
-            console.log('ðŸ“¥ [Frontend] RÃ©ponse reÃ§ue:', data);
+            console.log('📥 [Frontend] Réponse reçue:', data);
             
-            // âœ… GESTION INTELLIGENTE du timer d'escalade selon la rÃ©ponse
+            // ✅ GESTION INTELLIGENTE du timer d'escalade selon la réponse
             if (data.auto_executed) {
-                // Action corrective prise â†’ Annuler le timer car problÃ¨me potentiellement rÃ©solu
-                console.log('âœ… [EscalationTimeout] Action automatique exÃ©cutÃ©e - Timer annulÃ© (problÃ¨me corrigÃ©)');
+                // Action corrective prise → Annuler le timer car problème potentiellement résolu
+                console.log('✅ [EscalationTimeout] Action automatique exécutée - Timer annulé (problème corrigé)');
                 clearEscalationTimeout();
             } else {
-                // Pas d'action corrective â†’ Garder le timer pour escalade si besoin
-                console.log('â° [EscalationTimeout] Aucune action automatique - Timer maintenu pour escalade Ã©ventuelle');
+                // Pas d'action corrective → Garder le timer pour escalade si besoin
+                console.log('⏰ [EscalationTimeout] Aucune action automatique - Timer maintenu pour escalade éventuelle');
             }
             
-            // âœ… CORRECTION CRITIQUE : EXÃ‰CUTION AUTOMATIQUE DES ACTIONS (comme assistant-salle-av-copie.html)
+            // ✅ CORRECTION CRITIQUE : EXÉCUTION AUTOMATIQUE DES ACTIONS (comme assistant-salle-av-copie.html)
             if (data.auto_executed && data.actions && data.actions.length > 0) {
-                console.log('ðŸ”„ [ProcessResponse] ExÃ©cution automatique des actions reÃ§ues');
+                console.log('🔄 [ProcessResponse] Exécution automatique des actions reçues');
                 setTimeout(() => {
                     executeAutoActions(data.actions);
-                }, 1000); // Attendre 1 seconde pour que le message soit affichÃ©
+                }, 1000); // Attendre 1 seconde pour que le message soit affiché
             }
             
-                            // âœ… Si action rÃ©ussie, incrÃ©menter compteur et vÃ©rifier AV Mute
-                if (data.auto_executed && data.auto_result && data.auto_result.includes('âœ…')) {
-                    console.log('ðŸŽ¯ [ProcessResponse] Action rÃ©ussie - IncrÃ©menter compteur de corrections');
+                            // ✅ Si action réussie, incrémenter compteur et vérifier AV Mute
+                if (data.auto_executed && data.auto_result && data.auto_result.includes('✅')) {
+                    console.log('🎯 [ProcessResponse] Action réussie - Incrémenter compteur de corrections');
                     
-                    // IncrÃ©menter le compteur de corrections pour adapter le message suivant
+                    // Incrémenter le compteur de corrections pour adapter le message suivant
                     const currentRoom = getCurrentRoom();
                     if (currentRoom) {
                         const sessionCorrections = sessionStorage.getItem(`corrections_${currentRoom}`) || '0';
                         const nbCorrections = parseInt(sessionCorrections);
                         sessionStorage.setItem(`corrections_${currentRoom}`, `${nbCorrections + 1}`);
-                        console.log(`ðŸ“Š [ProcessResponse] Corrections pour ${currentRoom}: ${nbCorrections + 1}`);
+                        console.log(`📊 [ProcessResponse] Corrections pour ${currentRoom}: ${nbCorrections + 1}`);
                         
-                        // âœ… FORCER VÃ‰RIFICATION AV MUTE aprÃ¨s action rÃ©ussie
+                        // ✅ FORCER VÉRIFICATION AV MUTE après action réussie
                         if (data.auto_result.includes('Allumer')) {
-                            console.log('ðŸ”‡ [ProcessResponse] Action allumage dÃ©tectÃ©e - VÃ©rification AV Mute dans 3s');
+                            console.log('🔇 [ProcessResponse] Action allumage détectée - Vérification AV Mute dans 3s');
                             setTimeout(async () => {
                                 await checkAndFixAVMuteStatus(currentRoom, `PROJ-${currentRoom}`);
                             }, 3000); // 3 secondes pour stabilisation
@@ -2638,64 +2692,64 @@
                     }
                 }
                 
-                // âœ… CORRECTION : GÃ©rer le cas oÃ¹ auto_executed est true mais actions est vide (action dÃ©jÃ  exÃ©cutÃ©e cÃ´tÃ© serveur)
+                // ✅ CORRECTION : Gérer le cas où auto_executed est true mais actions est vide (action déjà exécutée côté serveur)
             if (data.auto_executed && (!data.actions || data.actions.length === 0)) {
-                console.log('ðŸ”„ [ProcessResponse] Action dÃ©jÃ  exÃ©cutÃ©e cÃ´tÃ© serveur - MASQUER BANNIÃˆRE D\'ATTENTE');
+                console.log('🔄 [ProcessResponse] Action déjà exécutée côté serveur - MASQUER BANNIÈRE D\'ATTENTE');
                 
-                // âœ… ANNULER IMMÃ‰DIATEMENT le timer d'escalade car action dÃ©jÃ  exÃ©cutÃ©e
+                // ✅ ANNULER IMMÉDIATEMENT le timer d'escalade car action déjà exécutée
                 clearEscalationTimeout();
-                console.log('ðŸš« [ProcessResponse] Timer escalade annulÃ© - Action dÃ©jÃ  exÃ©cutÃ©e cÃ´tÃ© serveur');
+                console.log('🚫 [ProcessResponse] Timer escalade annulé - Action déjà exécutée côté serveur');
                 
-                // âœ… MASQUER LA BANNIÃˆRE D'ATTENTE aprÃ¨s un dÃ©lai minimum (adaptatif selon le type d'action)
+                // ✅ MASQUER LA BANNIÈRE D'ATTENTE après un délai minimum (adaptatif selon le type d'action)
                 const bannerStartTime = window.waitingBannerStartTime || Date.now();
                 const elapsedTime = Date.now() - bannerStartTime;
                 
-                // âœ… CORRECTION : DÃ©lai adaptatif selon le type d'action
-                let minimumTime = 5000; // Par dÃ©faut 5 secondes
+                // ✅ CORRECTION : Délai adaptatif selon le type d'action
+                let minimumTime = 5000; // Par défaut 5 secondes
                 
                 // Pour les projecteurs, attendre plus longtemps pour l'allumage complet
                 if (data.solutions && data.solutions.some(sol => 
                     sol.actions && sol.actions.some(act => act.type === 'pjlink_power')
                 )) {
                     minimumTime = 15000; // 15 secondes minimum pour les projecteurs
-                    console.log(`ðŸ”Œ [ProcessResponse] Action projecteur dÃ©tectÃ©e - DÃ©lai minimum Ã©tendu Ã  ${minimumTime}ms`);
+                    console.log(`🔌 [ProcessResponse] Action projecteur détectée - Délai minimum étendu à ${minimumTime}ms`);
                 }
                 
                 const remainingTime = Math.max(0, minimumTime - elapsedTime);
-                console.log(`â³ [ProcessResponse] BanniÃ¨re affichÃ©e depuis ${elapsedTime}ms, masquer dans ${remainingTime}ms`);
+                console.log(`⏳ [ProcessResponse] Bannière affichée depuis ${elapsedTime}ms, masquer dans ${remainingTime}ms`);
                 
                 setTimeout(() => {
                     hideWaitingBanner();
-                    console.log('âœ… [ProcessResponse] BanniÃ¨re d\'attente masquÃ©e aprÃ¨s action serveur');
+                    console.log('✅ [ProcessResponse] Bannière d\'attente masquée après action serveur');
                     
-                    // âœ… AFFICHER BANNIÃˆRE SUCCÃˆS APRÃˆS masquage banniÃ¨re d'attente
+                    // ✅ AFFICHER BANNIÈRE SUCCÈS APRÈS masquage bannière d'attente
                     setTimeout(() => {
                         showAutoActionResult(
                             { 
                                 type: 'auto_correction', 
-                                description: 'Correction automatique terminÃ©e' 
+                                description: 'Correction automatique terminée' 
                             }, 
                             { 
                                 success: true, 
-                                message: 'ProblÃ¨me rÃ©solu automatiquement par le systÃ¨me !' 
+                                message: 'Problème résolu automatiquement par le système !' 
                             }
                         );
                     }, 500);
                 }, remainingTime);
                 
-                return; // âœ… STOPPER le traitement pour Ã©viter escalade
+                return; // ✅ STOPPER le traitement pour éviter escalade
             }
             
-            // ðŸ” DEBUG: Analyser les actions pour comprendre pourquoi l'escalade ne se dÃ©clenche pas
+            // 🔍 DEBUG: Analyser les actions pour comprendre pourquoi l'escalade ne se déclenche pas
             if (data.actions && data.actions.length > 0) {
-                console.log('ðŸ” [DEBUG] Actions trouvÃ©es:');
+                console.log('🔍 [DEBUG] Actions trouvées:');
                 data.actions.forEach((action, index) => {
                     console.log(`  ${index}: Type: ${action.type}, Command: ${action.command}, Label: ${action.label}`);
                     console.log(`      Description: ${action.description}`);
                 });
             }
 
-            // âœ… LOGIQUE PROFESSIONNELLE AMÃ‰LIORÃ‰E : DÃ©tecter "Tout fonctionne mais client insiste"
+            // ✅ LOGIQUE PROFESSIONNELLE AMÉLIORÉE : Détecter "Tout fonctionne mais client insiste"
             const hasOnlyEscalationActions = data.actions && data.actions.length > 0 && 
                                            data.actions.every(action => 
                                                action.type === 'create_sea_ticket' || 
@@ -2704,7 +2758,7 @@
                                                action.label?.includes('Escalade')
                                            );
             
-            // âœ… NOUVELLE LOGIQUE: Actions techniques non auto-exÃ©cutÃ©es = Ã©quipements fonctionnels
+            // ✅ NOUVELLE LOGIQUE: Actions techniques non auto-exécutées = équipements fonctionnels
             const hasTechnicalActionsNotExecuted = data.actions && data.actions.length > 0 && 
                                                   data.actions.some(action => 
                                                       (action.type === 'pjlink_power' || 
@@ -2713,18 +2767,18 @@
                                                       !data.auto_executed
                                                   );
             
-            // âœ… ESCALADE SIMPLIFIÃ‰E : Si pas d'auto-correction, escalade directe immÃ©diate
+            // ✅ ESCALADE SIMPLIFIÉE : Si pas d'auto-correction, escalade directe immédiate
             if ((data.intent === 'video_problem' || data.intent === 'audio_problem') && 
                 !data.auto_executed) {
                 
-                const problemType = data.intent === 'video_problem' ? 'vidÃ©o' : 'audio';
-                console.log(`ðŸŽ¯ [EscaladeDirecte] ProblÃ¨me ${problemType.toUpperCase()} sans correction automatique â†’ ESCALADE IMMÃ‰DIATE`);
+                const problemType = data.intent === 'video_problem' ? 'vidéo' : 'audio';
+                console.log(`🎯 [EscaladeDirecte] Problème ${problemType.toUpperCase()} sans correction automatique → ESCALADE IMMÉDIATE`);
                 
-                // âœ… CORRECTION: VÃ©rifier les tickets existants AVANT d'afficher la banniÃ¨re SEA
+                // ✅ CORRECTION: Vérifier les tickets existants AVANT d'afficher la bannière SEA
                 const currentRoom = getCurrentRoom();
                 if (hasExistingTicket(currentRoom)) {
                     const lastTicket = getLastSessionTicket(currentRoom);
-                    console.log(`ðŸŽ« [TicketExistant] Ticket dÃ©jÃ  crÃ©Ã© ${lastTicket.number} â†’ Affichage banniÃ¨re ticket existant au lieu de SEA`);
+                    console.log(`🎫 [TicketExistant] Ticket déjà créé ${lastTicket.number} → Affichage bannière ticket existant au lieu de SEA`);
                     showExistingTicketBanner(lastTicket);
                     clearEscalationTimeout();
                     return;
@@ -2738,41 +2792,41 @@
                     confidence: 0.9,
                     room: currentRoom,
                     escalation_needed: true,
-                    escalation_reason: `ProblÃ¨me ${problemType} signalÃ© - Intervention technique requise`
+                    escalation_reason: `Problème ${problemType} signalé - Intervention technique requise`
                 });
-                return; // âœ… STOP - Escalade directe sans message
+                return; // ✅ STOP - Escalade directe sans message
             }
 
-            // âœ… LOGIQUE SIMPLIFIÃ‰E FINALE : Plus de traitement complexe
+            // ✅ LOGIQUE SIMPLIFIÉE FINALE : Plus de traitement complexe
             // Stocker juste le contexte pour les tickets si besoin
             latestRAGContext = data.rag_context || data;
 
-            // âœ… LOGIQUE SIMPLIFIÃ‰E : Supprimer TOUS les messages de diagnostic en bas
+            // ✅ LOGIQUE SIMPLIFIÉE : Supprimer TOUS les messages de diagnostic en bas
             // L'utilisateur veut seulement : Correction automatique OU escalade directe
-            // Pas de messages intermÃ©diaires "diagnostic", "problÃ¨me mineur", etc.
+            // Pas de messages intermédiaires "diagnostic", "problème mineur", etc.
             
-            console.log('ðŸš« [ProcessResponse] TOUS les messages de diagnostic supprimÃ©s - Logique binaire uniquement');
-            // Plus de messages en bas du chat - BanniÃ¨res uniquement
+            console.log('🚫 [ProcessResponse] TOUS les messages de diagnostic supprimés - Logique binaire uniquement');
+            // Plus de messages en bas du chat - Bannières uniquement
         }
 
         /**
-         * DÃ©termine la raison de l'escalade (comme dans l'original)
+         * Détermine la raison de l'escalade (comme dans l'original)
          */
         function determineEscalationReason(data, escalationActions) {
             if (escalationActions.length > 0) {
-                return "Le systÃ¨me recommande de crÃ©er un ticket SEA pour ce problÃ¨me.";
+                return "Le système recommande de créer un ticket SEA pour ce problème.";
             }
             if (data.confidence && data.confidence < 0.6) {
-                return "Le systÃ¨me n'est pas sÃ»r de pouvoir rÃ©soudre ce problÃ¨me automatiquement.";
+                return "Le système n'est pas sûr de pouvoir résoudre ce problème automatiquement.";
             }
             if (data.solutions && data.solutions.length === 0 && data.problems && data.problems.length > 0) {
-                return "Aucune solution automatique n'a Ã©tÃ© trouvÃ©e pour ce problÃ¨me.";
+                return "Aucune solution automatique n'a été trouvée pour ce problème.";
             }
-            return "Une intervention technique pourrait Ãªtre nÃ©cessaire.";
+            return "Une intervention technique pourrait être nécessaire.";
         }
 
         /**
-         * Affiche Ã  nouveau les palettes de problÃ¨mes
+         * Affiche à nouveau les palettes de problèmes
          */
         function showProblemPalettes() {
             const problemPalettes = document.getElementById('problemPalettes');
@@ -2783,12 +2837,12 @@
                 problemPalettes.style.display = 'block';
             }
             
-            // Supprimer la rÃ©ponse de l'assistant
+            // Supprimer la réponse de l'assistant
             if (assistantResponse) {
                 assistantResponse.remove();
             }
             
-            // Supprimer tous les rÃ©sultats d'actions automatiques
+            // Supprimer tous les résultats d'actions automatiques
             const autoResults = document.querySelectorAll('.auto-result');
             autoResults.forEach(result => result.remove());
             
@@ -2798,24 +2852,24 @@
         }
 
         /**
-         * ExÃ©cute les actions automatiques
+         * Exécute les actions automatiques
          */
         async function executeAutoActions(actions) {
-            // âœ… AFFICHER BANNIÃˆRE D'ATTENTE ORANGE pendant exÃ©cution des actions
-            showWaitingBanner('ðŸ”§ ExÃ©cution des corrections...', 'Veuillez patienter pendant l\'application des solutions');
+            // ✅ AFFICHER BANNIÈRE D'ATTENTE ORANGE pendant exécution des actions
+            showWaitingBanner('🔧 Exécution des corrections...', 'Veuillez patienter pendant l\'application des solutions');
             
             for (const action of actions) {
                 try {
-                    console.log(`ðŸ”„ ExÃ©cution action automatique: ${action.type}`);
+                    console.log(`🔄 Exécution action automatique: ${action.type}`);
                     
-                    // âœ… Mettre Ã  jour le message de la banniÃ¨re selon l'action
+                    // ✅ Mettre à jour le message de la bannière selon l'action
                     if (action.type === 'pjlink_power') {
-                        showWaitingBanner('ðŸ”Œ Allumage du projecteur...', 'DÃ©marrage en cours, veuillez patienter');
+                        showWaitingBanner('🔌 Allumage du projecteur...', 'Démarrage en cours, veuillez patienter');
                     } else if (action.type === 'pjlink_av_unmute') {
-                        showWaitingBanner('ðŸ”§ Correction AV Mute...', 'DÃ©sactivation du mode muet sur le projecteur');
+                        showWaitingBanner('🔧 Correction AV Mute...', 'Désactivation du mode muet sur le projecteur');
                     }
                     
-                    // ExÃ©cuter l'action rÃ©elle selon son type
+                    // Exécuter l'action réelle selon son type
                     let result;
                     switch (action.type) {
                         case 'sennheiser_mute':
@@ -2842,45 +2896,45 @@
                             
                         default:
                             console.warn(`Type d'action non reconnu: ${action.type}`);
-                            result = { success: true, message: 'Action simulÃ©e' };
+                            result = { success: true, message: 'Action simulée' };
                     }
                     
-                    // Afficher le rÃ©sultat dans une banniÃ¨re de succÃ¨s
+                    // Afficher le résultat dans une bannière de succès
                     if (result && result.success) {
                         showAutoActionResult(action, result);
                     }
                     
                 } catch (error) {
-                    console.error(`Erreur lors de l'exÃ©cution de l'action ${action.type}:`, error);
+                    console.error(`Erreur lors de l'exécution de l'action ${action.type}:`, error);
                     showAutoActionResult(action, { success: false, message: error.message });
                 }
             }
             
-            // âœ… MASQUER BANNIÃˆRE D'ATTENTE aprÃ¨s toutes les actions terminÃ©es
+            // ✅ MASQUER BANNIÈRE D'ATTENTE après toutes les actions terminées
             hideWaitingBanner();
             
-            // Retour automatique Ã  l'accueil aprÃ¨s toutes les actions
+            // Retour automatique à l'accueil après toutes les actions
             setTimeout(() => {
-                console.log('ðŸ”„ [AutoActions] Retour automatique Ã  l\'accueil aprÃ¨s actions complÃ¨tes');
+                console.log('🔄 [AutoActions] Retour automatique à l\'accueil après actions complètes');
                 returnToHome();
             }, 3000);
         }
 
         /**
-         * Affiche le rÃ©sultat d'une action automatique
+         * Affiche le résultat d'une action automatique
          */
         function showAutoActionResult(action, result) {
-            console.log(`ðŸ“Š [AutoActionResult] ${action.type}: ${result.success ? 'SUCCÃˆS' : 'Ã‰CHEC'} - ${result.message}`);
+            console.log(`📊 [AutoActionResult] ${action.type}: ${result.success ? 'SUCCÈS' : 'ÉCHEC'} - ${result.message}`);
             
             if (result.success) {
-                // âœ… CORRECTION : Annuler le timer d'escalade car problÃ¨me rÃ©solu automatiquement
+                // ✅ CORRECTION : Annuler le timer d'escalade car problème résolu automatiquement
                 clearEscalationTimeout();
-                console.log('ðŸš« [EscalationTimeout] Timer d\'escalade annulÃ© suite Ã  correction automatique rÃ©ussie');
+                console.log('🚫 [EscalationTimeout] Timer d\'escalade annulé suite à correction automatique réussie');
                 
-                // âœ… BANNIÃˆRE INTERACTIVE DE CORRECTION avec question OUI/NON
+                // ✅ BANNIÈRE INTERACTIVE DE CORRECTION avec question OUI/NON
                 showInteractiveCorrectionBanner(action, result);
             } else {
-                // âŒ Petite banniÃ¨re d'erreur (droite)
+                // ❌ Petite bannière d'erreur (droite)
                 const bannerDiv = document.createElement('div');
                 bannerDiv.style.cssText = `
                     position: fixed;
@@ -2900,17 +2954,17 @@
                 
                 bannerDiv.innerHTML = `
                     <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-size: 1.2rem;">âŒ</span>
+                        <span style="font-size: 1.2rem;">❌</span>
                         <span><strong>${action.description || action.type}</strong></span>
                     </div>
                     <div style="margin-top: 0.5rem; opacity: 0.9; font-size: 0.85rem;">
-                        ${result.message || 'Erreur lors de l\'exÃ©cution'}
+                        ${result.message || 'Erreur lors de l\'exécution'}
                     </div>
                 `;
                 
                 document.body.appendChild(bannerDiv);
                 
-                // Supprimer automatiquement aprÃ¨s 4 secondes
+                // Supprimer automatiquement après 4 secondes
                 setTimeout(() => {
                     if (bannerDiv.parentNode) {
                         bannerDiv.style.animation = 'slideOutRight 0.3s ease-in';
@@ -2921,17 +2975,17 @@
         }
 
         /**
-         * âœ… NOUVELLE FONCTION : BanniÃ¨re interactive de correction avec question OUI/NON
+         * ✅ NOUVELLE FONCTION : Bannière interactive de correction avec question OUI/NON
          */
         function showInteractiveCorrectionBanner(action, result) {
-            console.log(`ðŸŽ¯ [InteractiveCorrection] Affichage banniÃ¨re interactive: ${action.description}`);
+            console.log(`🎯 [InteractiveCorrection] Affichage bannière interactive: ${action.description}`);
             
-            // âœ… NOUVEAU : Masquer l'overlay de chargement AU MOMENT EXACT d'afficher la banniÃ¨re
+            // ✅ NOUVEAU : Masquer l'overlay de chargement AU MOMENT EXACT d'afficher la bannière
             hideDiagnosticLoading();
             
             const bannerId = `interactive-correction-${Date.now()}`;
             
-            // CrÃ©er l'overlay plein Ã©cran avec flou
+            // Créer l'overlay plein écran avec flou
             const overlayDiv = document.createElement('div');
             overlayDiv.id = `overlay-${bannerId}`;
             overlayDiv.style.cssText = `
@@ -2947,7 +3001,7 @@
                 cursor: pointer;
             `;
             
-            // CrÃ©er la banniÃ¨re interactive avec style moderne
+            // Créer la bannière interactive avec style moderne
             const bannerDiv = document.createElement('div');
             bannerDiv.id = bannerId;
             bannerDiv.style.cssText = `
@@ -2969,17 +3023,17 @@
             `;
             
             bannerDiv.innerHTML = `
-                <div style="font-size: 4rem; margin-bottom: 1.5rem;">âœ…</div>
-                <h2 style="margin: 0 0 1rem 0; font-size: 1.8rem; font-weight: 600;">Correction automatique terminÃ©e !</h2>
+                <div style="font-size: 4rem; margin-bottom: 1.5rem;">✅</div>
+                <h2 style="margin: 0 0 1rem 0; font-size: 1.8rem; font-weight: 600;">Correction automatique terminée !</h2>
                 
                 <div style="background: rgba(255,255,255,0.15); padding: 1.5rem; border-radius: 12px; margin: 2rem 0;">
-                    <p style="margin: 0.5rem 0; font-size: 1.1rem;"><strong>ðŸ”§ Action effectuÃ©e :</strong> ${action.description || 'Correction automatique'}</p>
-                    <p style="margin: 0.5rem 0; font-size: 1.1rem;"><strong>ðŸ¢ Salle :</strong> ${getCurrentRoom()}</p>
-                    <p style="margin: 0.5rem 0; font-size: 1.1rem;"><strong>ðŸ“ DÃ©tails :</strong> ${result.message || 'ProblÃ¨me rÃ©solu automatiquement'}</p>
+                    <p style="margin: 0.5rem 0; font-size: 1.1rem;"><strong>🔧 Action effectuée :</strong> ${action.description || 'Correction automatique'}</p>
+                    <p style="margin: 0.5rem 0; font-size: 1.1rem;"><strong>🏢 Salle :</strong> ${getCurrentRoom()}</p>
+                    <p style="margin: 0.5rem 0; font-size: 1.1rem;"><strong>📝 Détails :</strong> ${result.message || 'Problème résolu automatiquement'}</p>
                 </div>
                 
                 <div style="margin: 2rem 0;">
-                    <h3 style="margin: 0 0 1.5rem 0; font-size: 1.4rem; font-weight: 500;">Votre problÃ¨me est-il rÃ©glÃ© ?</h3>
+                    <h3 style="margin: 0 0 1.5rem 0; font-size: 1.4rem; font-weight: 500;">Votre problème est-il réglé ?</h3>
                     
                     <div style="display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;">
                         <button id="btn-oui-${bannerId}" style="
@@ -2995,7 +3049,7 @@
                             box-shadow: 0 4px 15px rgba(33, 150, 243, 0.3);
                             min-width: 120px;
                         " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                            âœ… OUI
+                            ✅ OUI
                         </button>
                         
                         <button id="btn-non-${bannerId}" style="
@@ -3011,26 +3065,26 @@
                             box-shadow: 0 4px 15px rgba(255, 152, 0, 0.3);
                             min-width: 120px;
                         " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">
-                            âŒ NON
+                            ❌ NON
                         </button>
                     </div>
                 </div>
                 
                 <div style="margin-top: 1.5rem; opacity: 0.8; font-size: 0.9rem;">
-                    Cliquez sur OUI si le problÃ¨me est rÃ©solu, ou NON pour demander une intervention technique
+                    Cliquez sur OUI si le problème est résolu, ou NON pour demander une intervention technique
                 </div>
             `;
             
             document.body.appendChild(overlayDiv);
             document.body.appendChild(bannerDiv);
             
-            // âœ… GESTION CLIC BOUTON OUI
+            // ✅ GESTION CLIC BOUTON OUI
             const btnOui = document.getElementById(`btn-oui-${bannerId}`);
             if (btnOui) {
                 btnOui.addEventListener('click', () => {
-                console.log('âœ… [InteractiveCorrection] Utilisateur confirme - ProblÃ¨me rÃ©solu');
+                console.log('✅ [InteractiveCorrection] Utilisateur confirme - Problème résolu');
                 
-                // Masquer la banniÃ¨re avec animation
+                // Masquer la bannière avec animation
                 bannerDiv.style.animation = 'fadeOut 0.3s ease-in';
                 overlayDiv.style.animation = 'fadeOut 0.3s ease-in';
                 
@@ -3039,20 +3093,20 @@
                     if (overlayDiv.parentNode) overlayDiv.parentNode.removeChild(overlayDiv);
                 }, 300);
                 
-                // Retour Ã  l'accueil
+                // Retour à l'accueil
                 setTimeout(() => {
                     returnToHome();
                 }, 500);
                 });
             }
             
-            // âœ… GESTION CLIC BOUTON NON
+            // ✅ GESTION CLIC BOUTON NON
             const btnNon = document.getElementById(`btn-non-${bannerId}`);
             if (btnNon) {
                 btnNon.addEventListener('click', () => {
-                console.log('âŒ [InteractiveCorrection] Utilisateur confirme - ProblÃ¨me persiste');
+                console.log('❌ [InteractiveCorrection] Utilisateur confirme - Problème persiste');
                 
-                // Masquer la banniÃ¨re interactive
+                // Masquer la bannière interactive
                 bannerDiv.style.animation = 'fadeOut 0.3s ease-in';
                 overlayDiv.style.animation = 'fadeOut 0.3s ease-in';
                 
@@ -3061,7 +3115,7 @@
                     if (overlayDiv.parentNode) overlayDiv.parentNode.removeChild(overlayDiv);
                 }, 300);
                 
-                // âœ… AFFICHER BANNIÃˆRE ESCALADE aprÃ¨s masquage
+                // ✅ AFFICHER BANNIÈRE ESCALADE après masquage
                 setTimeout(() => {
                     const currentRoom = getCurrentRoom();
                     showSEAEscalationBanner({
@@ -3069,16 +3123,16 @@
                         confidence: 0.9,
                         room: currentRoom,
                         escalation_needed: true,
-                        escalation_reason: `ProblÃ¨me persiste aprÃ¨s correction automatique - Intervention technique requise`
+                        escalation_reason: `Problème persiste après correction automatique - Intervention technique requise`
                     });
                 }, 500);
                 });
             }
             
-            // âœ… GESTION CLIC OVERLAY (fermeture)
+            // ✅ GESTION CLIC OVERLAY (fermeture)
             overlayDiv.addEventListener('click', (e) => {
                 if (e.target === overlayDiv) {
-                    console.log('ðŸ”„ [InteractiveCorrection] Fermeture par clic overlay');
+                    console.log('🔄 [InteractiveCorrection] Fermeture par clic overlay');
                     
                     bannerDiv.style.animation = 'fadeOut 0.3s ease-in';
                     overlayDiv.style.animation = 'fadeOut 0.3s ease-in';
@@ -3093,13 +3147,13 @@
 
         // ======================== BANNIERE D'ATTENTE ORANGE ========================
         function showWaitingBanner(title, subtitle) {
-            console.log(`â³ [WaitingBanner] Affichage banniÃ¨re d'attente: ${title}`);
+            console.log(`⏳ [WaitingBanner] Affichage bannière d'attente: ${title}`);
             
-            // âœ… CORRECTION : Masquer le sablier diagnostic car banniÃ¨re d'attente prend le relais
+            // ✅ CORRECTION : Masquer le sablier diagnostic car bannière d'attente prend le relais
             hideDiagnosticLoading();
-            console.log('âœ… [WaitingBanner] Sablier diagnostic masquÃ© - BanniÃ¨re d\'attente prend le relais');
+            console.log('✅ [WaitingBanner] Sablier diagnostic masqué - Bannière d\'attente prend le relais');
             
-            // Supprimer toute banniÃ¨re d'attente existante
+            // Supprimer toute bannière d'attente existante
             hideWaitingBanner();
             
             const banner = document.createElement('div');
@@ -3121,7 +3175,7 @@
             
             document.body.appendChild(banner);
             
-            // Animation d'entrÃ©e
+            // Animation d'entrée
             setTimeout(() => {
                 banner.classList.add('visible');
             }, 50);
@@ -3130,7 +3184,7 @@
         function hideWaitingBanner() {
             const existingBanner = document.getElementById('waiting-banner');
             if (existingBanner) {
-                console.log(`ðŸš« [WaitingBanner] Masquage banniÃ¨re d'attente`);
+                console.log(`🚫 [WaitingBanner] Masquage bannière d'attente`);
                 existingBanner.classList.add('fade-out');
                 setTimeout(() => {
                     if (existingBanner.parentNode) {
@@ -3141,12 +3195,12 @@
         }
 
         /**
-         * Affiche une banniÃ¨re de succÃ¨s plein Ã©cran (style SEA mais verte)
+         * Affiche une bannière de succès plein écran (style SEA mais verte)
          */
         function showSuccessBanner(action, result) {
             const confirmationId = `success_${Date.now()}`;
             
-            // CrÃ©er l'overlay plein Ã©cran avec flou agressif
+            // Créer l'overlay plein écran avec flou agressif
             const overlayDiv = document.createElement('div');
             overlayDiv.id = `overlay_${confirmationId}`;
             overlayDiv.style.cssText = `
@@ -3162,7 +3216,7 @@
                 cursor: pointer;
             `;
             
-            // CrÃ©er la banniÃ¨re de succÃ¨s avec style moderne
+            // Créer la bannière de succès avec style moderne
             const successDiv = document.createElement('div');
             successDiv.id = confirmationId;
             successDiv.style.cssText = `
@@ -3183,15 +3237,15 @@
             `;
             
             successDiv.innerHTML = `
-                <div style="font-size: 3rem; margin-bottom: 1rem;">âœ…</div>
-                <h3 style="margin: 0 0 1rem 0; font-size: 1.5rem; font-weight: 600;">ProblÃ¨me rÃ©solu automatiquement !</h3>
+                <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
+                <h3 style="margin: 0 0 1rem 0; font-size: 1.5rem; font-weight: 600;">Problème résolu automatiquement !</h3>
                 <div style="background: rgba(255,255,255,0.15); padding: 1.25rem; border-radius: 10px; margin: 1.5rem 0;">
-                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>ðŸ”§ Action :</strong> ${action.description || 'Correction automatique'}</p>
-                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>ðŸ¢ Salle :</strong> ${getCurrentRoom()}</p>
-                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>âš¡ Statut :</strong> CorrigÃ© en temps rÃ©el</p>
+                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>🔧 Action :</strong> ${action.description || 'Correction automatique'}</p>
+                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>🏢 Salle :</strong> ${getCurrentRoom()}</p>
+                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>⚡ Statut :</strong> Corrigé en temps réel</p>
                 </div>
                 <p style="margin: 1.5rem 0; opacity: 0.95; font-size: 1rem; line-height: 1.4;">
-                    ${result.message || 'Le systÃ¨me a dÃ©tectÃ© et corrigÃ© automatiquement le problÃ¨me. Aucune intervention manuelle nÃ©cessaire !'}
+                    ${result.message || 'Le système a détecté et corrigé automatiquement le problème. Aucune intervention manuelle nécessaire !'}
                 </p>
                 <button onclick="closeSuccessBanner('${confirmationId}')" style="
                     background: rgba(255,255,255,0.2);
@@ -3205,27 +3259,27 @@
                     font-weight: 500;
                     transition: all 0.3s ease;
                 " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                    ðŸŽ‰ Parfait !
+                    🎉 Parfait !
                 </button>
             `;
             
             // Fermer au clic sur l'overlay
             overlayDiv.onclick = () => closeSuccessBanner(confirmationId);
             
-            // Ajouter l'overlay et la banniÃ¨re au body
+            // Ajouter l'overlay et la bannière au body
             document.body.appendChild(overlayDiv);
             document.body.appendChild(successDiv);
             
-            // âœ… FERMETURE AUTOMATIQUE APRÃˆS 15 SECONDES (plus visible)
+            // ✅ FERMETURE AUTOMATIQUE APRÈS 15 SECONDES (plus visible)
             setTimeout(() => {
                 closeSuccessBanner(confirmationId);
             }, 15000);
             
-            console.log(`ðŸŽ‰ [SuccessBanner] BanniÃ¨re de succÃ¨s affichÃ©e pour: ${action.description}`);
+            console.log(`🎉 [SuccessBanner] Bannière de succès affichée pour: ${action.description}`);
         }
 
         /**
-         * Ferme la banniÃ¨re de succÃ¨s
+         * Ferme la bannière de succès
          */
         function closeSuccessBanner(confirmationId) {
             const overlay = document.getElementById(`overlay_${confirmationId}`);
@@ -3234,22 +3288,22 @@
             if (overlay) overlay.remove();
             if (banner) banner.remove();
             
-            // Retour automatique Ã  l'accueil aprÃ¨s fermeture
-            console.log('ðŸ  [SuccessBanner] Retour automatique Ã  l\'accueil');
+            // Retour automatique à l'accueil après fermeture
+            console.log('🏠 [SuccessBanner] Retour automatique à l\'accueil');
             returnToHome();
         }
 
         /**
-         * ExÃ©cute une action sur un Ã©quipement
+         * Exécute une action sur un équipement
          */
         async function executeAction(actionType, deviceId, parameters) {
             try {
-                console.log(`ðŸ”„ [ExecuteAction] ExÃ©cution de l'action : ${actionType}...`);
+                console.log(`🔄 [ExecuteAction] Exécution de l'action : ${actionType}...`);
                 
                 let endpoint = '';
                 let payload = {};
                 
-                // DÃ©terminer l'endpoint selon le type d'action
+                // Déterminer l'endpoint selon le type d'action
                 switch (actionType) {
                     case 'sennheiser_mute':
                         endpoint = '/api/device-action/sennheiser/set-mute';
@@ -3277,7 +3331,7 @@
                         break;
                         
                     case 'pjlink_av_unmute':
-                        // âœ… CORRECTION JUMELÃ‰E : Traitement spÃ©cial pour AV Mute invisible + banniÃ¨re
+                        // ✅ CORRECTION JUMELÉE : Traitement spécial pour AV Mute invisible + bannière
                         try {
                             const response = await fetch(`${API_BASE_URL}/api/device/public/av-mute/${parameters.device_name}`, {
                                 method: 'POST',
@@ -3286,29 +3340,29 @@
                             
                             if (response.ok) {
                                 const result = await response.json();
-                                console.log(`âœ… [ExecuteAction] AV Mute dÃ©sactivÃ© avec succÃ¨s sur ${parameters.device_name}`);
+                                console.log(`✅ [ExecuteAction] AV Mute désactivé avec succès sur ${parameters.device_name}`);
                                 
-                                // âœ… SIMULATION : CrÃ©er une rÃ©ponse comme si c'Ã©tait auto-exÃ©cutÃ© par le RAG
+                                // ✅ SIMULATION : Créer une réponse comme si c'était auto-exécuté par le RAG
                                 return {
                                     success: true,
-                                    auto_executed: true, // âœ… MARQUER comme auto-exÃ©cutÃ©
-                                    auto_result: `âœ… AV Mute dÃ©sactivÃ© automatiquement sur ${parameters.device_name}`,
+                                    auto_executed: true, // ✅ MARQUER comme auto-exécuté
+                                    auto_result: `✅ AV Mute désactivé automatiquement sur ${parameters.device_name}`,
                                     simulated_rag_response: true
                                 };
                             } else {
                                 throw new Error(`Erreur HTTP ${response.status}`);
                             }
                         } catch (error) {
-                            console.error(`âŒ [ExecuteAction] Erreur AV Mute pour ${parameters.device_name}:`, error);
+                            console.error(`❌ [ExecuteAction] Erreur AV Mute pour ${parameters.device_name}:`, error);
                             throw error;
                         }
-                        return; // Ã‰viter l'exÃ©cution du code standard
+                        return; // Éviter l'exécution du code standard
                         
                     default:
-                        throw new Error(`Type d'action non supportÃ©: ${actionType}`);
+                        throw new Error(`Type d'action non supporté: ${actionType}`);
                 }
                 
-                // ExÃ©cuter l'action
+                // Exécuter l'action
                 const response = await fetch(`${API_BASE_URL}${endpoint}`, {
                     method: 'POST',
                     headers: {
@@ -3324,14 +3378,14 @@
                 const result = await response.json();
                 
                 if (result.success) {
-                    console.log(`âœ… [ExecuteAction] Action exÃ©cutÃ©e avec succÃ¨s: ${result.message}`);
+                    console.log(`✅ [ExecuteAction] Action exécutée avec succès: ${result.message}`);
                     
-                    // âœ… NOUVEAU: Logique sÃ©quentielle pour allumage de projecteur
+                    // ✅ NOUVEAU: Logique séquentielle pour allumage de projecteur
                     if (actionType === 'pjlink_power' && parameters.power_on === true) {
                         const deviceName = parameters.device_name || 'Projecteur';
-                        console.log(`â±ï¸ [SequentialLogic] Allumage dÃ©tectÃ© pour ${deviceName} - DÃ©marrage banniÃ¨re d'attente`);
+                        console.log(`⏱️ [SequentialLogic] Allumage détecté pour ${deviceName} - Démarrage bannière d'attente`);
                         
-                        // Afficher la banniÃ¨re d'attente avec sÃ©quence complÃ¨te
+                        // Afficher la bannière d'attente avec séquence complète
                         showSequentialProjectorBanner(deviceName, 'power_on', {
                             maxDuration: 35,
                             checkAfterPowerOn: true
@@ -3340,29 +3394,29 @@
                     
                     return result;
                 } else {
-                    throw new Error(result.message || 'Ã‰chec de l\'exÃ©cution');
+                    throw new Error(result.message || 'Échec de l\'exécution');
                 }
                 
             } catch (error) {
-                console.error('âŒ [ExecuteAction] Erreur lors de l\'exÃ©cution de l\'action:', error);
+                console.error('❌ [ExecuteAction] Erreur lors de l\'exécution de l\'action:', error);
                 throw error;
             }
         }
 
         /**
-         * âœ… NOUVEAU: Affiche une banniÃ¨re d'attente pour l'allumage de projecteur
+         * ✅ NOUVEAU: Affiche une bannière d'attente pour l'allumage de projecteur
          */
         function showSequentialProjectorBanner(deviceName, actionType, options = {}) {
             const bannerId = `seq_projector_${Date.now()}`;
-            console.log(`ðŸŽ¬ [SequentialBanner] DÃ©marrage banniÃ¨re ${actionType} pour ${deviceName}`);
+            console.log(`🎬 [SequentialBanner] Démarrage bannière ${actionType} pour ${deviceName}`);
             
-            // Supprimer les banniÃ¨res existantes
+            // Supprimer les bannières existantes
             document.querySelectorAll('.sequential-banner-overlay').forEach(banner => banner.remove());
             
             // Configuration selon le type d'action
             const config = getSequentialBannerConfig(actionType, deviceName, options);
             
-            // CrÃ©er l'overlay
+            // Créer l'overlay
             const overlayDiv = document.createElement('div');
             overlayDiv.id = `overlay_${bannerId}`;
             overlayDiv.className = 'sequential-banner-overlay';
@@ -3380,7 +3434,7 @@
                 justify-content: center;
             `;
             
-            // CrÃ©er la banniÃ¨re
+            // Créer la bannière
             const bannerDiv = document.createElement('div');
             bannerDiv.id = bannerId;
             bannerDiv.className = 'sequential-banner fade-in';
@@ -3407,7 +3461,7 @@
             overlayDiv.appendChild(bannerDiv);
             document.body.appendChild(overlayDiv);
             
-            // DÃ©marrer la logique sÃ©quentielle selon le type
+            // Démarrer la logique séquentielle selon le type
             switch (actionType) {
                 case 'power_on':
                     startPowerOnSequence(bannerId, deviceName, options);
@@ -3424,7 +3478,7 @@
         }
         
         /**
-         * âœ… NOUVEAU: Configuration des banniÃ¨res selon le type d'action
+         * ✅ NOUVEAU: Configuration des bannières selon le type d'action
          */
         function getSequentialBannerConfig(actionType, deviceName, options) {
             const configs = {
@@ -3433,31 +3487,31 @@
                     borderColor: '#3b82f6',
                     html: `
                         <div class="sequential-content">
-                            <div class="projector-icon-animated" style="font-size: 4rem; margin-bottom: 1.5rem; animation: powerBlink 1.2s infinite;">ðŸ“½ï¸</div>
+                            <div class="projector-icon-animated" style="font-size: 4rem; margin-bottom: 1.5rem; animation: powerBlink 1.2s infinite;">📽️</div>
                             <h3 style="margin: 0 0 1rem 0; font-size: 1.6rem; font-weight: 700;">Allumage en cours</h3>
-                            <p style="margin: 0 0 2rem 0; font-size: 1.2rem; opacity: 0.95;">Le projecteur <strong>${deviceName}</strong> dÃ©marre...</p>
+                            <p style="margin: 0 0 2rem 0; font-size: 1.2rem; opacity: 0.95;">Le projecteur <strong>${deviceName}</strong> démarre...</p>
                             
                             <div class="progress-section">
                                 <div class="status-text" style="font-size: 1rem; margin-bottom: 1rem; opacity: 0.8;">
-                                    ðŸ”Œ Envoi de la commande d'allumage
+                                    🔌 Envoi de la commande d'allumage
                                 </div>
                                 
                                 <div class="real-time-monitor" style="background: rgba(255,255,255,0.1); border-radius: 12px; padding: 1.5rem; margin: 1.5rem 0;">
-                                    <div class="monitor-title" style="font-weight: 600; margin-bottom: 1rem;">Surveillance temps rÃ©el</div>
+                                    <div class="monitor-title" style="font-weight: 600; margin-bottom: 1rem;">Surveillance temps réel</div>
                                     <div class="monitor-status" id="monitor_${deviceName}" style="font-family: monospace; font-size: 0.9rem;">
-                                        â³ VÃ©rification de l'Ã©tat...
+                                        ⏳ Vérification de l'état...
                                     </div>
                                 </div>
                                 
                                 <div class="countdown-section" style="margin-top: 2rem;">
                                     <div class="countdown-timer" style="font-size: 1.1rem; font-weight: 600; color: #fbbf24;">
-                                        â±ï¸ Surveillance active - Maximum 45s
+                                        ⏱️ Surveillance active - Maximum 45s
                                     </div>
                                 </div>
                             </div>
                             
                             <p style="margin: 2rem 0 0 0; font-size: 0.85rem; opacity: 0.7;">
-                                âš¡ Analyse automatique AV Mute aprÃ¨s allumage confirmÃ©
+                                ⚡ Analyse automatique AV Mute après allumage confirmé
                             </p>
                         </div>
                     `
@@ -3467,19 +3521,19 @@
                     borderColor: '#10b981',
                     html: `
                         <div class="sequential-content">
-                            <div class="correction-icon" style="font-size: 4rem; margin-bottom: 1.5rem; animation: successPulse 1s infinite;">âœ…</div>
+                            <div class="correction-icon" style="font-size: 4rem; margin-bottom: 1.5rem; animation: successPulse 1s infinite;">✅</div>
                             <h3 style="margin: 0 0 1rem 0; font-size: 1.6rem; font-weight: 700;">Correction AV Mute</h3>
                             <p style="margin: 0 0 1.5rem 0; font-size: 1.2rem; opacity: 0.95;">
-                                DÃ©sactivation AV Mute sur <strong>${deviceName}</strong>
+                                Désactivation AV Mute sur <strong>${deviceName}</strong>
                             </p>
                             
                             <div class="correction-progress" style="background: rgba(255,255,255,0.15); border-radius: 10px; padding: 1.5rem; margin: 1rem 0;">
-                                <div style="font-weight: 600; margin-bottom: 0.5rem;">ðŸ”‡ â†’ ðŸ“½ï¸ Commande envoyÃ©e</div>
-                                <div style="font-size: 0.9rem; opacity: 0.8;">L'image devrait apparaÃ®tre immÃ©diatement</div>
+                                <div style="font-weight: 600; margin-bottom: 0.5rem;">🔇 → 📽️ Commande envoyée</div>
+                                <div style="font-size: 0.9rem; opacity: 0.8;">L'image devrait apparaître immédiatement</div>
                             </div>
                             
                             <p style="margin: 1.5rem 0 0 0; font-size: 0.85rem; opacity: 0.7;">
-                                Cette banniÃ¨re se fermera automatiquement dans 3 secondes
+                                Cette bannière se fermera automatiquement dans 3 secondes
                             </p>
                         </div>
                     `
@@ -3490,7 +3544,7 @@
         }
         
         /**
-         * âœ… NOUVEAU: Ajouter les styles CSS pour les banniÃ¨res sÃ©quentielles
+         * ✅ NOUVEAU: Ajouter les styles CSS pour les bannières séquentielles
          */
         function addSequentialBannerStyles() {
             if (!document.getElementById('sequential-banner-styles')) {
@@ -3522,7 +3576,7 @@
         }
 
         /**
-         * âœ… NOUVEAU: GÃ¨re le compte Ã  rebours de la banniÃ¨re d'attente
+         * ✅ NOUVEAU: Gère le compte à rebours de la bannière d'attente
          */
         function startCountdown(bannerId, totalSeconds) {
             const banner = document.getElementById(bannerId);
@@ -3536,37 +3590,37 @@
             const interval = setInterval(() => {
                 remainingSeconds--;
                 
-                // Mettre Ã  jour le timer
+                // Mettre à jour le timer
                 if (countdownTimer) {
                     countdownTimer.textContent = `${remainingSeconds}s`;
                 }
                 
-                // Mettre Ã  jour la barre de progression
+                // Mettre à jour la barre de progression
                 if (progressBar) {
                     const progress = ((totalSeconds - remainingSeconds) / totalSeconds) * 100;
                     progressBar.style.width = `${progress}%`;
                 }
                 
-                // Fin du compte Ã  rebours
+                // Fin du compte à rebours
                 if (remainingSeconds <= 0) {
                     clearInterval(interval);
-                    // Fermer la banniÃ¨re et vÃ©rifier l'Ã©tat
+                    // Fermer la bannière et vérifier l'état
                     setTimeout(() => {
                         closeWaitingBanner(bannerId);
-                        // âœ… NOUVEAU: DÃ©clencher une nouvelle vÃ©rification automatique
+                        // ✅ NOUVEAU: Déclencher une nouvelle vérification automatique
                         recheckProjectorStatus();
                     }, 1000);
                 }
             }, 1000);
             
-            // Stocker l'interval pour pouvoir l'annuler si nÃ©cessaire
+            // Stocker l'interval pour pouvoir l'annuler si nécessaire
             if (banner) {
                 banner.dataset.intervalId = interval;
             }
         }
         
         /**
-         * âœ… NOUVEAU: Ferme la banniÃ¨re d'attente
+         * ✅ NOUVEAU: Ferme la bannière d'attente
          */
         function closeWaitingBanner(bannerId) {
             const banner = document.getElementById(bannerId);
@@ -3582,13 +3636,13 @@
         }
         
         /**
-         * âœ… NOUVEAU: SÃ©quence d'allumage avec surveillance temps rÃ©el
+         * ✅ NOUVEAU: Séquence d'allumage avec surveillance temps réel
          */
         async function startPowerOnSequence(bannerId, deviceName, options) {
-            console.log(`ðŸ”Œ [PowerOnSequence] DÃ©marrage surveillance pour ${deviceName}`);
+            console.log(`🔌 [PowerOnSequence] Démarrage surveillance pour ${deviceName}`);
             
             const maxDuration = 45; // 45 secondes maximum
-            const checkInterval = 3; // VÃ©rifier toutes les 3 secondes
+            const checkInterval = 3; // Vérifier toutes les 3 secondes
             let elapsed = 0;
             let powerOnDetected = false;
             
@@ -3607,18 +3661,18 @@
                 elapsed += checkInterval;
                 
                 try {
-                    // VÃ©rifier l'Ã©tat du projecteur
+                    // Vérifier l'état du projecteur
                     const currentRoom = getCurrentRoom();
                     const equipmentData = await fetchRoomEquipment(currentRoom);
                     
-                    // âœ… CORRECTION: Utiliser equipmentData.devices (pas equipmentData directement)
+                    // ✅ CORRECTION: Utiliser equipmentData.devices (pas equipmentData directement)
                     if (!equipmentData || !equipmentData.devices || !Array.isArray(equipmentData.devices)) {
-                        console.warn(`âš ï¸ [PowerOnSequence] DonnÃ©es Ã©quipements invalides: ${JSON.stringify(equipmentData)}`);
-                        updateMonitorStatus(`âš ï¸ Erreur accÃ¨s Ã©quipements (${elapsed}s)`);
+                        console.warn(`⚠️ [PowerOnSequence] Données équipements invalides: ${JSON.stringify(equipmentData)}`);
+                        updateMonitorStatus(`⚠️ Erreur accès équipements (${elapsed}s)`);
                         return;
                     }
                     
-                    console.log(`ðŸ” [PowerOnSequence] ${equipmentData.devices.length} Ã©quipements trouvÃ©s en salle ${currentRoom}`);
+                    console.log(`🔍 [PowerOnSequence] ${equipmentData.devices.length} équipements trouvés en salle ${currentRoom}`);
                     
                     // Chercher le projecteur par nom complet ou partiel
                     const projector = equipmentData.devices.find(d => {
@@ -3633,41 +3687,41 @@
                     });
                     
                     if (projector) {
-                        console.log(`ðŸ” [PowerOnSequence] Projecteur trouvÃ©: ${projector.device_name || projector.name}, Ã‰tat: ${projector.status} (${elapsed}s)`);
+                        console.log(`🔍 [PowerOnSequence] Projecteur trouvé: ${projector.device_name || projector.name}, État: ${projector.status} (${elapsed}s)`);
                         
                         if (projector.status === 'online' || projector.status === 'power_on') {
                             powerOnDetected = true;
-                            updateMonitorStatus('âœ… Projecteur allumÃ© - Analyse AV Mute...', true);
+                            updateMonitorStatus('✅ Projecteur allumé - Analyse AV Mute...', true);
                             clearInterval(interval);
                             
-                            // DÃ©lai pour laisser le projecteur se stabiliser
+                            // Délai pour laisser le projecteur se stabiliser
                             setTimeout(() => {
                                 startAVMuteAnalysis(bannerId, deviceName, projector);
                             }, 2000);
                             return;
                         } else {
-                            updateMonitorStatus(`â³ Allumage en cours... Ã‰tat: ${projector.status} (${elapsed}s/${maxDuration}s)`);
+                            updateMonitorStatus(`⏳ Allumage en cours... État: ${projector.status} (${elapsed}s/${maxDuration}s)`);
                         }
                     } else {
-                        console.log(`ðŸ” [PowerOnSequence] Ã‰quipements disponibles:`, equipmentData.devices.map(d => ({ name: d.device_name || d.name, status: d.status })));
-                        updateMonitorStatus(`âš ï¸ Projecteur ${deviceName} non trouvÃ© (${elapsed}s)`);
+                        console.log(`🔍 [PowerOnSequence] Équipements disponibles:`, equipmentData.devices.map(d => ({ name: d.device_name || d.name, status: d.status })));
+                        updateMonitorStatus(`⚠️ Projecteur ${deviceName} non trouvé (${elapsed}s)`);
                     }
                     
                 } catch (error) {
-                    console.error(`âŒ [PowerOnSequence] Erreur vÃ©rification: ${error}`);
-                    updateMonitorStatus(`âŒ Erreur vÃ©rification (${elapsed}s)`);
+                    console.error(`❌ [PowerOnSequence] Erreur vérification: ${error}`);
+                    updateMonitorStatus(`❌ Erreur vérification (${elapsed}s)`);
                 }
                 
-                // Timeout aprÃ¨s 45 secondes - VÃ‰RIFICATION FINALE AVANT ESCALADE
+                // Timeout après 45 secondes - VÉRIFICATION FINALE AVANT ESCALADE
                 if (elapsed >= maxDuration) {
                     clearInterval(interval);
                     if (!powerOnDetected) {
-                        console.log(`ðŸ” [PowerOnSequence] TIMEOUT ${maxDuration}s atteint - VÃ©rification finale avant escalade pour ${deviceName}`);
-                        updateMonitorStatus('â° Timeout atteint - VÃ©rification finale...');
+                        console.log(`🔍 [PowerOnSequence] TIMEOUT ${maxDuration}s atteint - Vérification finale avant escalade pour ${deviceName}`);
+                        updateMonitorStatus('⏰ Timeout atteint - Vérification finale...');
                         
                         setTimeout(async () => {
                             try {
-                                // âœ… DERNIÃˆRE VÃ‰RIFICATION avant escalade
+                                // ✅ DERNIÈRE VÉRIFICATION avant escalade
                                 const currentRoom = getCurrentRoom();
                                 const equipmentData = await fetchRoomEquipment(currentRoom);
                                 
@@ -3683,8 +3737,8 @@
                                         return deviceNameMatch || isProjectorType;
                                     });
                                     
-                                                                        // âœ… CORRECTION : Utiliser vÃ©rification temps rÃ©el au lieu du cache statique
-                                    console.log(`ðŸ” [PowerOnSequence] VÃ©rification temps rÃ©el finale pour ${deviceName}...`);
+                                                                        // ✅ CORRECTION : Utiliser vérification temps réel au lieu du cache statique
+                                    console.log(`🔍 [PowerOnSequence] Vérification temps réel finale pour ${deviceName}...`);
                                     
                                     try {
                                         const realtimeStatus = await fetchProjectorRealtimeStatus(deviceName);
@@ -3693,41 +3747,41 @@
                                             const powerOn = realtimeStatus.power_status === 'on' || realtimeStatus.power_status === 'ON';
                                             const hasAVMute = realtimeStatus.av_mute_video || realtimeStatus.av_mute_audio;
                                             
-                                            console.log(`âœ… [PowerOnSequence] Ã‰tat temps rÃ©el: power=${realtimeStatus.power_status}, AVMute=${hasAVMute}`);
+                                            console.log(`✅ [PowerOnSequence] État temps réel: power=${realtimeStatus.power_status}, AVMute=${hasAVMute}`);
                                             
                                             if (powerOn) {
                                                 if (hasAVMute) {
-                                                    console.log(`ðŸ”‡ [PowerOnSequence] AV Mute dÃ©tectÃ© â†’ Correction automatique invisible`);
-                                                    updateMonitorStatus('ðŸ”‡ Correction AV Mute automatique...');
+                                                    console.log(`🔇 [PowerOnSequence] AV Mute détecté → Correction automatique invisible`);
+                                                    updateMonitorStatus('🔇 Correction AV Mute automatique...');
 
-                                                    // âœ… Correction AV Mute INVISIBLE
+                                                    // ✅ Correction AV Mute INVISIBLE
                                                     const avMuteResponse = await fetch(`${API_BASE_URL}/api/device/public/av-mute/${deviceName}`, {
                                                         method: 'POST',
                                                         headers: { 'Content-Type': 'application/json' }
                                                     });
                                                     
                                                     if (avMuteResponse.ok) {
-                                                        console.log(`âœ… [PowerOnSequence] PROBLÃˆME RÃ‰SOLU: AV Mute corrigÃ© sur ${deviceName}`);
-                                                        updateMonitorStatus('âœ… ProblÃ¨me vidÃ©o rÃ©solu !', true);
+                                                        console.log(`✅ [PowerOnSequence] PROBLÈME RÉSOLU: AV Mute corrigé sur ${deviceName}`);
+                                                        updateMonitorStatus('✅ Problème vidéo résolu !', true);
                                                         
-                                                        // âœ… AFFICHER BANNIÃˆRE DE SUCCÃˆS (pas d'escalade)
+                                                        // ✅ AFFICHER BANNIÈRE DE SUCCÈS (pas d'escalade)
                                                         setTimeout(() => {
                                                             closeSequentialBanner(bannerId);
-                                                            showAutoResultBanner(`âœ… ProblÃ¨me vidÃ©o rÃ©solu automatiquement sur ${deviceName}`);
+                                                            showAutoResultBanner(`✅ Problème vidéo résolu automatiquement sur ${deviceName}`);
                                                         }, 2000);
                                                         return;
                                                     }
                                                 } else {
-                                                    // âœ… CORRECTION LOGIQUE : Projecteur allumÃ© sans AV Mute, mais problÃ¨me vidÃ©o signalÃ© â†’ VÃ©rification approfondie
-                                                    console.log(`ðŸŽ¯ [PowerOnSequence] Projecteur ${deviceName} allumÃ© sans AV Mute - VÃ©rification si problÃ¨me persiste`);
-                                                    updateMonitorStatus('ðŸ” Projecteur fonctionnel - VÃ©rification problÃ¨me persistant...');
+                                                    // ✅ CORRECTION LOGIQUE : Projecteur allumé sans AV Mute, mais problème vidéo signalé → Vérification approfondie
+                                                    console.log(`🎯 [PowerOnSequence] Projecteur ${deviceName} allumé sans AV Mute - Vérification si problème persiste`);
+                                                    updateMonitorStatus('🔍 Projecteur fonctionnel - Vérification problème persistant...');
                                                     
-                                                    // âœ… NOUVELLE LOGIQUE : Au lieu de considÃ©rer le problÃ¨me rÃ©solu, escalader si problÃ¨me persiste
+                                                    // ✅ NOUVELLE LOGIQUE : Au lieu de considérer le problème résolu, escalader si problème persiste
                                                     setTimeout(() => {
                                                         closeSequentialBanner(bannerId);
-                                                        // DÃ©clencher l'escalade car Ã©quipement fonctionne mais problÃ¨me persiste
+                                                        // Déclencher l'escalade car équipement fonctionne mais problème persiste
                                                         setTimeout(() => {
-                                                            console.log('ðŸŽ¯ [PowerOnSequence] Escalade - Ã‰quipement fonctionnel mais problÃ¨me vidÃ©o persiste');
+                                                            console.log('🎯 [PowerOnSequence] Escalade - Équipement fonctionnel mais problème vidéo persiste');
                                                             showSEAEscalationBanner({
                                                                 intent: 'video_problem',
                                                                 confidence: 0.9,
@@ -3736,10 +3790,10 @@
                                                                     room: getCurrentRoom(),
                                                                     device: deviceName,
                                                                     severity: 'medium',
-                                                                    reason: `Projecteur ${deviceName} allumÃ© et fonctionnel mais problÃ¨me vidÃ©o persistant`
+                                                                    reason: `Projecteur ${deviceName} allumé et fonctionnel mais problème vidéo persistant`
                                                                 }],
                                                                 escalation_needed: true,
-                                                                escalation_reason: `Projecteur ${deviceName} opÃ©rationnel mais problÃ¨me vidÃ©o non rÃ©solu - Diagnostic spÃ©cialisÃ© requis`
+                                                                escalation_reason: `Projecteur ${deviceName} opérationnel mais problème vidéo non résolu - Diagnostic spécialisé requis`
                                                             });
                                                         }, 500);
                                                     }, 2000);
@@ -3748,28 +3802,28 @@
                                             }
                                         }
                                     } catch (realtimeError) {
-                                        console.error(`âš ï¸ [PowerOnSequence] Erreur vÃ©rification temps rÃ©el:`, realtimeError);
+                                        console.error(`⚠️ [PowerOnSequence] Erreur vérification temps réel:`, realtimeError);
                                     }
                                 }
                                 
-                                // âŒ Si toujours pas allumÃ© aprÃ¨s vÃ©rification finale
-                                console.log(`âŒ [PowerOnSequence] VÃ‰RIFICATION FINALE Ã‰CHOUÃ‰E: Projecteur ${deviceName} toujours pas allumÃ© - Escalade nÃ©cessaire`);
-                                updateMonitorStatus('âŒ Projecteur non allumÃ© - Escalade technicien');
+                                // ❌ Si toujours pas allumé après vérification finale
+                                console.log(`❌ [PowerOnSequence] VÉRIFICATION FINALE ÉCHOUÉE: Projecteur ${deviceName} toujours pas allumé - Escalade nécessaire`);
+                                updateMonitorStatus('❌ Projecteur non allumé - Escalade technicien');
                                 
                                 setTimeout(() => {
                                     closeSequentialBanner(bannerId);
-                                    // Escalade automatique aprÃ¨s vÃ©rification finale
+                                    // Escalade automatique après vérification finale
                                     showSEAEscalationBanner({
                                         intent: 'video_problem',
                                         confidence: 0.8,
                                         room: getCurrentRoom(),
-                                        escalation_reason: `Ã‰chec allumage ${deviceName} aprÃ¨s ${maxDuration}s + vÃ©rification finale`
+                                        escalation_reason: `Échec allumage ${deviceName} après ${maxDuration}s + vérification finale`
                                     });
                                 }, 2000);
                                 
                             } catch (error) {
-                                console.error(`âŒ [PowerOnSequence] Erreur vÃ©rification finale:`, error);
-                                updateMonitorStatus('âŒ Erreur vÃ©rification - Escalade technicien');
+                                console.error(`❌ [PowerOnSequence] Erreur vérification finale:`, error);
+                                updateMonitorStatus('❌ Erreur vérification - Escalade technicien');
                                 
                                 setTimeout(() => {
                                     closeSequentialBanner(bannerId);
@@ -3777,7 +3831,7 @@
                                         intent: 'video_problem',
                                         confidence: 0.8,
                                         room: getCurrentRoom(),
-                                        escalation_reason: `Erreur technique vÃ©rification finale ${deviceName}`
+                                        escalation_reason: `Erreur technique vérification finale ${deviceName}`
                                     });
                                 }, 2000);
                             }
@@ -3788,10 +3842,10 @@
         }
         
         /**
-         * âœ… NOUVEAU: Analyse automatique AV Mute aprÃ¨s allumage
+         * ✅ NOUVEAU: Analyse automatique AV Mute après allumage
          */
         async function startAVMuteAnalysis(bannerId, deviceName, projectorData = null) {
-            console.log(`ðŸ”‡ [AVMuteAnalysis] Analyse AV Mute pour ${deviceName}`, projectorData);
+            console.log(`🔇 [AVMuteAnalysis] Analyse AV Mute pour ${deviceName}`, projectorData);
             
             const updateMonitorStatus = (status, isSuccess = false) => {
                 const monitor = document.getElementById(`monitor_${deviceName}`);
@@ -3805,15 +3859,15 @@
             };
             
             try {
-                updateMonitorStatus('ðŸ” Analyse AV Mute en cours...');
+                updateMonitorStatus('🔍 Analyse AV Mute en cours...');
                 
                 // Attendre un peu pour que le projecteur se stabilise
                 await new Promise(resolve => setTimeout(resolve, 3000));
                 
-                // âœ… MÃ‰THODE 1: Tenter diagnostic direct en interrogeant le problÃ¨me vidÃ©o
-                console.log(`ðŸ”‡ [AVMuteAnalysis] Tentative diagnostic AV Mute via problÃ¨me vidÃ©o`);
+                // ✅ MÉTHODE 1: Tenter diagnostic direct en interrogeant le problème vidéo
+                console.log(`🔇 [AVMuteAnalysis] Tentative diagnostic AV Mute via problème vidéo`);
                 
-                // âœ… S'assurer d'utiliser le bon backend
+                // ✅ S'assurer d'utiliser le bon backend
                 await ensureBackendConnection();
                 
                 const currentRoom = getCurrentRoom();
@@ -3821,7 +3875,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        message: `Ã‰cran noir projecteur ${deviceName}`,
+                        message: `Écran noir projecteur ${deviceName}`,
                         room: currentRoom,
                         context: {
                             sequential_check: true,
@@ -3834,27 +3888,27 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('ðŸ” [AVMuteAnalysis] RÃ©ponse backend diagnostic:', data);
+                    console.log('🔍 [AVMuteAnalysis] Réponse backend diagnostic:', data);
                     
                     // Chercher des actions de correction AV Mute
                     const avMuteActions = data.actions ? data.actions.filter(action => 
                         action.type === 'pjlink_av_unmute' || 
                         action.type === 'pjlink_av_mute' ||
                         (action.description && action.description.toLowerCase().includes('av mute')) ||
-                        (action.description && action.description.toLowerCase().includes('dÃ©sactiver') && action.description.toLowerCase().includes('mute'))
+                        (action.description && action.description.toLowerCase().includes('désactiver') && action.description.toLowerCase().includes('mute'))
                     ) : [];
                     
-                    console.log(`ðŸ”‡ [AVMuteAnalysis] Actions AV Mute trouvÃ©es:`, avMuteActions);
+                    console.log(`🔇 [AVMuteAnalysis] Actions AV Mute trouvées:`, avMuteActions);
                     
                     if (avMuteActions.length > 0) {
-                        updateMonitorStatus('ðŸ”‡ AV Mute dÃ©tectÃ© - Correction automatique...');
+                        updateMonitorStatus('🔇 AV Mute détecté - Correction automatique...');
                         
-                        // Prendre la premiÃ¨re action AV unmute trouvÃ©e
+                        // Prendre la première action AV unmute trouvée
                         const avMuteAction = avMuteActions[0];
-                        console.log(`ðŸ”‡ [AVMuteAnalysis] ExÃ©cution action:`, avMuteAction);
+                        console.log(`🔇 [AVMuteAnalysis] Exécution action:`, avMuteAction);
                         
                         try {
-                            // Construire les paramÃ¨tres pour l'action
+                            // Construire les paramètres pour l'action
                             const actionParams = {
                                 device_name: deviceName,
                                 video_mute: false,
@@ -3863,26 +3917,26 @@
                             };
                             
                             await executeAction('pjlink_av_mute', avMuteAction.device_id || 0, actionParams);
-                            updateMonitorStatus('âœ… AV Mute corrigÃ© - Projecteur opÃ©rationnel !', true);
+                            updateMonitorStatus('✅ AV Mute corrigé - Projecteur opérationnel !', true);
                             
                             setTimeout(() => {
                                 closeSequentialBanner(bannerId);
                             }, 3000);
                             
                         } catch (actionError) {
-                            console.error(`âŒ [AVMuteAnalysis] Erreur exÃ©cution action:`, actionError);
-                            updateMonitorStatus('âš ï¸ Erreur correction AV Mute - VÃ©rifiez manuellement');
+                            console.error(`❌ [AVMuteAnalysis] Erreur exécution action:`, actionError);
+                            updateMonitorStatus('⚠️ Erreur correction AV Mute - Vérifiez manuellement');
                             setTimeout(() => {
                                 closeSequentialBanner(bannerId);
                             }, 4000);
                         }
                         
                     } else {
-                        // âœ… CORRECTION ESCALADE : Pas d'AV Mute dÃ©tectÃ© sur projecteur allumÃ© â†’ Escalade SEA
-                        console.log(`ðŸŽ¯ [AVMuteAnalysis] Aucun AV Mute dÃ©tectÃ© sur projecteur allumÃ© ${deviceName} â†’ Escalade requise`);
-                        updateMonitorStatus('ðŸŽ¯ Projecteur opÃ©rationnel - Escalade technique nÃ©cessaire...');
+                        // ✅ CORRECTION ESCALADE : Pas d'AV Mute détecté sur projecteur allumé → Escalade SEA
+                        console.log(`🎯 [AVMuteAnalysis] Aucun AV Mute détecté sur projecteur allumé ${deviceName} → Escalade requise`);
+                        updateMonitorStatus('🎯 Projecteur opérationnel - Escalade technique nécessaire...');
                         
-                        // PrÃ©parer le contexte d'escalade
+                        // Préparer le contexte d'escalade
                         const escalationContext = {
                             intent: 'video_problem',
                             confidence: 0.9,
@@ -3891,35 +3945,35 @@
                                 room: getCurrentRoom(),
                                 device: deviceName,
                                 severity: 'medium',
-                                reason: `ProblÃ¨me vidÃ©o persistant sur ${deviceName} - Ã‰quipement fonctionnel mais problÃ¨me non rÃ©solu`
+                                reason: `Problème vidéo persistant sur ${deviceName} - Équipement fonctionnel mais problème non résolu`
                             }],
                             solutions: [],
                             escalation_needed: true,
-                            escalation_reason: `Projecteur ${deviceName} fonctionnel mais problÃ¨me vidÃ©o persiste - Diagnostic approfondi requis`
+                            escalation_reason: `Projecteur ${deviceName} fonctionnel mais problème vidéo persiste - Diagnostic approfondi requis`
                         };
                         
-                        // Fermer la banniÃ¨re et escalader
+                        // Fermer la bannière et escalader
                         setTimeout(() => {
                             closeSequentialBanner(bannerId);
-                            // DÃ©clencher l'escalade SEA aprÃ¨s fermeture
+                            // Déclencher l'escalade SEA après fermeture
                             setTimeout(() => {
-                                console.log('ðŸŽ¯ [AVMuteAnalysis] DÃ©clenchement escalade SEA pour problÃ¨me non rÃ©solu');
+                                console.log('🎯 [AVMuteAnalysis] Déclenchement escalade SEA pour problème non résolu');
                                 showSEAEscalationBanner(escalationContext);
                             }, 500);
                         }, 1500);
                     }
                     
                 } else {
-                    console.error(`âŒ [AVMuteAnalysis] Erreur HTTP ${response.status}`);
-                    updateMonitorStatus('âš ï¸ Erreur diagnostic - Projecteur probablement opÃ©rationnel');
+                    console.error(`❌ [AVMuteAnalysis] Erreur HTTP ${response.status}`);
+                    updateMonitorStatus('⚠️ Erreur diagnostic - Projecteur probablement opérationnel');
                     setTimeout(() => {
                         closeSequentialBanner(bannerId);
                     }, 3000);
                 }
                     
                 } catch (error) {
-                console.error(`âŒ [AVMuteAnalysis] Erreur gÃ©nÃ©rale:`, error);
-                updateMonitorStatus('âŒ Erreur analyse AV Mute - VÃ©rifiez manuellement');
+                console.error(`❌ [AVMuteAnalysis] Erreur générale:`, error);
+                updateMonitorStatus('❌ Erreur analyse AV Mute - Vérifiez manuellement');
                 setTimeout(() => {
                     closeSequentialBanner(bannerId);
                 }, 3000);
@@ -3927,31 +3981,31 @@
         }
         
         /**
-         * âœ… NOUVEAU: SÃ©quence pour correction AV Mute directe
+         * ✅ NOUVEAU: Séquence pour correction AV Mute directe
          */
         function startAVUnmuteSequence(bannerId, deviceName, options) {
-            console.log(`âœ… [AVUnmuteSequence] Correction AV Mute pour ${deviceName}`);
+            console.log(`✅ [AVUnmuteSequence] Correction AV Mute pour ${deviceName}`);
             
-            // Fermer automatiquement aprÃ¨s 3 secondes
+            // Fermer automatiquement après 3 secondes
             setTimeout(() => {
                 closeSequentialBanner(bannerId);
             }, 3000);
         }
         
         /**
-         * âœ… NOUVEAU: SÃ©quence de monitoring gÃ©nÃ©rique
+         * ✅ NOUVEAU: Séquence de monitoring générique
          */
         function startMonitoringSequence(bannerId, deviceName, options) {
-            console.log(`ðŸ‘€ [MonitoringSequence] Surveillance gÃ©nÃ©rique pour ${deviceName}`);
+            console.log(`👀 [MonitoringSequence] Surveillance générique pour ${deviceName}`);
             
-            // Pour l'instant, fermer aprÃ¨s 5 secondes
+            // Pour l'instant, fermer après 5 secondes
             setTimeout(() => {
                 closeSequentialBanner(bannerId);
             }, 5000);
         }
 
         /**
-         * âœ… NOUVEAU: Fermer la banniÃ¨re sÃ©quentielle
+         * ✅ NOUVEAU: Fermer la bannière séquentielle
          */
         function closeSequentialBanner(bannerId) {
             const banner = document.getElementById(bannerId);
@@ -3963,20 +4017,20 @@
                 
                 setTimeout(() => {
                     overlay.remove();
-                    console.log(`ðŸ [SequentialBanner] BanniÃ¨re ${bannerId} fermÃ©e`);
+                    console.log(`🏁 [SequentialBanner] Bannière ${bannerId} fermée`);
                 }, 300);
             }
         }
 
         /**
-         * âœ… ANCIEN: Re-vÃ©rifie l'Ã©tat du projecteur aprÃ¨s allumage (OBSOLÃˆTE)
+         * ✅ ANCIEN: Re-vérifie l'état du projecteur après allumage (OBSOLÈTE)
          */
         async function recheckProjectorStatus() {
-            console.log('ðŸ” [SequentialCheck] Re-vÃ©rification de l\'Ã©tat du projecteur aprÃ¨s allumage');
+            console.log('🔍 [SequentialCheck] Re-vérification de l\'état du projecteur après allumage');
             
-            // RÃ©-envoyer automatiquement la demande de problÃ¨me vidÃ©o pour vÃ©rification
+            // Ré-envoyer automatiquement la demande de problème vidéo pour vérification
             try {
-                // âœ… S'assurer d'utiliser le bon backend
+                // ✅ S'assurer d'utiliser le bon backend
                 await ensureBackendConnection();
                 
                 const currentRoom = getCurrentRoom();
@@ -3984,7 +4038,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        message: 'VÃ©rification post-allumage projecteur', // Message technique pour re-check
+                        message: 'Vérification post-allumage projecteur', // Message technique pour re-check
                         room: currentRoom,
                         context: {
                             sequential_check: true,
@@ -3995,53 +4049,53 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('âœ… [SequentialCheck] VÃ©rification post-allumage terminÃ©e');
+                    console.log('✅ [SequentialCheck] Vérification post-allumage terminée');
                     processResponse(data);
                 } else {
-                    console.error('âŒ [SequentialCheck] Erreur lors de la re-vÃ©rification');
-                    // En cas d'erreur, afficher directement la banniÃ¨re SEA
+                    console.error('❌ [SequentialCheck] Erreur lors de la re-vérification');
+                    // En cas d'erreur, afficher directement la bannière SEA
                     showSEAEscalationBanner({
                         intent: 'video_problem',
                         confidence: 0.8,
                         room: currentRoom,
-                        escalation_reason: 'VÃ©rification post-allumage Ã©chouÃ©e - intervention technique requise'
+                        escalation_reason: 'Vérification post-allumage échouée - intervention technique requise'
                     });
                 }
             } catch (error) {
-                console.error('âŒ [SequentialCheck] Erreur rÃ©seau:', error);
+                console.error('❌ [SequentialCheck] Erreur réseau:', error);
             }
         }
 
         /**
-         * Affiche la banniÃ¨re de confirmation des actions automatiques
-         * avec le mÃªme style que les banniÃ¨res SIM/SEA
+         * Affiche la bannière de confirmation des actions automatiques
+         * avec le même style que les bannières SIM/SEA
          */
         function showAutoResultBanner(autoResult) {
-            // âœ… CORRECTION: Fermer toutes les banniÃ¨res auto-result existantes AVANT d'en crÃ©er une nouvelle
+            // ✅ CORRECTION: Fermer toutes les bannières auto-result existantes AVANT d'en créer une nouvelle
             const existingAutoBanners = document.querySelectorAll('[id^="auto_result_"]');
             const existingAutoOverlays = document.querySelectorAll('[id^="overlay_auto_result_"]');
             
             existingAutoBanners.forEach(banner => {
-                console.log(`ðŸš« [CleanupAutoBanner] Suppression banniÃ¨re auto-result existante: ${banner.id}`);
+                console.log(`🚫 [CleanupAutoBanner] Suppression bannière auto-result existante: ${banner.id}`);
                 banner.remove();
             });
             
             existingAutoOverlays.forEach(overlay => {
-                console.log(`ðŸš« [CleanupAutoOverlay] Suppression overlay auto-result existant: ${overlay.id}`);
+                console.log(`🚫 [CleanupAutoOverlay] Suppression overlay auto-result existant: ${overlay.id}`);
                 overlay.remove();
             });
             
-            // âœ… NETTOYAGE TOTAL : Supprimer TOUS les messages du chat avant d'afficher la banniÃ¨re
+            // ✅ NETTOYAGE TOTAL : Supprimer TOUS les messages du chat avant d'afficher la bannière
             const assistantPage = document.getElementById('assistantPage');
             if (assistantPage) {
                 const allMessages = assistantPage.querySelectorAll('.message');
                 allMessages.forEach(message => {
                     message.remove();
-                    console.log('ðŸ§¹ Message supprimÃ© du chat avant banniÃ¨re');
+                    console.log('🧹 Message supprimé du chat avant bannière');
                 });
             }
             
-            // âœ… MASQUER les palettes pendant l'affichage de la banniÃ¨re
+            // ✅ MASQUER les palettes pendant l'affichage de la bannière
             const problemPalettes = document.getElementById('problemPalettes');
             if (problemPalettes) {
                 problemPalettes.style.display = 'none';
@@ -4049,7 +4103,7 @@
             
             const bannerId = `auto_result_${Date.now()}`;
             
-            // CrÃ©er l'overlay plein Ã©cran avec flou
+            // Créer l'overlay plein écran avec flou
             const overlayDiv = document.createElement('div');
             overlayDiv.id = `overlay_${bannerId}`;
             overlayDiv.style.cssText = `
@@ -4064,7 +4118,7 @@
                 cursor: pointer;
             `;
             
-            // CrÃ©er la banniÃ¨re de confirmation
+            // Créer la bannière de confirmation
             const bannerDiv = document.createElement('div');
             bannerDiv.id = bannerId;
             bannerDiv.className = 'auto-result-banner fade-in';
@@ -4087,9 +4141,9 @@
             
             bannerDiv.innerHTML = `
                 <div class="auto-result-header" style="margin-bottom: 1.5rem;">
-                    <div style="font-size: 3rem; margin-bottom: 1rem;">âœ…</div>
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">✅</div>
                     <div class="auto-result-text">
-                        <strong style="color: white !important; font-weight: 600; font-size: 1.4rem; display: block; margin-bottom: 0.5rem;">Action Automatique RÃ©ussie</strong>
+                        <strong style="color: white !important; font-weight: 600; font-size: 1.4rem; display: block; margin-bottom: 0.5rem;">Action Automatique Réussie</strong>
                         <span style="color: white !important; font-weight: 500; font-size: 1.1rem;">${autoResult}</span>
                     </div>
                 </div>
@@ -4116,30 +4170,30 @@
                 </div>
             `;
             
-            // âœ… CORRECTION: Fermer au clic sur l'overlay mais PAS sur les Ã©lÃ©ments internes
+            // ✅ CORRECTION: Fermer au clic sur l'overlay mais PAS sur les éléments internes
             overlayDiv.onclick = (event) => {
                 if (event.target === overlayDiv) {
                     closeAutoResultBanner(bannerId);
                 }
             };
             
-            // âœ… EmpÃªcher la propagation des Ã©vÃ©nements depuis la banniÃ¨re
+            // ✅ Empêcher la propagation des événements depuis la bannière
             bannerDiv.onclick = (event) => {
                 event.stopPropagation();
             };
             
-            // Ajouter l'overlay et la banniÃ¨re au body
+            // Ajouter l'overlay et la bannière au body
             document.body.appendChild(overlayDiv);
             overlayDiv.appendChild(bannerDiv);
             
-            // Auto-fermeture aprÃ¨s 5 secondes
+            // Auto-fermeture après 5 secondes
             setTimeout(() => {
                 closeAutoResultBanner(bannerId);
             }, 5000);
         }
 
         /**
-         * Ferme la banniÃ¨re de confirmation automatique
+         * Ferme la bannière de confirmation automatique
          */
         function closeAutoResultBanner(bannerId) {
             // Supprimer l'overlay
@@ -4148,7 +4202,7 @@
                 overlayDiv.remove();
             }
             
-            // âœ… REMETTRE les palettes aprÃ¨s fermeture de la banniÃ¨re
+            // ✅ REMETTRE les palettes après fermeture de la bannière
             const problemPalettes = document.getElementById('problemPalettes');
             if (problemPalettes) {
                 problemPalettes.style.display = 'grid';
@@ -4158,27 +4212,27 @@
         }
 
         /**
-         * Affiche la banniÃ¨re SEA centrÃ©e avec overlay (comme les autres banniÃ¨res)
+         * Affiche la bannière SEA centrée avec overlay (comme les autres bannières)
          */
         function showSEAEscalationBanner(data) {
-            // âœ… CORRECTION: Fermer toutes les banniÃ¨res SEA existantes AVANT d'en crÃ©er une nouvelle
+            // ✅ CORRECTION: Fermer toutes les bannières SEA existantes AVANT d'en créer une nouvelle
             const existingSeaBanners = document.querySelectorAll('[id^="escalation_sea_"]');
             const existingSeaOverlays = document.querySelectorAll('[id^="overlay_escalation_sea_"]');
             
             existingSeaBanners.forEach(banner => {
-                console.log(`ðŸš« [CleanupSEABanner] Suppression banniÃ¨re SEA existante: ${banner.id}`);
+                console.log(`🚫 [CleanupSEABanner] Suppression bannière SEA existante: ${banner.id}`);
                 banner.remove();
             });
             
             existingSeaOverlays.forEach(overlay => {
-                console.log(`ðŸš« [CleanupSEAOverlay] Suppression overlay SEA existant: ${overlay.id}`);
+                console.log(`🚫 [CleanupSEAOverlay] Suppression overlay SEA existant: ${overlay.id}`);
                 overlay.remove();
             });
             
             const escalationId = `escalation_sea_${Date.now()}`;
             const currentRoom = getCurrentRoom();
             
-            // CrÃ©er l'overlay plein Ã©cran avec flou
+            // Créer l'overlay plein écran avec flou
             const overlayDiv = document.createElement('div');
             overlayDiv.id = `overlay_${escalationId}`;
             overlayDiv.style.cssText = `
@@ -4193,7 +4247,7 @@
                 cursor: pointer;
             `;
             
-            // CrÃ©er la banniÃ¨re SEA
+            // Créer la bannière SEA
             const escalationDiv = document.createElement('div');
             escalationDiv.id = escalationId;
             escalationDiv.className = 'escalation-compact fade-in';
@@ -4227,19 +4281,19 @@
                     </div>
                     <div class="escalation-text">
                         <strong style="color: black !important; font-weight: 600; font-size: 1.4rem; display: block; margin-bottom: 0.5rem;">Intervention technique requise</strong>
-                        <span class="escalation-subtitle" style="color: black !important; font-weight: 700; font-size: 1.1rem;">SEA: ðŸ“± 6135 ou crÃ©er un ticket - Salle ${currentRoom}</span>
+                        <span class="escalation-subtitle" style="color: black !important; font-weight: 700; font-size: 1.1rem;">SEA: 📱 6135 ou créer un ticket - Salle ${currentRoom}</span>
                     </div>
                 </div>
                 
                 <div class="client-description-section" style="margin: 1.5rem 0;">
                     <div class="description-header" style="margin-bottom: 0.5rem;">
                         <i class="fas fa-edit" style="color: black !important; margin-right: 0.5rem;"></i>
-                        <span style="color: black !important; font-weight: 600;">Description dÃ©taillÃ©e (facultative)</span>
+                        <span style="color: black !important; font-weight: 600;">Description détaillée (facultative)</span>
                     </div>
                     <textarea
                         id="clientDescription_${escalationId}"
                         class="client-description-input"
-                        placeholder="DÃ©crivez votre problÃ¨me en dÃ©tail..."
+                        placeholder="Décrivez votre problème en détail..."
                         rows="3"
                         style="
                             width: 100%;
@@ -4253,7 +4307,7 @@
                         "
                     ></textarea>
                     <div class="description-help" style="margin-top: 0.5rem;">
-                        <small style="color: black !important; font-style: italic;">ðŸ’¡ Si vous ne saisissez rien, un message gÃ©nÃ©rique sera utilisÃ© selon le type de problÃ¨me.</small>
+                        <small style="color: black !important; font-style: italic;">💡 Si vous ne saisissez rien, un message générique sera utilisé selon le type de problème.</small>
                     </div>
                 </div>
                 
@@ -4292,12 +4346,12 @@
                         onmouseover="this.style.background='#2563eb'"
                         onmouseout="this.style.background='#3b82f6'"
                     >
-                        <i class="fas fa-paper-plane"></i> CrÃ©er un ticket
+                        <i class="fas fa-paper-plane"></i> Créer un ticket
                     </button>
                 </div>
             `;
             
-            // âœ… CORRECTION: Fermer au clic sur l'overlay mais PAS sur les Ã©lÃ©ments internes
+            // ✅ CORRECTION: Fermer au clic sur l'overlay mais PAS sur les éléments internes
             overlayDiv.onclick = (event) => {
                 // Fermer seulement si on clique directement sur l'overlay, pas sur ses enfants
                 if (event.target === overlayDiv) {
@@ -4305,21 +4359,21 @@
                 }
             };
             
-            // âœ… EmpÃªcher la propagation des Ã©vÃ©nements depuis la banniÃ¨re
+            // ✅ Empêcher la propagation des événements depuis la bannière
             escalationDiv.onclick = (event) => {
                 event.stopPropagation();
             };
             
-            // âœ… NOUVEAU : Masquer l'overlay de chargement AU MOMENT EXACT d'afficher la banniÃ¨re
+            // ✅ NOUVEAU : Masquer l'overlay de chargement AU MOMENT EXACT d'afficher la bannière
             hideDiagnosticLoading();
             
-            // Ajouter l'overlay et la banniÃ¨re au body
+            // Ajouter l'overlay et la bannière au body
             document.body.appendChild(overlayDiv);
             overlayDiv.appendChild(escalationDiv);
         }
 
         /**
-         * Ferme la banniÃ¨re SEA
+         * Ferme la bannière SEA
          */
         function closeSEAEscalationBanner(escalationId) {
             const overlayDiv = document.getElementById(`overlay_${escalationId}`);
@@ -4327,23 +4381,23 @@
                 overlayDiv.remove();
             }
             
-            // âœ… CORRECTION : Annuler le timer d'escalade quand l'utilisateur ferme manuellement la banniÃ¨re
+            // ✅ CORRECTION : Annuler le timer d'escalade quand l'utilisateur ferme manuellement la bannière
             clearEscalationTimeout();
-            console.log('ðŸš« [EscalationTimeout] Timer d\'escalade annulÃ© suite Ã  fermeture manuelle de la banniÃ¨re');
+            console.log('🚫 [EscalationTimeout] Timer d\'escalade annulé suite à fermeture manuelle de la bannière');
         }
 
         /**
-         * CrÃ©e un ticket depuis la banniÃ¨re SEA
+         * Crée un ticket depuis la bannière SEA
          */
         function createTicketFromBanner(escalationId, escalationActions) {
             const description = document.getElementById(`clientDescription_${escalationId}`)?.value?.trim();
             
-            // âœ… CORRECTION: CrÃ©er le ticket AVANT de fermer la banniÃ¨re
+            // ✅ CORRECTION: Créer le ticket AVANT de fermer la bannière
             createTicket(escalationId, escalationActions, description);
         }
 
         /**
-         * Affiche la modale pour la description dÃ©taillÃ©e du ticket
+         * Affiche la modale pour la description détaillée du ticket
          */
         function showTicketDescriptionModal(escalationId, escalationActions) {
             const modalOverlay = document.getElementById('modalOverlay');
@@ -4351,16 +4405,16 @@
             const modalTitle = document.getElementById('modalTitle');
             const modalMessage = document.getElementById('modalMessage');
             
-            modalIcon.textContent = 'ðŸŽ«';
-            modalTitle.textContent = 'Description du problÃ¨me (optionnel)';
+            modalIcon.textContent = '🎫';
+            modalTitle.textContent = 'Description du problème (optionnel)';
             modalMessage.innerHTML = `
                 <div style="margin-bottom: 1rem;">
                     <p style="margin-bottom: 0.5rem; font-size: 0.9rem; color: #666;">
-                        Vous pouvez ajouter une description dÃ©taillÃ©e du problÃ¨me pour aider l'Ã©quipe technique :
+                        Vous pouvez ajouter une description détaillée du problème pour aider l'équipe technique :
                     </p>
                     <textarea 
                         id="ticketDescription" 
-                        placeholder="DÃ©crivez le problÃ¨me en dÃ©tail (optionnel)..."
+                        placeholder="Décrivez le problème en détail (optionnel)..."
                         style="
                             width: 100%;
                             min-height: 100px;
@@ -4413,12 +4467,12 @@
         }
 
         /**
-         * Ferme la banniÃ¨re d'escalade et son overlay
+         * Ferme la bannière d'escalade et son overlay
          */
         function closeEscalationBanner(escalationId) {
-            console.log(`ðŸš« [CloseEscalation] Fermeture banniÃ¨re ${escalationId}`);
+            console.log(`🚫 [CloseEscalation] Fermeture bannière ${escalationId}`);
             
-            // Supprimer la banniÃ¨re
+            // Supprimer la bannière
             const escalationDiv = document.getElementById(escalationId);
             if (escalationDiv) {
                 escalationDiv.remove();
@@ -4430,7 +4484,7 @@
                 overlayDiv.remove();
             }
             
-            // RÃ©afficher les palettes
+            // Réafficher les palettes
             showProblemPalettes();
         }
         
@@ -4438,7 +4492,7 @@
          * Ferme la confirmation de ticket et son overlay
          */
         function closeTicketConfirmation(confirmationId) {
-            console.log(`âœ… [CloseConfirmation] Fermeture confirmation ${confirmationId}`);
+            console.log(`✅ [CloseConfirmation] Fermeture confirmation ${confirmationId}`);
             
             // Supprimer la confirmation
             const confirmationDiv = document.getElementById(confirmationId);
@@ -4452,40 +4506,40 @@
                 overlayDiv.remove();
             }
             
-            // RÃ©afficher les palettes
+            // Réafficher les palettes
             showProblemPalettes();
         }
         
         /**
-         * Affiche la banniÃ¨re de ticket existant avec overlay moderne
+         * Affiche la bannière de ticket existant avec overlay moderne
          */
         function showExistingTicketBanner(lastTicket) {
-            console.log(`ðŸŽ« [ExistingTicket] Affichage banniÃ¨re pour ticket existant: ${lastTicket.number}`);
+            console.log(`🎫 [ExistingTicket] Affichage bannière pour ticket existant: ${lastTicket.number}`);
             
-            // âœ… CORRECTION : Masquer le sablier diagnostic car banniÃ¨re de ticket prend le relais
+            // ✅ CORRECTION : Masquer le sablier diagnostic car bannière de ticket prend le relais
             hideDiagnosticLoading();
-            console.log('âœ… [ExistingTicket] Sablier diagnostic masquÃ© - BanniÃ¨re ticket existant prend le relais');
+            console.log('✅ [ExistingTicket] Sablier diagnostic masqué - Bannière ticket existant prend le relais');
             
-            // âœ… CORRECTION: Fermer toutes les banniÃ¨res existantes AVANT d'en crÃ©er une nouvelle
+            // ✅ CORRECTION: Fermer toutes les bannières existantes AVANT d'en créer une nouvelle
             const existingBanners = document.querySelectorAll('[id^="existing_ticket_"]');
             const existingOverlays = document.querySelectorAll('[id^="overlay_existing_ticket_"]');
             
             existingBanners.forEach(banner => {
-                console.log(`ðŸš« [CleanupBanner] Suppression banniÃ¨re existante: ${banner.id}`);
+                console.log(`🚫 [CleanupBanner] Suppression bannière existante: ${banner.id}`);
                 banner.remove();
             });
             
             existingOverlays.forEach(overlay => {
-                console.log(`ðŸš« [CleanupOverlay] Suppression overlay existant: ${overlay.id}`);
+                console.log(`🚫 [CleanupOverlay] Suppression overlay existant: ${overlay.id}`);
                 overlay.remove();
             });
             
             const currentRoom = getCurrentRoom();
             
-            // CrÃ©er la banniÃ¨re de ticket existant avec overlay plein Ã©cran
+            // Créer la bannière de ticket existant avec overlay plein écran
             const bannerId = `existing_ticket_${Date.now()}`;
             
-            // CrÃ©er l'overlay plein Ã©cran avec flou agressif
+            // Créer l'overlay plein écran avec flou agressif
             const overlayDiv = document.createElement('div');
             overlayDiv.id = `overlay_${bannerId}`;
             overlayDiv.style.cssText = `
@@ -4500,7 +4554,7 @@
                 cursor: pointer;
             `;
             
-            // CrÃ©er la banniÃ¨re de ticket existant
+            // Créer la bannière de ticket existant
             const bannerDiv = document.createElement('div');
             bannerDiv.id = bannerId;
             bannerDiv.className = 'escalation-compact fade-in';
@@ -4522,18 +4576,18 @@
             `;
             
             bannerDiv.innerHTML = `
-                <div style="font-size: 3rem; margin-bottom: 1rem;">ðŸŽ«</div>
-                <h3 style="margin: 0 0 1rem 0; font-size: 1.5rem; font-weight: 600;">Ticket dÃ©jÃ  crÃ©Ã© pour cette salle</h3>
+                <div style="font-size: 3rem; margin-bottom: 1rem;">🎫</div>
+                <h3 style="margin: 0 0 1rem 0; font-size: 1.5rem; font-weight: 600;">Ticket déjà créé pour cette salle</h3>
                 <div style="background: rgba(255,255,255,0.15); padding: 1.25rem; border-radius: 10px; margin: 1.5rem 0;">
-                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>ðŸ“„ NumÃ©ro :</strong> ${lastTicket.number}</p>
-                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>ðŸ¢ Salle :</strong> ${lastTicket.room}</p>
-                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>â° CrÃ©Ã© :</strong> ${new Date(lastTicket.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</p>
+                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>📄 Numéro :</strong> ${lastTicket.number}</p>
+                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>🏢 Salle :</strong> ${lastTicket.room}</p>
+                    <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>⏰ Créé :</strong> ${new Date(lastTicket.timestamp).toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</p>
                 </div>
                 <p style="margin: 1.5rem 0; opacity: 0.95; font-size: 1rem; line-height: 1.4;">
-                    Un ticket SEA a dÃ©jÃ  Ã©tÃ© escaladÃ© vers l'Ã©quipe technique dans la mÃªme session.
+                    Un ticket SEA a déjà été escaladé vers l'équipe technique dans la même session.
                 </p>
                 <p style="margin: 1rem 0; opacity: 0.9; font-size: 0.9rem;">
-                    ðŸ“ž <strong>Vous pouvez toujours appeler directement le SEA au 6135</strong> pour un suivi ou une urgence.
+                    📞 <strong>Vous pouvez toujours appeler directement le SEA au 6135</strong> pour un suivi ou une urgence.
                 </p>
                 <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem; flex-wrap: wrap;">
                     <button onclick="closeExistingTicketBanner('${bannerId}')" style="
@@ -4547,7 +4601,7 @@
                         font-weight: 500;
                         transition: all 0.3s ease;
                     " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                        âœ• Fermer
+                        ✕ Fermer
                     </button>
                     <button onclick="window.open('tel:6135', '_self')" style="
                         background: rgba(255,255,255,0.2);
@@ -4560,9 +4614,9 @@
                         font-weight: 500;
                         transition: all 0.3s ease;
                     " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                        ðŸ“ž Appeler SEA
+                        📞 Appeler SEA
                     </button>
-                    <button onclick="navigator.clipboard.writeText('${lastTicket.number}').then(() => alert('NumÃ©ro de ticket copiÃ©!'))" style="
+                    <button onclick="navigator.clipboard.writeText('${lastTicket.number}').then(() => alert('Numéro de ticket copié!'))" style="
                         background: rgba(255,255,255,0.9);
                         border: none;
                         color: #f97316;
@@ -4573,41 +4627,41 @@
                         font-weight: 500;
                         transition: all 0.3s ease;
                     " onmouseover="this.style.background='rgba(255,255,255,1)'" onmouseout="this.style.background='rgba(255,255,255,0.9)'">
-                        ðŸ“‹ Copier numÃ©ro
+                        📋 Copier numéro
                     </button>
                 </div>
             `;
             
-            // âœ… CORRECTION: Fermer au clic sur l'overlay mais PAS sur les Ã©lÃ©ments internes
+            // ✅ CORRECTION: Fermer au clic sur l'overlay mais PAS sur les éléments internes
             overlayDiv.onclick = (event) => {
                 if (event.target === overlayDiv) {
                     closeExistingTicketBanner(bannerId);
                 }
             };
             
-            // âœ… EmpÃªcher la propagation des Ã©vÃ©nements depuis la banniÃ¨re
+            // ✅ Empêcher la propagation des événements depuis la bannière
             bannerDiv.onclick = (event) => {
                 event.stopPropagation();
             };
             
-            // Ajouter l'overlay et la banniÃ¨re au body
+            // Ajouter l'overlay et la bannière au body
             document.body.appendChild(overlayDiv);
             document.body.appendChild(bannerDiv);
             
-            console.log(`ðŸŽ« [ExistingTicketBanner] BanniÃ¨re affichÃ©e pour ticket ${lastTicket.number}`);
+            console.log(`🎫 [ExistingTicketBanner] Bannière affichée pour ticket ${lastTicket.number}`);
         }
         
         /**
-         * Ferme la banniÃ¨re de ticket existant
+         * Ferme la bannière de ticket existant
          */
         function closeExistingTicketBanner(bannerId) {
-            console.log(`ðŸš« [CloseExistingTicket] Fermeture banniÃ¨re ${bannerId}`);
+            console.log(`🚫 [CloseExistingTicket] Fermeture bannière ${bannerId}`);
             
-            // âœ… CORRECTION : Annuler le timer d'escalade quand l'utilisateur ferme la banniÃ¨re
+            // ✅ CORRECTION : Annuler le timer d'escalade quand l'utilisateur ferme la bannière
             clearEscalationTimeout();
-            console.log('ðŸš« [CloseExistingTicket] Timer d\'escalade annulÃ© suite Ã  fermeture banniÃ¨re ticket existant');
+            console.log('🚫 [CloseExistingTicket] Timer d\'escalade annulé suite à fermeture bannière ticket existant');
             
-            // Supprimer la banniÃ¨re
+            // Supprimer la bannière
             const bannerDiv = document.getElementById(bannerId);
             if (bannerDiv) {
                 bannerDiv.remove();
@@ -4619,43 +4673,43 @@
                 overlayDiv.remove();
             }
             
-            // RÃ©afficher les palettes
+            // Réafficher les palettes
             showProblemPalettes();
         }
         
         /**
-         * CrÃ©e un ticket directement avec description optionnelle du client
+         * Crée un ticket directement avec description optionnelle du client
          */
         async function createTicketDirect(escalationId, problemType) {
-            console.log(`ðŸŽ« [DirectTicket] CrÃ©ation directe ticket pour ${problemType} - ${escalationId}`);
+            console.log(`🎫 [DirectTicket] Création directe ticket pour ${problemType} - ${escalationId}`);
             
-            // RÃ©cupÃ©rer la description optionnelle du client
+            // Récupérer la description optionnelle du client
             const descriptionTextarea = document.getElementById(`problemDescription_${problemType}_${escalationId}`);
             const clientDescription = descriptionTextarea ? descriptionTextarea.value.trim() : '';
             
-            // DÃ©terminer le message gÃ©nÃ©rique selon le type
+            // Déterminer le message générique selon le type
             let genericMessage = '';
             switch(problemType) {
                 case 'video':
-                    genericMessage = 'ProblÃ¨me vidÃ©o signalÃ© - aucun affichage ou image dÃ©formÃ©e';
+                    genericMessage = 'Problème vidéo signalé - aucun affichage ou image déformée';
                     break;
                 case 'audio':
-                    genericMessage = 'ProblÃ¨me audio signalÃ© - aucun son ou qualitÃ© dÃ©gradÃ©e';
+                    genericMessage = 'Problème audio signalé - aucun son ou qualité dégradée';
                     break;
                 default:
-                    genericMessage = 'ProblÃ¨me technique signalÃ© nÃ©cessitant intervention';
+                    genericMessage = 'Problème technique signalé nécessitant intervention';
             }
             
-            // Utiliser la description du client ou le message gÃ©nÃ©rique
+            // Utiliser la description du client ou le message générique
             const finalDescription = clientDescription || genericMessage;
             
-            console.log(`ðŸ“ [TicketDescription] ${clientDescription ? 'Description client' : 'Message gÃ©nÃ©rique'}: "${finalDescription}"`);
+            console.log(`📝 [TicketDescription] ${clientDescription ? 'Description client' : 'Message générique'}: "${finalDescription}"`);
             
             await createTicket(escalationId, problemType, finalDescription);
         }
 
         /**
-         * CrÃ©e un ticket avec description optionnelle (conservÃ© pour compatibilitÃ©)
+         * Crée un ticket avec description optionnelle (conservé pour compatibilité)
          */
         async function createTicketWithDescription(escalationId, escalationActions) {
             const descriptionTextarea = document.getElementById('ticketDescription');
@@ -4666,18 +4720,18 @@
         }
 
         /**
-         * CrÃ©e un ticket SEA avec description fournie
+         * Crée un ticket SEA avec description fournie
          */
         async function createTicket(escalationId, problemType, description = '') {
             try {
-                // âœ… CORRECTION : Annuler le timer d'escalade quand un ticket est crÃ©Ã©
+                // ✅ CORRECTION : Annuler le timer d'escalade quand un ticket est créé
                 clearEscalationTimeout();
-                console.log('ðŸš« [EscalationTimeout] Timer d\'escalade annulÃ© suite Ã  crÃ©ation de ticket');
+                console.log('🚫 [EscalationTimeout] Timer d\'escalade annulé suite à création de ticket');
                 
-                // âœ… CORRECTION: VÃ©rifier si l'Ã©lÃ©ment existe avant de l'utiliser
+                // ✅ CORRECTION: Vérifier si l'élément existe avant de l'utiliser
                 const escalationElement = document.getElementById(escalationId);
                 
-                // DÃ©sactiver les boutons seulement si l'Ã©lÃ©ment existe
+                // Désactiver les boutons seulement si l'élément existe
                 if (escalationElement) {
                     const buttons = escalationElement.querySelectorAll('button');
                     buttons.forEach(btn => btn.disabled = true);
@@ -4693,49 +4747,49 @@
                         text-align: center;
                         font-weight: 500;
                     `;
-                    loadingDiv.textContent = 'ðŸ”„ CrÃ©ation du ticket SEA en cours...';
+                    loadingDiv.textContent = '🔄 Création du ticket SEA en cours...';
                     escalationElement.appendChild(loadingDiv);
                 }
                 
-                // PrÃ©parer les donnÃ©es du ticket avec infos Podio enrichies
+                // Préparer les données du ticket avec infos Podio enrichies
                 const currentRoom = getCurrentRoom();
-                const isClientDescription = description && !description.includes('ProblÃ¨me ') && description.length > 20;
+                const isClientDescription = description && !description.includes('Problème ') && description.length > 20;
                 
-                const baseDescription = `ProblÃ¨me ${problemType} signalÃ© par un utilisateur via l'interface vitrine nÃ©cessitant une intervention technique.`;
+                const baseDescription = `Problème ${problemType} signalé par un utilisateur via l'interface vitrine nécessitant une intervention technique.`;
                 const fullDescription = `${baseDescription}\n\nDescription : ${description}`;
                 
-                // ðŸ¢ RÃ©cupÃ©rer les infos Podio du cache s'il existe
+                // 🏢 Récupérer les infos Podio du cache s'il existe
                 const podioInfo = window.roomCache?.podioInfo;
                 
                 const ticketData = {
                     category: 'technical_issue',
                     priority: 'medium',
-                    title: `ProblÃ¨me ${problemType} signalÃ© via vitrine - Salle ${currentRoom}`,
+                    title: `Problème ${problemType} signalé via vitrine - Salle ${currentRoom}`,
                     description: fullDescription,
                     client_message: isClientDescription ? 
                         `Signalement via vitrine SAV Qonnect\n\nDescription client : ${description}` : 
-                        `Signalement via vitrine SAV Qonnect\n\nMessage gÃ©nÃ©rique : ${description}`,
-                    copilot_analysis: `Analyse automatique : intervention technique recommandÃ©e`,
+                        `Signalement via vitrine SAV Qonnect\n\nMessage générique : ${description}`,
+                    copilot_analysis: `Analyse automatique : intervention technique recommandée`,
                     room: currentRoom,
-                    device_name: 'Non spÃ©cifiÃ©',
+                    device_name: 'Non spécifié',
                     reporter_name: 'Utilisateur Vitrine',
-                    // ðŸ†• INFOS PODIO ENRICHIES (si disponibles)
+                    // 🆕 INFOS PODIO ENRICHIES (si disponibles)
                     room_pavillon: podioInfo?.pavillon || null,
                     room_bassin: podioInfo?.bassin || null,
                     room_type: podioInfo?.type || null,
                     room_capacite: podioInfo?.capacite || null
                 };
                 
-                console.log('ðŸŽ« [CreateTicket] DonnÃ©es avec infos Podio:', {
+                console.log('🎫 [CreateTicket] Données avec infos Podio:', {
                     room: currentRoom,
                     podioInfo: podioInfo,
                     hasPodioData: !!podioInfo
                 });
 
-                // âœ… S'assurer d'utiliser le bon backend
+                // ✅ S'assurer d'utiliser le bon backend
                 await ensureBackendConnection();
                 
-                // Appeler l'API pour crÃ©er le ticket
+                // Appeler l'API pour créer le ticket
                 const response = await fetch(`${currentAPI}/api/copilot/vitrine-create-ticket`, {
                     method: 'POST',
                     headers: {
@@ -4744,7 +4798,7 @@
                     body: JSON.stringify(ticketData)
                 });
 
-                // âœ… CORRECTION: Supprimer le message de chargement seulement s'il existe
+                // ✅ CORRECTION: Supprimer le message de chargement seulement s'il existe
                 if (escalationElement) {
                     const loadingDiv = escalationElement.querySelector('div[style*="background: rgba(50, 150, 50, 0.8)"]');
                     if (loadingDiv) {
@@ -4753,36 +4807,36 @@
                 }
 
                 if (!response.ok) {
-                    throw new Error(`Erreur serveur (${response.status}). Veuillez rÃ©essayer plus tard.`);
+                    throw new Error(`Erreur serveur (${response.status}). Veuillez réessayer plus tard.`);
                 }
 
                 const result = await response.json();
                 
                 if (result.success && result.ticket) {
-                    // âœ… AJOUTER LE TICKET Ã€ LA SESSION pour Ã©viter les doublons
+                    // ✅ AJOUTER LE TICKET À LA SESSION pour éviter les doublons
                     addTicketToSession(result.ticket);
                     
-                    // âœ… CORRECTION: Fermer la banniÃ¨re SEA avec la bonne fonction
+                    // ✅ CORRECTION: Fermer la bannière SEA avec la bonne fonction
                     closeSEAEscalationBanner(escalationId);
                     
-                    // âœ… CORRECTION: Fermer toutes les banniÃ¨res de confirmation existantes AVANT d'en crÃ©er une nouvelle
+                    // ✅ CORRECTION: Fermer toutes les bannières de confirmation existantes AVANT d'en créer une nouvelle
                     const existingConfirmationBanners = document.querySelectorAll('[id^="confirmation_"]');
                     const existingConfirmationOverlays = document.querySelectorAll('[id^="overlay_confirmation_"]');
                     
                     existingConfirmationBanners.forEach(banner => {
-                        console.log(`ðŸš« [CleanupConfirmationBanner] Suppression banniÃ¨re confirmation existante: ${banner.id}`);
+                        console.log(`🚫 [CleanupConfirmationBanner] Suppression bannière confirmation existante: ${banner.id}`);
                         banner.remove();
                     });
                     
                     existingConfirmationOverlays.forEach(overlay => {
-                        console.log(`ðŸš« [CleanupConfirmationOverlay] Suppression overlay confirmation existant: ${overlay.id}`);
+                        console.log(`🚫 [CleanupConfirmationOverlay] Suppression overlay confirmation existant: ${overlay.id}`);
                         overlay.remove();
                     });
                     
-                    // CrÃ©er la confirmation avec overlay plein Ã©cran
+                    // Créer la confirmation avec overlay plein écran
                     const confirmationId = `confirmation_${Date.now()}`;
                     
-                    // CrÃ©er l'overlay plein Ã©cran avec flou agressif
+                    // Créer l'overlay plein écran avec flou agressif
                     const overlayDiv = document.createElement('div');
                     overlayDiv.id = `overlay_${confirmationId}`;
                     overlayDiv.style.cssText = `
@@ -4797,7 +4851,7 @@
                         cursor: pointer;
                     `;
                     
-                    // CrÃ©er la confirmation de ticket avec style moderne
+                    // Créer la confirmation de ticket avec style moderne
                     const successDiv = document.createElement('div');
                     successDiv.id = confirmationId;
                     successDiv.style.cssText = `
@@ -4818,15 +4872,15 @@
                     `;
                     
                     successDiv.innerHTML = `
-                        <div style="font-size: 3rem; margin-bottom: 1rem;">ðŸŽ«</div>
-                        <h3 style="margin: 0 0 1rem 0; font-size: 1.5rem; font-weight: 600;">Ticket SEA crÃ©Ã© avec succÃ¨s !</h3>
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">🎫</div>
+                        <h3 style="margin: 0 0 1rem 0; font-size: 1.5rem; font-weight: 600;">Ticket SEA créé avec succès !</h3>
                         <div style="background: rgba(255,255,255,0.15); padding: 1.25rem; border-radius: 10px; margin: 1.5rem 0;">
-                            <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>ðŸ“„ NumÃ©ro :</strong> ${result.ticket.ticket_number || result.ticket.id}</p>
-                            <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>ðŸ¢ Salle :</strong> ${result.ticket.room || 'Non spÃ©cifiÃ©'}</p>
-                            <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>ðŸ”§ Type :</strong> ProblÃ¨me ${problemType}</p>
+                            <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>📄 Numéro :</strong> ${result.ticket.ticket_number || result.ticket.id}</p>
+                            <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>🏢 Salle :</strong> ${result.ticket.room || 'Non spécifié'}</p>
+                            <p style="margin: 0.5rem 0; font-size: 1rem;"><strong>🔧 Type :</strong> Problème ${problemType}</p>
                         </div>
                         <p style="margin: 1.5rem 0; opacity: 0.95; font-size: 1rem; line-height: 1.4;">
-                            L'Ã©quipe SEA a reÃ§u votre demande et va traiter le problÃ¨me rapidement.
+                            L'équipe SEA a reçu votre demande et va traiter le problème rapidement.
                         </p>
                         <button onclick="closeTicketConfirmation('${confirmationId}')" style="
                             background: rgba(255,255,255,0.2);
@@ -4840,18 +4894,18 @@
                             font-weight: 500;
                             transition: all 0.3s ease;
                         " onmouseover="this.style.background='rgba(255,255,255,0.3)'" onmouseout="this.style.background='rgba(255,255,255,0.2)'">
-                            âœ… Fermer
+                            ✅ Fermer
                         </button>
                     `;
                     
-                    // âœ… CORRECTION: Fermer au clic sur l'overlay mais PAS sur les Ã©lÃ©ments internes
+                    // ✅ CORRECTION: Fermer au clic sur l'overlay mais PAS sur les éléments internes
                     overlayDiv.onclick = (event) => {
                         if (event.target === overlayDiv) {
                             closeTicketConfirmation(confirmationId);
                         }
                     };
                     
-                    // âœ… EmpÃªcher la propagation des Ã©vÃ©nements depuis la banniÃ¨re
+                    // ✅ Empêcher la propagation des événements depuis la bannière
                     successDiv.onclick = (event) => {
                         event.stopPropagation();
                     };
@@ -4860,21 +4914,21 @@
                     document.body.appendChild(overlayDiv);
                     document.body.appendChild(successDiv);
                     
-                    console.log(`ðŸŽ« [CreateTicket] Ticket ${result.ticket.ticket_number} crÃ©Ã© pour la salle ${currentRoom}`);
+                    console.log(`🎫 [CreateTicket] Ticket ${result.ticket.ticket_number} créé pour la salle ${currentRoom}`);
                 } else {
-                    throw new Error(result.message || 'Erreur lors de la crÃ©ation du ticket');
+                    throw new Error(result.message || 'Erreur lors de la création du ticket');
                 }
                 
             } catch (error) {
-                console.error('Erreur lors de la crÃ©ation du ticket:', error);
+                console.error('Erreur lors de la création du ticket:', error);
                 
-                // âœ… CORRECTION: Fermer la banniÃ¨re mÃªme en cas d'erreur
+                // ✅ CORRECTION: Fermer la bannière même en cas d'erreur
                 closeSEAEscalationBanner(escalationId);
                 
                 showModal(
-                    'âŒ',
-                    'Erreur de crÃ©ation',
-                    `Impossible de crÃ©er le ticket : ${error.message}\n\nVeuillez contacter le SEA directement au 6135.`,
+                    '❌',
+                    'Erreur de création',
+                    `Impossible de créer le ticket : ${error.message}\n\nVeuillez contacter le SEA directement au 6135.`,
                     'warning'
                 );
             }
@@ -4897,9 +4951,9 @@
                 if (lockData) {
                     const lock = JSON.parse(lockData);
                     if (lock && lock.locked && lock.name) {
-                        console.log('ðŸ”’ [Lock] Salle verrouillÃ©e dÃ©tectÃ©e:', lock.name);
+                        console.log('🔒 [Lock] Salle verrouillée détectée:', lock.name);
                         
-                        // Appliquer l'interface verrouillÃ©e
+                        // Appliquer l'interface verrouillée
                         document.documentElement.classList.add('is-room-locked');
                         
                         // Restaurer la salle dans le cache
@@ -4910,24 +4964,24 @@
                             // Afficher directement l'assistant (pas la landing)
                             setTimeout(() => {
                                 showAssistant();
-                                console.log('ðŸ”’ [Lock] Assistant affichÃ© directement pour salle verrouillÃ©e');
+                                console.log('🔒 [Lock] Assistant affiché directement pour salle verrouillée');
                                 
-                                // ===== CHAT SEA : DÃ©marrer l'Ã©coute des demandes de chat =====
+                                // ===== CHAT SEA : Démarrer l'écoute des demandes de chat =====
                                 startChatRequestListener();
                                 
-                                // ===== STATUS EVENTS : DÃ©marrer l'Ã©coute des changements de statut =====
+                                // ===== STATUS EVENTS : Démarrer l'écoute des changements de statut =====
                                 startStatusEventSource();
                             }, 100);
                         }
                     }
                 }
             } catch (error) {
-                console.warn('âš ï¸ [Lock] Erreur vÃ©rification verrouillage:', error);
+                console.warn('⚠️ [Lock] Erreur vérification verrouillage:', error);
             }
         }
         
         function getClientIP() {
-            // Simulation - en rÃ©alitÃ©, le serveur dÃ©tecte l'IP
+            // Simulation - en réalité, le serveur détecte l'IP
             return '192.168.1.100';
         }
         
@@ -4942,12 +4996,12 @@
         
         async function closeChat() {
             try {
-                // âœ… NOUVEAU : S'assurer de la connexion backend avant fermeture
+                // ✅ NOUVEAU : S'assurer de la connexion backend avant fermeture
                 await ensureBackendConnection();
                 
-                // âœ… NOUVEAU : Informer le backend que Vitrine ferme le chat
+                // ✅ NOUVEAU : Informer le backend que Vitrine ferme le chat
                 if (currentChatId) {
-                    console.log('ðŸ”š [Vitrine] Fermeture du chat par l\'utilisateur');
+                    console.log('🔚 [Vitrine] Fermeture du chat par l\'utilisateur');
                     
                     const response = await fetch(`${currentAPI}/api/tickets/chat/end`, {
                         method: 'POST',
@@ -4957,18 +5011,18 @@
                         body: JSON.stringify({
                             channel_id: currentChatId,
                             room_id: getCurrentRoom(),
-                            ended_by: "vitrine" // âœ… Indiquer que c'est Vitrine qui ferme
+                            ended_by: "vitrine" // ✅ Indiquer que c'est Vitrine qui ferme
                         })
                     });
                     
                     if (response.ok) {
-                        console.log('âœ… [Vitrine] Chat fermÃ© avec succÃ¨s cÃ´tÃ© backend');
+                        console.log('✅ [Vitrine] Chat fermé avec succès côté backend');
                     } else {
-                        console.error('âŒ [Vitrine] Erreur lors de la fermeture du chat');
+                        console.error('❌ [Vitrine] Erreur lors de la fermeture du chat');
                     }
                 }
             } catch (error) {
-                console.error('âŒ [Vitrine] Erreur lors de la fermeture:', error);
+                console.error('❌ [Vitrine] Erreur lors de la fermeture:', error);
             }
             
             // Fermer l'interface localement
@@ -4976,39 +5030,39 @@
         }
         
         // ===== CHAT PRIORITY MANAGEMENT =====
-        let hiddenStatusBanners = []; // Stocke les banniÃ¨res masquÃ©es pour le chat
+        let hiddenStatusBanners = []; // Stocke les bannières masquées pour le chat
         
         function hideStatusBannersForChat() {
-            console.log('ðŸ’¬ [ChatPriority] Masquage des banniÃ¨res de statut pour prioritÃ© chat');
+            console.log('💬 [ChatPriority] Masquage des bannières de statut pour priorité chat');
             hiddenStatusBanners = [];
             
-            // Masquer la banniÃ¨re de statut de ticket si visible
+            // Masquer la bannière de statut de ticket si visible
             const statusContainer = document.getElementById('ticketStatusContainer');
             if (statusContainer && statusContainer.style.display !== 'none') {
                 hiddenStatusBanners.push('ticketStatus');
                 statusContainer.style.display = 'none';
-                console.log('ðŸ’¬ [ChatPriority] BanniÃ¨re de statut masquÃ©e');
+                console.log('💬 [ChatPriority] Bannière de statut masquée');
             }
             
             // Retirer le flou de la page
             removePageBlurEffect();
-            console.log('ðŸ’¬ [ChatPriority] Flou de page retirÃ© pour le chat');
+            console.log('💬 [ChatPriority] Flou de page retiré pour le chat');
         }
         
         function restoreStatusBannersAfterChat() {
-            console.log('ðŸ’¬ [ChatPriority] Restauration des banniÃ¨res de statut aprÃ¨s chat');
+            console.log('💬 [ChatPriority] Restauration des bannières de statut après chat');
             
-            // Restaurer la banniÃ¨re de statut si elle Ã©tait visible
+            // Restaurer la bannière de statut si elle était visible
             if (hiddenStatusBanners.includes('ticketStatus')) {
                 const statusContainer = document.getElementById('ticketStatusContainer');
                 if (statusContainer) {
                     statusContainer.style.display = 'flex';
-                    // Remettre le flou si c'Ã©tait une banniÃ¨re persistante
+                    // Remettre le flou si c'était une bannière persistante
                     const statusType = statusContainer.getAttribute('data-status-type');
                     if (statusType === 'persistent') {
                         addPageBlurEffect();
                     }
-                    console.log('ðŸ’¬ [ChatPriority] BanniÃ¨re de statut restaurÃ©e');
+                    console.log('💬 [ChatPriority] Bannière de statut restaurée');
                 }
             }
             
@@ -5017,12 +5071,12 @@
 
         // ===== CHAT TIMEOUT BANNER FUNCTIONS =====
         function showChatTimeoutBanner() {
-            console.log('â° [ChatTimeout] Affichage banniÃ¨re de timeout');
+            console.log('⏰ [ChatTimeout] Affichage bannière de timeout');
             
-            // Masquer la banniÃ¨re de consent si visible
+            // Masquer la bannière de consent si visible
             hideConsentBanner();
             
-            // Masquer les banniÃ¨res de statut pour prioritÃ© chat
+            // Masquer les bannières de statut pour priorité chat
             hideStatusBannersForChat();
             
             const banner = document.getElementById('chatTimeoutBanner');
@@ -5036,7 +5090,7 @@
         }
         
         function closeTimeoutBanner() {
-            console.log('âŒ [ChatTimeout] Fermeture banniÃ¨re de timeout');
+            console.log('❌ [ChatTimeout] Fermeture bannière de timeout');
             
             const banner = document.getElementById('chatTimeoutBanner');
             if (banner) {
@@ -5044,15 +5098,15 @@
                 banner.classList.remove('show');
             }
             
-            // Restaurer les banniÃ¨res de statut
+            // Restaurer les bannières de statut
             restoreStatusBannersAfterChat();
         }
         
         async function initiateClientChat() {
-            console.log('ðŸ’¬ [ChatTimeout] Client initie la conversation avec SEA');
+            console.log('💬 [ChatTimeout] Client initie la conversation avec SEA');
             
             try {
-                // âœ… S'assurer d'utiliser le bon backend (localhost vs UQAM)
+                // ✅ S'assurer d'utiliser le bon backend (localhost vs UQAM)
                 await ensureBackendConnection();
                 
                 const response = await fetch(`${currentAPI}/api/tickets/chat/client-initiate`, {
@@ -5068,26 +5122,26 @@
                 
                 if (response.ok) {
                     const data = await response.json();
-                    console.log('âœ… [ChatTimeout] Demande d\'initiation envoyÃ©e:', data);
+                    console.log('✅ [ChatTimeout] Demande d\'initiation envoyée:', data);
                     
-                    // Fermer la banniÃ¨re de timeout
+                    // Fermer la bannière de timeout
                     closeTimeoutBanner();
                     
                     // Afficher un message d'attente
-                    showNotification('Demande de chat envoyÃ©e au technicien SEA. En attente de rÃ©ponse...');
+                    showNotification('Demande de chat envoyée au technicien SEA. En attente de réponse...');
                 } else {
-                    console.error('âŒ [ChatTimeout] Erreur lors de l\'initiation:', response.status);
+                    console.error('❌ [ChatTimeout] Erreur lors de l\'initiation:', response.status);
                     showNotification('Erreur lors de l\'envoi de la demande de chat');
                 }
             } catch (error) {
-                console.error('âŒ [ChatTimeout] Erreur rÃ©seau:', error);
+                console.error('❌ [ChatTimeout] Erreur réseau:', error);
                 showNotification('Erreur de connexion');
             }
         }
 
         // ===== CONSENT BANNER FUNCTIONS =====
         function showConsentBanner(ticketNumber, roomId = null) {
-            // âœ… NOUVEAU : Masquer les banniÃ¨res de statut pour prioritÃ© chat
+            // ✅ NOUVEAU : Masquer les bannières de statut pour priorité chat
             hideStatusBannersForChat();
             
             document.getElementById('consentTicketNumber').textContent = ticketNumber;
@@ -5101,10 +5155,10 @@
             
             document.getElementById('consentBanner').style.display = 'block';
             
-            // âœ… NOUVEAU : Afficher banniÃ¨re de timeout aprÃ¨s 30 secondes au lieu de fermer
+            // ✅ NOUVEAU : Afficher bannière de timeout après 30 secondes au lieu de fermer
             setTimeout(() => {
                 if (document.getElementById('consentBanner').style.display !== 'none') {
-                    console.log('â° [ChatTimeout] Timeout de 30s - Affichage banniÃ¨re de timeout');
+                    console.log('⏰ [ChatTimeout] Timeout de 30s - Affichage bannière de timeout');
                     showChatTimeoutBanner();
                 }
             }, 30000);
@@ -5121,10 +5175,10 @@
         
         async function acceptChat() {
             try {
-                // âœ… NOUVEAU : S'assurer de la connexion backend avant acceptation
+                // ✅ NOUVEAU : S'assurer de la connexion backend avant acceptation
                 await ensureBackendConnection();
                 
-                console.log('âœ… [Consent] Chat acceptÃ©');
+                console.log('✅ [Consent] Chat accepté');
                 
                 const response = await fetch(`${currentAPI}/api/tickets/chat/consent`, {
                     method: 'POST',
@@ -5134,7 +5188,7 @@
                     body: JSON.stringify({
                         room_id: getCurrentRoom(),
                         action: 'accept',
-                        channel_id: currentChatId // âœ… CORRECTION : utiliser channel_id au lieu de chat_id
+                        channel_id: currentChatId // ✅ CORRECTION : utiliser channel_id au lieu de chat_id
                     })
                 });
                 
@@ -5144,18 +5198,18 @@
                 }
                 
             } catch (error) {
-                console.error('âŒ [Consent] Erreur acceptation:', error);
+                console.error('❌ [Consent] Erreur acceptation:', error);
             }
         }
         
         async function declineChat() {
             try {
-                // âœ… NOUVEAU : S'assurer de la connexion backend avant refus
+                // ✅ NOUVEAU : S'assurer de la connexion backend avant refus
                 await ensureBackendConnection();
                 
-                console.log('âŒ [Consent] Chat refusÃ© par le client');
-                console.log('ðŸ”— [Consent] Channel ID:', currentChatId);
-                console.log('ðŸ  [Consent] Room ID:', getCurrentRoom());
+                console.log('❌ [Consent] Chat refusé par le client');
+                console.log('🔗 [Consent] Channel ID:', currentChatId);
+                console.log('🏠 [Consent] Room ID:', getCurrentRoom());
                 
                 const response = await fetch(`${currentAPI}/api/tickets/chat/consent`, {
                     method: 'POST',
@@ -5165,30 +5219,30 @@
                     body: JSON.stringify({
                         room_id: getCurrentRoom(),
                         action: 'decline',
-                        channel_id: currentChatId // âœ… CORRECTION : utiliser channel_id au lieu de chat_id
+                        channel_id: currentChatId // ✅ CORRECTION : utiliser channel_id au lieu de chat_id
                     })
                 });
                 
                 if (response.ok) {
-                    console.log('âœ… [Consent] Refus envoyÃ© au serveur avec succÃ¨s');
+                    console.log('✅ [Consent] Refus envoyé au serveur avec succès');
                 } else {
-                    console.error('âŒ [Consent] Erreur serveur lors du refus:', response.status);
+                    console.error('❌ [Consent] Erreur serveur lors du refus:', response.status);
                 }
                 
                 hideConsentBanner();
                 currentChatId = null;
                 
-                // âœ… NOUVEAU : Restaurer les banniÃ¨res de statut aprÃ¨s refus du chat
+                // ✅ NOUVEAU : Restaurer les bannières de statut après refus du chat
                 restoreStatusBannersAfterChat();
                 
             } catch (error) {
-                console.error('âŒ [Consent] Erreur refus:', error);
+                console.error('❌ [Consent] Erreur refus:', error);
             }
         }
         
         // ===== CHAT INTERFACE FUNCTIONS =====
         function openChatInterface() {
-            // âœ… NOUVEAU : Masquer les banniÃ¨res de statut pour prioritÃ© chat
+            // ✅ NOUVEAU : Masquer les bannières de statut pour priorité chat
             hideStatusBannersForChat();
             
             document.getElementById('chatModal').classList.add('active');
@@ -5202,7 +5256,7 @@
                     <div class="system-message-content">
                         <i class="fas fa-headset"></i>
                         <div class="system-message-text">
-                            <strong>Bonjour ! ðŸ‘‹</strong><br>
+                            <strong>Bonjour ! 👋</strong><br>
                             Je suis le technicien audiovisuel du SEA (Service Expert Audiovisuel).<br>
                             <em>Comment puis-je vous aider aujourd'hui ?</em>
                         </div>
@@ -5220,7 +5274,7 @@
             document.getElementById('chatInput').value = '';
             currentChatId = null;
             
-            // âœ… NOUVEAU : Restaurer les banniÃ¨res de statut aprÃ¨s fermeture du chat
+            // ✅ NOUVEAU : Restaurer les bannières de statut après fermeture du chat
             restoreStatusBannersAfterChat();
             
             if (chatEventSource) {
@@ -5242,11 +5296,11 @@
             if (!message || !currentChatId) return;
             
             try {
-                // âœ… NOUVEAU : S'assurer de la connexion backend avant envoi
+                // ✅ NOUVEAU : S'assurer de la connexion backend avant envoi
                 await ensureBackendConnection();
                 
-                console.log(`ðŸ” [DEBUG-VITRINE] Envoi message avec channel_id: "${currentChatId}"`);
-                console.warn(`ðŸš¨ [DEBUG-VISIBLE] VITRINE ENVOIE AVEC CHANNEL_ID: "${currentChatId}"`);
+                console.log(`🔍 [DEBUG-VITRINE] Envoi message avec channel_id: "${currentChatId}"`);
+                console.warn(`🚨 [DEBUG-VISIBLE] VITRINE ENVOIE AVEC CHANNEL_ID: "${currentChatId}"`);
                 
                 const response = await fetch(`${currentAPI}/api/tickets/chat/message`, {
                     method: 'POST',
@@ -5267,18 +5321,18 @@
                 }
                 
             } catch (error) {
-                console.error('âŒ [Chat] Erreur envoi message:', error);
+                console.error('❌ [Chat] Erreur envoi message:', error);
             }
         }
         
         function addChatMessage(message, type) {
             const messagesContainer = document.getElementById('chatMessages');
             
-            // VÃ©rifier si le message n'existe pas dÃ©jÃ  (Ã©viter les doublons)
+            // Vérifier si le message n'existe pas déjà (éviter les doublons)
             const existingMessages = messagesContainer.querySelectorAll('.chat-message');
             for (let msg of existingMessages) {
                 if (msg.textContent === message && msg.className.includes(type)) {
-                    console.log('âš ï¸ [Chat] Message en double dÃ©tectÃ©, ignorÃ©:', message);
+                    console.log('⚠️ [Chat] Message en double détecté, ignoré:', message);
                     return;
                 }
             }
@@ -5289,125 +5343,125 @@
             messagesContainer.appendChild(messageElement);
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
             
-            console.log(`âœ… [Chat] Message ajoutÃ©: ${type} - ${message}`);
+            console.log(`✅ [Chat] Message ajouté: ${type} - ${message}`);
         }
         
-        // ===== CHAT EVENT SOURCE - SUPPRIMÃ‰ =====
-        // RemplacÃ© par startChatRequestListener() qui gÃ¨re tout via /api/tickets/chat/stream
+        // ===== CHAT EVENT SOURCE - SUPPRIMÉ =====
+        // Remplacé par startChatRequestListener() qui gère tout via /api/tickets/chat/stream
         
-        // ===== CHAT REQUEST LISTENER RÃ‰EL =====
+        // ===== CHAT REQUEST LISTENER RÉEL =====
         function startChatRequestListener() {
             if (!getCurrentRoom()) return;
             
             const roomId = getCurrentRoom();
-            console.log(`ðŸ’¬ [Chat] DÃ©marrage Ã©coute SSE RÃ‰ELLE pour salle ${roomId}`);
+            console.log(`💬 [Chat] Démarrage écoute SSE RÉELLE pour salle ${roomId}`);
             
-            // âœ… CORRIGÃ‰ : Utiliser currentAPI maintenant que l'initialisation est terminÃ©e
+            // ✅ CORRIGÉ : Utiliser currentAPI maintenant que l'initialisation est terminée
             const sseUrl = `${currentAPI}/api/tickets/chat/stream?room_id=${roomId}`;
             
-            // âš ï¸ DEBUG : VÃ©rifier qu'on n'a pas dÃ©jÃ  une connexion active
+            // ⚠️ DEBUG : Vérifier qu'on n'a pas déjà une connexion active
             if (window.vitrineChatEventSource) {
-                console.log('âš ï¸ [SSE] Fermeture connexion existante pour Ã©viter duplication');
+                console.log('⚠️ [SSE] Fermeture connexion existante pour éviter duplication');
                 window.vitrineChatEventSource.close();
             }
             
             const eventSource = new EventSource(sseUrl);
-            window.vitrineChatEventSource = eventSource; // Stocker pour Ã©viter duplicata
+            window.vitrineChatEventSource = eventSource; // Stocker pour éviter duplicata
             
             eventSource.onmessage = function(event) {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log('ðŸ“¡ [SSE] Ã‰vÃ©nement RÃ‰EL reÃ§u:', data);
+                    console.log('📡 [SSE] Événement RÉEL reçu:', data);
                     
                     switch (data.type) {
                         case 'connection_established':
-                            console.log('âœ… [SSE] Connexion RÃ‰ELLE Ã©tablie pour salle ' + roomId);
-                            showNotification('Connexion chat Ã©tablie - En attente des demandes SEA');
+                            console.log('✅ [SSE] Connexion RÉELLE établie pour salle ' + roomId);
+                            showNotification('Connexion chat établie - En attente des demandes SEA');
                             break;
                             
                         case 'chat_initiated':
-                            // Une demande de chat RÃ‰ELLE est arrivÃ©e depuis Tickets SEA
-                            console.log('ðŸ’¬ [SSE] Demande de chat RÃ‰ELLE reÃ§ue:', data.data);
+                            // Une demande de chat RÉELLE est arrivée depuis Tickets SEA
+                            console.log('💬 [SSE] Demande de chat RÉELLE reçue:', data.data);
                             currentChatId = data.data.channel_id;
                             showConsentBanner(`Demande de chat pour salle ${roomId}`, roomId);
                             break;
                             
                         case 'chat_ended':
-                            // âœ… NOUVEAU : VÃ©rifier QUI a fermÃ© le chat
+                            // ✅ NOUVEAU : Vérifier QUI a fermé le chat
                             const endedBy = data.data?.ended_by || 'unknown';
-                            console.log('ðŸ›‘ [SSE] Chat terminÃ© par:', endedBy);
+                            console.log('🛑 [SSE] Chat terminé par:', endedBy);
                             
                             hideConsentBanner();
                             closeChatInterface();
                             
-                            // âœ… LOGIQUE CORRECTE : Afficher le bon message selon qui a fermÃ©
+                            // ✅ LOGIQUE CORRECTE : Afficher le bon message selon qui a fermé
                             if (endedBy === 'vitrine') {
-                                // Le client a fermÃ© â†’ Pas de notification (il le sait dÃ©jÃ )
-                                console.log('â„¹ï¸ [SSE] Chat fermÃ© par le client - Pas de notification');
+                                // Le client a fermé → Pas de notification (il le sait déjà)
+                                console.log('ℹ️ [SSE] Chat fermé par le client - Pas de notification');
                             } else if (endedBy.startsWith('tickets_sea')) {
-                                // Le technicien a fermÃ© â†’ Notification appropriÃ©e
+                                // Le technicien a fermé → Notification appropriée
                                 if (endedBy === 'tickets_sea_with_summary') {
-                                    showNotification('Chat terminÃ© par le technicien - RÃ©sumÃ© crÃ©Ã©');
+                                    showNotification('Chat terminé par le technicien - Résumé créé');
                                 } else if (endedBy === 'tickets_sea_no_summary') {
-                                    showNotification('Chat terminÃ© par le technicien');
+                                    showNotification('Chat terminé par le technicien');
                                 } else {
-                                    showNotification('Chat terminÃ© par l\'opÃ©rateur SEA');
+                                    showNotification('Chat terminé par l\'opérateur SEA');
                                 }
                             } else {
-                                // Fermeture inconnue â†’ Message gÃ©nÃ©rique
-                                showNotification('Chat terminÃ©');
+                                // Fermeture inconnue → Message générique
+                                showNotification('Chat terminé');
                             }
                             
                             currentChatId = null;
                             
-                            // âœ… NOUVEAU : Assurer la restauration des banniÃ¨res mÃªme si fermÃ© cÃ´tÃ© serveur
+                            // ✅ NOUVEAU : Assurer la restauration des bannières même si fermé côté serveur
                             restoreStatusBannersAfterChat();
                             break;
 
                         case 'chat_interface_open':
-                            console.log('ðŸ’¬ [SSE] Ouverture interface de chat demandÃ©e:', data.data);
-                            // âœ… NOUVEAU : Mettre Ã  jour currentChatId avec le channel_id du chat acceptÃ©
+                            console.log('💬 [SSE] Ouverture interface de chat demandée:', data.data);
+                            // ✅ NOUVEAU : Mettre à jour currentChatId avec le channel_id du chat accepté
                             if (data.data && data.data.channel_id) {
                                 currentChatId = data.data.channel_id;
-                                console.log('âœ… [SSE] currentChatId mis Ã  jour:', currentChatId);
+                                console.log('✅ [SSE] currentChatId mis à jour:', currentChatId);
                             }
                             hideConsentBanner();
                             openChatInterface();
-                            showNotification('Chat dÃ©marrÃ© - Interface ouverte');
+                            showNotification('Chat démarré - Interface ouverte');
                             break;
 
                         case 'chat_message':
-                            console.log('ðŸ’¬ [SSE] Message reÃ§u:', data.data);
-                            // Ã‰viter d'ajouter les messages envoyÃ©s par Vitrine (ils sont dÃ©jÃ  affichÃ©s)
+                            console.log('💬 [SSE] Message reçu:', data.data);
+                            // Éviter d'ajouter les messages envoyés par Vitrine (ils sont déjà affichés)
                             if (data.data.sender && data.data.sender !== 'vitrine') {
                                 addChatMessage(data.data.message, 'received');
                             } else if (!data.data.sender) {
-                                // Si pas de sender, traiter comme message reÃ§u
+                                // Si pas de sender, traiter comme message reçu
                                 addChatMessage(data.data.message, 'received');
                             }
                             break;
                             
                         default:
-                            console.log('ðŸ“¡ [SSE] Ã‰vÃ©nement non gÃ©rÃ©:', data.type);
+                            console.log('📡 [SSE] Événement non géré:', data.type);
                     }
                 } catch (error) {
-                    console.error('âŒ [SSE] Erreur parsing Ã©vÃ©nement:', error);
+                    console.error('❌ [SSE] Erreur parsing événement:', error);
                 }
             };
             
             eventSource.onerror = function(error) {
-                console.error('âŒ [SSE] Erreur de connexion SSE RÃ‰ELLE:', error);
+                console.error('❌ [SSE] Erreur de connexion SSE RÉELLE:', error);
                 // Reconnexion automatique avec backoff exponentiel
                 setTimeout(() => {
                     if (getCurrentRoom()) {
-                        console.log('ðŸ”„ [SSE] Tentative de reconnexion...');
+                        console.log('🔄 [SSE] Tentative de reconnexion...');
                         startChatRequestListener();
                     }
                 }, 5000);
             };
             
             eventSource.onopen = function() {
-                console.log('âœ… [SSE] Connexion SSE RÃ‰ELLE Ã©tablie pour salle ' + roomId);
+                console.log('✅ [SSE] Connexion SSE RÉELLE établie pour salle ' + roomId);
             };
         }
         
@@ -5417,7 +5471,7 @@
         function startStatusEventSource() {
             const currentRoom = getCurrentRoom();
             if (!currentRoom) {
-                console.log('ðŸ”” [StatusEvents] Pas de salle dÃ©finie, EventSource non dÃ©marrÃ©');
+                console.log('🔔 [StatusEvents] Pas de salle définie, EventSource non démarré');
                 return;
             }
 
@@ -5427,52 +5481,52 @@
                 statusEventSource = null;
             }
 
-            // âœ… RÃ‰ACTIVÃ‰ : EventSource pour les changements de statuts des tickets
-            console.log('ðŸ”” [StatusEvents] DÃ©marrage EventSource pour changements de statuts');
+            // ✅ RÉACTIVÉ : EventSource pour les changements de statuts des tickets
+            console.log('🔔 [StatusEvents] Démarrage EventSource pour changements de statuts');
             
-            // âœ… CORRIGÃ‰ : Utiliser currentAPI maintenant que l'initialisation est terminÃ©e
+            // ✅ CORRIGÉ : Utiliser currentAPI maintenant que l'initialisation est terminée
             const sseUrl = `${currentAPI}/api/tickets/chat/events/vitrine?room_id=${currentRoom}`;
             statusEventSource = new EventSource(sseUrl);
 
             statusEventSource.onopen = function() {
-                console.log('ðŸ”” [StatusEvents] EventSource ouvert pour les changements de statut de la salle ' + currentRoom);
+                console.log('🔔 [StatusEvents] EventSource ouvert pour les changements de statut de la salle ' + currentRoom);
             };
 
             statusEventSource.onmessage = function(event) {
                 try {
                     const data = JSON.parse(event.data);
-                    console.log('ðŸ”” [StatusEvents] Ã‰vÃ©nement reÃ§u:', data);
+                    console.log('🔔 [StatusEvents] Événement reçu:', data);
                     
-                    // âœ… DEBUG COMPLET : Analyser la structure de l'Ã©vÃ©nement
-                    console.log('ðŸ”” [StatusEvents] Type de data:', typeof data);
-                    console.log('ðŸ”” [StatusEvents] PropriÃ©tÃ©s de data:', Object.keys(data));
-                    console.log('ðŸ”” [StatusEvents] data.Type:', data.Type);
-                    console.log('ðŸ”” [StatusEvents] data.type:', data.type);
-                    console.log('ðŸ”” [StatusEvents] data.Data:', data.Data);
-                    console.log('ðŸ”” [StatusEvents] data.data:', data.data);
+                    // ✅ DEBUG COMPLET : Analyser la structure de l'événement
+                    console.log('🔔 [StatusEvents] Type de data:', typeof data);
+                    console.log('🔔 [StatusEvents] Propriétés de data:', Object.keys(data));
+                    console.log('🔔 [StatusEvents] data.Type:', data.Type);
+                    console.log('🔔 [StatusEvents] data.type:', data.type);
+                    console.log('🔔 [StatusEvents] data.Data:', data.Data);
+                    console.log('🔔 [StatusEvents] data.data:', data.data);
 
-                    // âœ… CORRECTION FINALE : Utiliser les champs minuscules !
+                    // ✅ CORRECTION FINALE : Utiliser les champs minuscules !
                     if (data.type === 'ticket_status_change') {
-                        // VÃ©rifier que l'Ã©vÃ©nement concerne la salle courante
+                        // Vérifier que l'événement concerne la salle courante
                         if (data.data && data.data.room === currentRoom) {
-                            console.log('ðŸ”” [StatusEvents] Changement de statut dÃ©tectÃ© pour cette salle:', data.data);
-                            // âœ… NOUVEAU : Passer le statut pour dÃ©terminer si c'est persistant
+                            console.log('🔔 [StatusEvents] Changement de statut détecté pour cette salle:', data.data);
+                            // ✅ NOUVEAU : Passer le statut pour déterminer si c'est persistant
                             showTicketStatusMessage(data.data.message, data.data.status);
                         }
                     } else if (data.type === 'connection_established') {
-                        console.log('ðŸ”” [StatusEvents] Connexion SSE Ã©tablie pour salle:', data.data.room_id);
+                        console.log('🔔 [StatusEvents] Connexion SSE établie pour salle:', data.data.room_id);
                     }
                 } catch (error) {
-                    console.error('ðŸ”” [StatusEvents] Erreur parsing Ã©vÃ©nement:', error);
+                    console.error('🔔 [StatusEvents] Erreur parsing événement:', error);
                 }
             };
 
             statusEventSource.onerror = function(error) {
-                console.error('ðŸ”” [StatusEvents] Erreur EventSource:', error);
-                // Tentative de reconnexion aprÃ¨s 5 secondes
+                console.error('🔔 [StatusEvents] Erreur EventSource:', error);
+                // Tentative de reconnexion après 5 secondes
                 setTimeout(() => {
                     if (statusEventSource && statusEventSource.readyState === EventSource.CLOSED) {
-                        console.log('ðŸ”” [StatusEvents] Tentative de reconnexion EventSource...');
+                        console.log('🔔 [StatusEvents] Tentative de reconnexion EventSource...');
                         startStatusEventSource();
                     }
                 }, 5000);
@@ -5482,7 +5536,7 @@
         function showTicketStatusMessage(message, statusType) {
             const statusContainer = document.getElementById('ticketStatusContainer') || createTicketStatusContainer();
             
-            // âœ… NOUVEAU : DÃ©terminer le style basÃ© sur le type de statut
+            // ✅ NOUVEAU : Déterminer le style basé sur le type de statut
             let iconClass, bgColor;
             const isPersistent = statusType && (statusType === 'in_progress' || statusType === 'resolved');
             const statusClass = isPersistent ? 'persistent-status' : 'temporary-status';
@@ -5510,7 +5564,7 @@
                     break;
             }
             
-            // âœ… NOUVEAU : BanniÃ¨re spÃ©ciale pour EN COURS avec numÃ©ro d'urgence et sans bouton X
+            // ✅ NOUVEAU : Bannière spéciale pour EN COURS avec numéro d'urgence et sans bouton X
             if (statusType === 'in_progress') {
                 statusContainer.innerHTML = `
                     <div class="ticket-status-message ${statusClass}" style="background-color: ${bgColor}; color: white; padding: 20px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); font-size: 15px; text-align: center;">
@@ -5524,13 +5578,13 @@
                                 <span style="font-weight: 400;">Pour une urgence, contactez le SEA :</span>
                             </div>
                             <div style="font-size: 18px; font-weight: bold;">
-                                ðŸ“ž <a href="tel:6135" style="color: white; text-decoration: none;">6135</a>
+                                📞 <a href="tel:6135" style="color: white; text-decoration: none;">6135</a>
                             </div>
                         </div>
                     </div>
                 `;
             } else {
-                // BanniÃ¨re normale pour les autres statuts
+                // Bannière normale pour les autres statuts
                 statusContainer.innerHTML = `
                     <div class="ticket-status-message ${statusClass}" style="background-color: ${bgColor}; color: white; padding: 20px; border-radius: 12px; box-shadow: 0 8px 25px rgba(0,0,0,0.2); font-size: 15px; text-align: center;">
                         <div style="display: flex; align-items: center; justify-content: space-between;">
@@ -5545,33 +5599,33 @@
             }
             statusContainer.style.display = 'block';
             
-            // âœ… NOUVEAU : Effet blur sur la page pour les banniÃ¨res importantes
+            // ✅ NOUVEAU : Effet blur sur la page pour les bannières importantes
             if (statusType === 'open' || statusType === 'in_progress' || statusType === 'resolved') {
                 addPageBlurEffect();
             }
             
-            // âœ… NOUVEAU : Les statuts temporaires disparaissent aprÃ¨s 5 secondes, les persistants restent
+            // ✅ NOUVEAU : Les statuts temporaires disparaissent après 5 secondes, les persistants restent
             if (!isPersistent) {
                 setTimeout(() => {
                     hideTicketStatusMessage();
                 }, 5000);
             }
             
-            console.log(`ðŸ”” [Status] Message affichÃ© (${isPersistent ? 'PERSISTANT' : 'TEMPORAIRE'}): ${message}`);
+            console.log(`🔔 [Status] Message affiché (${isPersistent ? 'PERSISTANT' : 'TEMPORAIRE'}): ${message}`);
         }
         
         function hideTicketStatusMessage() {
             const statusContainer = document.getElementById('ticketStatusContainer');
             if (statusContainer) {
                 statusContainer.style.display = 'none';
-                // âœ… NOUVEAU : Retirer l'effet blur quand on ferme la banniÃ¨re
+                // ✅ NOUVEAU : Retirer l'effet blur quand on ferme la bannière
                 removePageBlurEffect();
             }
         }
         
-        // âœ… NOUVEAU : Fonctions pour gÃ©rer l'effet blur et blocage des interactions
+        // ✅ NOUVEAU : Fonctions pour gérer l'effet blur et blocage des interactions
         function addPageBlurEffect() {
-            // CrÃ©er un overlay blur si il n'existe pas
+            // Créer un overlay blur si il n'existe pas
             let blurOverlay = document.getElementById('pageBlurOverlay');
             if (!blurOverlay) {
                 blurOverlay = document.createElement('div');
@@ -5595,16 +5649,16 @@
                 document.body.appendChild(blurOverlay);
             }
             
-            // ✅ CORRECTION : Vérifier que blurOverlay existe avant d'ajouter les événements
+            // ? CORRECTION : V�rifier que blurOverlay existe avant d'ajouter les �v�nements
             if (blurOverlay) {
-                // ✅ NOUVEAU : Bloquer tous les clics sur l'overlay
+                // ? NOUVEAU : Bloquer tous les clics sur l'overlay
                 blurOverlay.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
                     return false;
                 });
                 
-                // âœ… NOUVEAU : Bloquer le scroll et autres interactions
+                // ✅ NOUVEAU : Bloquer le scroll et autres interactions
                 blurOverlay.addEventListener('wheel', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -5612,7 +5666,7 @@
                 });
             }
             
-            // âœ… NOUVEAU : Bloquer le scroll sur le body
+            // ✅ NOUVEAU : Bloquer le scroll sur le body
             document.body.style.overflow = 'hidden';
             
             // Afficher l'overlay avec animation
@@ -5626,7 +5680,7 @@
             if (blurOverlay) {
                 blurOverlay.style.opacity = '0';
                 
-                // âœ… NOUVEAU : RÃ©tablir le scroll sur le body
+                // ✅ NOUVEAU : Rétablir le scroll sur le body
                 document.body.style.overflow = '';
                 
                 setTimeout(() => {
@@ -5726,7 +5780,7 @@
 
 
         /**
-         * Affiche la modale avec le rÃ©sultat
+         * Affiche la modale avec le résultat
          */
         function showModal(icon, title, message, type) {
             const modalOverlay = document.getElementById('modalOverlay');
@@ -5759,7 +5813,7 @@
             const modalOverlay = document.getElementById('modalOverlay');
             modalOverlay.classList.remove('active');
             
-            // Retour automatique Ã  l'accueil aprÃ¨s un dÃ©lai
+            // Retour automatique à l'accueil après un délai
             setTimeout(() => {
                 returnToHome();
             }, 300);
@@ -5767,7 +5821,7 @@
 
 
 
-        // ===== GESTIONNAIRES D'Ã‰VÃ‰NEMENTS =====
+        // ===== GESTIONNAIRES D'ÉVÉNEMENTS =====
 
         // Fermer la modale en cliquant sur l'overlay
         const modalOverlay = document.getElementById('modalOverlay');
@@ -5789,9 +5843,9 @@
         // ===== FONCTIONS DE L'ORIGINAL =====
 
         function addMessage(type, content, data = {}) {
-            // âœ… BLOQUER COMPLÃˆTEMENT : Si c'est une action automatique exÃ©cutÃ©e, ne rien afficher dans le chat
+            // ✅ BLOQUER COMPLÈTEMENT : Si c'est une action automatique exécutée, ne rien afficher dans le chat
             if (data.auto_executed && data.auto_result) {
-                // âœ… NOUVEAU: DÃ©tecter les allumages de projecteur (actions + auto_result)
+                // ✅ NOUVEAU: Détecter les allumages de projecteur (actions + auto_result)
                 const isProjectorPowerOnFromActions = data.actions && data.actions.some(action => 
                     action.type === 'pjlink_power' && 
                     (action.command === 'power_on' || action.description?.toLowerCase().includes('allumer'))
@@ -5803,14 +5857,14 @@
                 
                 const isAVMuteAction = data.auto_result && 
                     (data.auto_result.toLowerCase().includes('av mute') || 
-                     data.auto_result.toLowerCase().includes('dÃ©sactiver') && data.auto_result.includes('PROJ-'));
+                     data.auto_result.toLowerCase().includes('désactiver') && data.auto_result.includes('PROJ-'));
                 
-                // âœ… LOGIQUE SIMPLIFIÃ‰E : BanniÃ¨re verte simple pour TOUTES les corrections automatiques
-                console.log('âœ… [AutoCorrection] Action automatique rÃ©ussie - BanniÃ¨re verte simple');
+                // ✅ LOGIQUE SIMPLIFIÉE : Bannière verte simple pour TOUTES les corrections automatiques
+                console.log('✅ [AutoCorrection] Action automatique réussie - Bannière verte simple');
                 setTimeout(() => {
                     showAutoResultBanner(data.auto_result);
                 }, 500);
-                return; // Ne pas crÃ©er de message dans le chat
+                return; // Ne pas créer de message dans le chat
             }
             
             const messageId = `msg_${Date.now()}_${++messageCount}`;
@@ -5839,43 +5893,43 @@
                 if (type === 'user') {
                     messageContent += `<strong>Vous :</strong> ${content}`;
                 } else {
-                    // âœ… FILTRER : Supprimer les messages d'actions automatiques du contenu principal
+                    // ✅ FILTRER : Supprimer les messages d'actions automatiques du contenu principal
                     let filteredContent = content;
                     if (typeof filteredContent === 'string') {
                         // Supprimer les lignes contenant des messages d'actions automatiques
                         filteredContent = filteredContent
                             .split('\n')
-                            .filter(line => !line.includes('Actions automatiques exÃ©cutÃ©es'))
-                            .filter(line => !line.match(/^âœ….*DÃ©sactiver.*sourdine/))
-                            .filter(line => !line.match(/^âœ….*TCC2.*sourdine/))
-                            .filter(line => !line.match(/^âœ….*[Aa]ction.*automatique/))
+                            .filter(line => !line.includes('Actions automatiques exécutées'))
+                            .filter(line => !line.match(/^✅.*Désactiver.*sourdine/))
+                            .filter(line => !line.match(/^✅.*TCC2.*sourdine/))
+                            .filter(line => !line.match(/^✅.*[Aa]ction.*automatique/))
                             .filter(line => line.trim() !== '')
                             .join('\n');
                     }
                     messageContent += formatContent(filteredContent);
                 }
                 
-                // Actions manuelles uniquement (les actions automatiques sont gÃ©rÃ©es par la banniÃ¨re centrÃ©e)
+                // Actions manuelles uniquement (les actions automatiques sont gérées par la bannière centrée)
                 if (data.actions && data.actions.length > 0) {
                     const manualActions = data.actions.filter(action => !(action.executed || data.auto_executed));
                     if (manualActions.length > 0) {
                     messageContent += '<div class="message-actions">';
                         manualActions.forEach(action => {
-                            messageContent += `<button class="action-btn" onclick="executeAction('${action.type}', '${action.device_id || 0}', ${JSON.stringify(action.parameters || {}).replace(/"/g, '&quot;')})">ðŸ”§ ${action.description || action.label || action.type}</button>`;
+                            messageContent += `<button class="action-btn" onclick="executeAction('${action.type}', '${action.device_id || 0}', ${JSON.stringify(action.parameters || {}).replace(/"/g, '&quot;')})">🔧 ${action.description || action.label || action.type}</button>`;
                     });
                     messageContent += '</div>';
                 }
                 }
 
-                // âœ… Les actions automatiques sont gÃ©rÃ©es au dÃ©but de addMessage (pas ici)
+                // ✅ Les actions automatiques sont gérées au début de addMessage (pas ici)
                 
-                // âœ… CORRECTION: Escalade avec banniÃ¨re centrÃ©e - vÃ©rifier les tickets existants
+                // ✅ CORRECTION: Escalade avec bannière centrée - vérifier les tickets existants
                 if (data.escalation_needed) {
                     setTimeout(() => {
                         const currentRoom = getCurrentRoom();
                         if (hasExistingTicket(currentRoom)) {
                             const lastTicket = getLastSessionTicket(currentRoom);
-                            console.log(`ðŸŽ« [TicketExistant] Escalade demandÃ©e mais ticket ${lastTicket.number} existe â†’ BanniÃ¨re ticket existant`);
+                            console.log(`🎫 [TicketExistant] Escalade demandée mais ticket ${lastTicket.number} existe → Bannière ticket existant`);
                             showExistingTicketBanner(lastTicket);
                         } else {
                             showSEAEscalationBanner(data);
@@ -5883,24 +5937,24 @@
                     }, 500);
                 }
                 
-                // âœ… Actions automatiques dÃ©jÃ  gÃ©rÃ©es au dÃ©but de addMessage
+                // ✅ Actions automatiques déjà gérées au début de addMessage
                 
                 messageContent += '</div>';
             }
 
             messageDiv.innerHTML = messageContent;
             
-            // âœ… NOUVEAU : Remplacer le contenu au lieu d'ajouter
+            // ✅ NOUVEAU : Remplacer le contenu au lieu d'ajouter
             const assistantPage = document.getElementById('assistantPage');
             
-            // Supprimer tous les messages prÃ©cÃ©dents
+            // Supprimer tous les messages précédents
             const existingMessages = assistantPage.querySelectorAll('.message');
             existingMessages.forEach(msg => msg.remove());
             
             // Ajouter le nouveau message
             assistantPage.appendChild(messageDiv);
             
-            // Charger l'image SEA2 pour les banniÃ¨res d'escalade
+            // Charger l'image SEA2 pour les bannières d'escalade
             setTimeout(async () => {
                 const escalationImgs = messageDiv.querySelectorAll('img[id^="sea-logo-"]');
                 for (const img of escalationImgs) {
@@ -5917,32 +5971,32 @@
         
         /**
          * Cache session pour les informations Podio des salles
-         * Garde les donnÃ©es jusqu'au F5 de la page
+         * Garde les données jusqu'au F5 de la page
          */
         class PodioRoomCache {
             constructor() {
                 this.cache = new Map();
-                this.maxCacheSize = 50; // Limite mÃ©moire
-                console.log('ðŸ¢ [PodioCache] Cache Podio initialisÃ©');
+                this.maxCacheSize = 50; // Limite mémoire
+                console.log('🏢 [PodioCache] Cache Podio initialisé');
             }
             
             /**
-             * RÃ©cupÃ¨re les informations d'une salle avec cache session
+             * Récupère les informations d'une salle avec cache session
              */
             async getRoomInfo(roomName) {
-                // ðŸ’¾ Check cache first (session seulement)
+                // 💾 Check cache first (session seulement)
                 if (this.cache.has(roomName)) {
-                    console.log(`ðŸ“‹ [PodioCache] Cache hit pour salle: ${roomName}`);
+                    console.log(`📋 [PodioCache] Cache hit pour salle: ${roomName}`);
                     return this.cache.get(roomName);
                 }
                 
                 try {
-                    // âœ… NOUVEAU : S'assurer de la connexion backend avant appel Podio
+                    // ✅ NOUVEAU : S'assurer de la connexion backend avant appel Podio
                     const apiUrl = await ensureBackendConnection();
                     
-                    console.log(`ðŸŒ [PodioCache] API call pour salle: ${roomName}`);
+                    console.log(`🌐 [PodioCache] API call pour salle: ${roomName}`);
                     
-                    // ðŸ Appel API Podio PRIORITAIRE avec fallback NeonDB si Ã©chec - âœ… UTILISER apiUrl
+                    // 🐍 Appel API Podio PRIORITAIRE avec fallback NeonDB si échec - ✅ UTILISER apiUrl
                     const response = await fetch(
                         `${apiUrl}/api/podio/public-room-info?room=${encodeURIComponent(roomName)}`,
                         {
@@ -5950,7 +6004,7 @@
                             headers: {
                                 'Content-Type': 'application/json'
                             },
-                            // ðŸ• Timeout pour Ã©viter blocage
+                            // 🕐 Timeout pour éviter blocage
                             signal: AbortSignal.timeout(10000) // 10s timeout
                         }
                     );
@@ -5959,38 +6013,38 @@
                         if (response.status === 429) {
                             throw new Error('Rate limit atteint - veuillez patienter');
                         }
-                        throw new Error(`HTTP ${response.status}: Salle non trouvÃ©e`);
+                        throw new Error(`HTTP ${response.status}: Salle non trouvée`);
                     }
                     
                     const data = await response.json();
                     
-                    // âœ… PODIO SUCCÃˆS: Parser la rÃ©ponse Podio normale
+                    // ✅ PODIO SUCCÈS: Parser la réponse Podio normale
                     if (data.success && data.details) {
-                        console.log(`âœ… [PodioCache] Salle ${roomName} trouvÃ©e dans Podio`);
+                        console.log(`✅ [PodioCache] Salle ${roomName} trouvée dans Podio`);
                         const roomInfo = {
                             name: data.salle_code || roomName,
                             pavillon: data.details.Pavillon || '',
                             bassin: data.details.Proprietaire || '',
                             type: data.details["Type de salle"] || '',
-                            capacite: data.details["CapacitÃ©"] || '',
+                            capacite: data.details["Capacité"] || '',
                             source: 'podio'
                         };
                         
                         this.cache.set(roomName, roomInfo);
-                        console.log(`âœ… [PodioCache] Salle ${roomName} mise en cache (Podio):`, roomInfo);
+                        console.log(`✅ [PodioCache] Salle ${roomName} mise en cache (Podio):`, roomInfo);
                         return roomInfo;
                     }
                     
-                    // âš ï¸ PODIO Ã‰CHEC: Essayer fallback NeonDB pour Ã©quipements
-                    console.log(`âš ï¸ [PodioCache] Salle ${roomName} non trouvÃ©e dans Podio â†’ Tentative fallback NeonDB`);
-                    throw new Error('Salle non trouvÃ©e dans Podio, fallback NeonDB nÃ©cessaire');
+                    // ⚠️ PODIO ÉCHEC: Essayer fallback NeonDB pour équipements
+                    console.log(`⚠️ [PodioCache] Salle ${roomName} non trouvée dans Podio → Tentative fallback NeonDB`);
+                    throw new Error('Salle non trouvée dans Podio, fallback NeonDB nécessaire');
                     
                 } catch (error) {
-                    console.warn(`âš ï¸ [PodioCache] Ã‰chec Podio pour ${roomName}: ${error.message}`);
+                    console.warn(`⚠️ [PodioCache] Échec Podio pour ${roomName}: ${error.message}`);
                     
-                    // âœ… FALLBACK NEONDB: Essayer de rÃ©cupÃ©rer les Ã©quipements depuis NeonDB
+                    // ✅ FALLBACK NEONDB: Essayer de récupérer les équipements depuis NeonDB
                     try {
-                        console.log(`ðŸ”„ [PodioCache] Tentative fallback NeonDB pour salle: ${roomName}`);
+                        console.log(`🔄 [PodioCache] Tentative fallback NeonDB pour salle: ${roomName}`);
                         
                         const neonResponse = await fetch(
                             `${apiUrl}/api/room/equipment?room=${encodeURIComponent(roomName)}`,
@@ -6004,7 +6058,7 @@
                         if (neonResponse.ok) {
                             const neonData = await neonResponse.json();
                             if (neonData.success && Array.isArray(neonData.devices)) {
-                                console.log(`âœ… [PodioCache] Salle ${roomName} trouvÃ©e via NeonDB (${neonData.devices.length} Ã©quipements)`);
+                                console.log(`✅ [PodioCache] Salle ${roomName} trouvée via NeonDB (${neonData.devices.length} équipements)`);
                                 
                                 const roomInfo = {
                                     name: roomName,
@@ -6014,30 +6068,30 @@
                                     capacite: '', // Non disponible via NeonDB
                                     devices: neonData.devices || [],
                                     equipment_count: neonData.count || 0,
-                                    source: 'neondb' // âœ… Marquer la source
+                                    source: 'neondb' // ✅ Marquer la source
                                 };
                                 
-                                // ðŸ’¾ Mettre en cache le rÃ©sultat NeonDB
+                                // 💾 Mettre en cache le résultat NeonDB
                                 this.cache.set(roomName, roomInfo);
                                 
-                                // ðŸ§¹ Nettoyer cache si nÃ©cessaire
+                                // 🧹 Nettoyer cache si nécessaire
                                 if (this.cache.size > this.maxCacheSize) {
                                     const firstKey = this.cache.keys().next().value;
                                     this.cache.delete(firstKey);
-                                    console.log(`ðŸ§¹ [PodioCache] Cache nettoyÃ© - supprimÃ©: ${firstKey}`);
+                                    console.log(`🧹 [PodioCache] Cache nettoyé - supprimé: ${firstKey}`);
                                 }
                                 
-                                console.log(`âœ… [PodioCache] Salle ${roomName} mise en cache (NeonDB):`, roomInfo);
+                                console.log(`✅ [PodioCache] Salle ${roomName} mise en cache (NeonDB):`, roomInfo);
                                 return roomInfo;
                             }
                         }
                         
-                        console.log(`âŒ [PodioCache] Fallback NeonDB Ã©galement Ã©chouÃ© pour ${roomName}`);
-                        return null; // DÃ©gradation gracieuse
+                        console.log(`❌ [PodioCache] Fallback NeonDB également échoué pour ${roomName}`);
+                        return null; // Dégradation gracieuse
                         
                     } catch (neonError) {
-                        console.warn(`âŒ [PodioCache] Erreur fallback NeonDB pour ${roomName}:`, neonError.message);
-                        return null; // DÃ©gradation gracieuse
+                        console.warn(`❌ [PodioCache] Erreur fallback NeonDB pour ${roomName}:`, neonError.message);
+                        return null; // Dégradation gracieuse
                     }
                 }
             }
@@ -6047,7 +6101,7 @@
              */
             clearCache() {
                 this.cache.clear();
-                console.log('ðŸ§¹ [PodioCache] Cache Podio vidÃ© manuellement');
+                console.log('🧹 [PodioCache] Cache Podio vidé manuellement');
             }
             
             /**
@@ -6068,10 +6122,10 @@
         // ===== FONCTIONS UTILITAIRES POUR TICKETS =====
         
         /**
-         * DÃ©termine le type de problÃ¨me basÃ© sur le contexte
+         * Détermine le type de problème basé sur le contexte
          */
         function determineProblemType() {
-            // Analyser le dernier message ou le contexte pour dÃ©terminer le type
+            // Analyser le dernier message ou le contexte pour déterminer le type
             const messages = document.querySelectorAll('.message');
             if (messages.length > 0) {
                 const lastMessage = messages[messages.length - 1];
@@ -6079,10 +6133,10 @@
                 
                 if (messageText.includes('audio') || messageText.includes('son') || messageText.includes('microphone') || messageText.includes('haut-parleur')) {
                     return 'audio';
-                } else if (messageText.includes('vidÃ©o') || messageText.includes('projecteur') || messageText.includes('Ã©cran') || messageText.includes('image')) {
-                    return 'vidÃ©o';
-                } else if (messageText.includes('rÃ©seau') || messageText.includes('internet') || messageText.includes('wifi') || messageText.includes('connexion')) {
-                    return 'rÃ©seau';
+                } else if (messageText.includes('vidéo') || messageText.includes('projecteur') || messageText.includes('écran') || messageText.includes('image')) {
+                    return 'vidéo';
+                } else if (messageText.includes('réseau') || messageText.includes('internet') || messageText.includes('wifi') || messageText.includes('connexion')) {
+                    return 'réseau';
                 } else {
                     return 'technique';
                 }
@@ -6091,22 +6145,22 @@
         }
         
         /**
-         * GÃ©nÃ¨re un message gÃ©nÃ©rique selon le type de problÃ¨me
+         * Génère un message générique selon le type de problème
          */
         function getGenericMessage(problemType) {
             const messages = {
-                'audio': 'ProblÃ¨me audio signalÃ© - Microphone, haut-parleurs, volume ou qualitÃ© sonore',
-                'vidÃ©o': 'ProblÃ¨me vidÃ©o signalÃ© - Projecteur, Ã©cran, qualitÃ© d\'image ou connectivitÃ©',
-                'rÃ©seau': 'ProblÃ¨me rÃ©seau signalÃ© - Connexion internet, Wi-Fi ou connectivitÃ© rÃ©seau',
-                'technique': 'ProblÃ¨me technique signalÃ© - Ã‰quipement, infrastructure ou maintenance gÃ©nÃ©rale'
+                'audio': 'Problème audio signalé - Microphone, haut-parleurs, volume ou qualité sonore',
+                'vidéo': 'Problème vidéo signalé - Projecteur, écran, qualité d\'image ou connectivité',
+                'réseau': 'Problème réseau signalé - Connexion internet, Wi-Fi ou connectivité réseau',
+                'technique': 'Problème technique signalé - Équipement, infrastructure ou maintenance générale'
             };
             
             return messages[problemType] || messages['technique'];
         }
 
-        // ===== FONCTIONS DE THÃˆME ET NAVIGATION =====
+        // ===== FONCTIONS DE THÈME ET NAVIGATION =====
         
-        // Basculer le thÃ¨me
+        // Basculer le thème
         function toggleTheme() {
             const body = document.body;
             const themeIcon = document.getElementById('themeIcon');
@@ -6125,14 +6179,14 @@
             }
         }
 
-        // âœ… NOUVEAU : Fonctions Mode Technique
+        // ✅ NOUVEAU : Fonctions Mode Technique
         function openTechnicalMode() {
-            console.log('ðŸ”§ [Technical] Ouverture du mode technique');
+            console.log('🔧 [Technical] Ouverture du mode technique');
             const modal = document.getElementById('technicalAuthModal');
             const passwordInput = document.getElementById('technicalPassword');
             const errorDiv = document.getElementById('technicalAuthError');
             
-            // RÃ©initialiser le modal
+            // Réinitialiser le modal
             passwordInput.value = '';
             errorDiv.style.display = 'none';
             
@@ -6146,7 +6200,7 @@
         }
 
         function closeTechnicalAuth() {
-            console.log('ðŸ”§ [Technical] Fermeture modal authentification');
+            console.log('🔧 [Technical] Fermeture modal authentification');
             const modal = document.getElementById('technicalAuthModal');
             modal.style.display = 'none';
         }
@@ -6163,16 +6217,16 @@
             const submitBtn = document.querySelector('.technical-auth-submit');
             const password = passwordInput.value.trim();
             
-            console.log('ðŸ”§ [Technical] Tentative d\'authentification via API');
+            console.log('🔧 [Technical] Tentative d\'authentification via API');
             
             if (!password) {
                 showTechnicalAuthError('Veuillez saisir le mot de passe');
                 return;
             }
             
-            // DÃ©sactiver le bouton pendant la requÃªte
+            // Désactiver le bouton pendant la requête
             submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> VÃ©rification...';
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification...';
             
             try {
                 const response = await fetch(`${currentAPI}/api/technical/auth`, {
@@ -6186,27 +6240,27 @@
                 });
                 
                 const data = await response.json();
-                console.log('ðŸ”§ [Technical] RÃ©ponse API:', data);
+                console.log('🔧 [Technical] Réponse API:', data);
                 
                 if (data.success) {
-                    console.log('âœ… [Technical] Authentification rÃ©ussie');
-                    // Stocker le token pour les futures requÃªtes (optionnel)
+                    console.log('✅ [Technical] Authentification réussie');
+                    // Stocker le token pour les futures requêtes (optionnel)
                     localStorage.setItem('technical_token', data.token);
                     localStorage.setItem('technical_expires', data.expires_at);
                     
                     closeTechnicalAuth();
                     showTechnicalPage();
                 } else {
-                    console.log('âŒ [Technical] Authentification Ã©chouÃ©e:', data.message);
+                    console.log('❌ [Technical] Authentification échouée:', data.message);
                     showTechnicalAuthError(data.message || 'Mot de passe incorrect');
                 }
             } catch (error) {
-                console.error('âŒ [Technical] Erreur lors de l\'authentification:', error);
+                console.error('❌ [Technical] Erreur lors de l\'authentification:', error);
                 showTechnicalAuthError('Erreur de connexion au serveur');
             } finally {
-                // RÃ©activer le bouton
+                // Réactiver le bouton
                 submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fas fa-unlock"></i> AccÃ©der';
+                submitBtn.innerHTML = '<i class="fas fa-unlock"></i> Accéder';
             }
         }
 
@@ -6228,15 +6282,15 @@
         }
 
         function showTechnicalPage() {
-            console.log('ðŸ”§ [Technical] Affichage page technique');
+            console.log('🔧 [Technical] Affichage page technique');
             const technicalPage = document.getElementById('technicalPage');
             const mainContainer = document.querySelector('.main-container');
             
-            // RÃ©cupÃ©rer la salle actuelle pour l'afficher
+            // Récupérer la salle actuelle pour l'afficher
             const currentRoom = getCurrentRoom();
             const technicalRoomSpan = document.getElementById('technicalCurrentRoom');
             if (technicalRoomSpan) {
-                technicalRoomSpan.textContent = currentRoom || 'Non dÃ©finie';
+                technicalRoomSpan.textContent = currentRoom || 'Non définie';
             }
             
             // Masquer Vitrine et afficher la page technique
@@ -6245,26 +6299,26 @@
             }
             technicalPage.style.display = 'block';
             
-            console.log('ðŸ”§ [Technical] Page technique affichÃ©e pour la salle:', currentRoom);
+            console.log('🔧 [Technical] Page technique affichée pour la salle:', currentRoom);
         }
 
         function returnToVitrine() {
-            console.log('ðŸ”§ [Technical] Retour Ã  Vitrine');
+            console.log('🔧 [Technical] Retour à Vitrine');
             const technicalPage = document.getElementById('technicalPage');
             const mainContainer = document.querySelector('.main-container');
             
-            // Masquer la page technique et rÃ©afficher Vitrine
+            // Masquer la page technique et réafficher Vitrine
             technicalPage.style.display = 'none';
             if (mainContainer) {
                 mainContainer.style.display = 'block';
             }
             
-            console.log('âœ… [Technical] Retour Ã  Vitrine effectuÃ©');
+            console.log('✅ [Technical] Retour à Vitrine effectué');
         }
 
-        // âœ… NOUVEAU : Fonctions de gestion de l'overlay de chargement diagnostic
+        // ✅ NOUVEAU : Fonctions de gestion de l'overlay de chargement diagnostic
         function showDiagnosticLoading() {
-            console.log('â³ [Diagnostic] Affichage du chargement');
+            console.log('⏳ [Diagnostic] Affichage du chargement');
             const overlay = document.getElementById('diagnosticLoadingOverlay');
             if (overlay) {
                 overlay.style.display = 'flex';
@@ -6276,10 +6330,10 @@
         }
 
         function hideDiagnosticLoading() {
-            console.log('âœ… [Diagnostic] Masquage du chargement');
+            console.log('✅ [Diagnostic] Masquage du chargement');
             const overlay = document.getElementById('diagnosticLoadingOverlay');
             if (overlay) {
-                // âœ… CORRECTION : Masquage immÃ©diat pour Ã©viter le retard avec les banniÃ¨res
+                // ✅ CORRECTION : Masquage immédiat pour éviter le retard avec les bannières
                 overlay.classList.remove('show');
                 overlay.style.display = 'none';
             }
@@ -6297,7 +6351,7 @@
             }
         }
 
-        // Retour Ã  l'accueil (page des palettes) - PAS la landing page
+        // Retour à l'accueil (page des palettes) - PAS la landing page
         function returnToHome() {
             // S'assurer que la page des palettes est visible
             const assistantPage = document.getElementById('assistantPage');
@@ -6311,21 +6365,21 @@
                 existingMessages.forEach(msg => msg.remove());
             }
             
-            // âœ… NETTOYAGE : Supprimer toutes les banniÃ¨res d'escalade
+            // ✅ NETTOYAGE : Supprimer toutes les bannières d'escalade
             const escalationInterfaces = document.querySelectorAll('.escalation-interface');
             escalationInterfaces.forEach(interface => interface.remove());
             
             const escalationCompact = document.querySelectorAll('.escalation-compact');
             escalationCompact.forEach(compact => compact.remove());
             
-            // âœ… NETTOYAGE : Supprimer tous les messages contenant "Actions automatiques exÃ©cutÃ©es"
+            // ✅ NETTOYAGE : Supprimer tous les messages contenant "Actions automatiques exécutées"
             document.querySelectorAll('.message').forEach(message => {
-                if (message.textContent && message.textContent.includes('Actions automatiques exÃ©cutÃ©es')) {
+                if (message.textContent && message.textContent.includes('Actions automatiques exécutées')) {
                     message.remove();
                 }
             });
             
-            // Afficher les palettes de problÃ¨mes avec la grille horizontale
+            // Afficher les palettes de problèmes avec la grille horizontale
             const problemPalettes = document.getElementById('problemPalettes');
             if (problemPalettes) {
                 problemPalettes.style.display = 'grid';
@@ -6339,12 +6393,12 @@
                 suggestionsContainer.innerHTML = '';
             }
             
-            console.log('ðŸ  Retour Ã  l\'accueil (page des palettes)');
+            console.log('🏠 Retour à l\'accueil (page des palettes)');
         }
 
-        // Appliquer le thÃ¨me sauvegardÃ© au chargement
+        // Appliquer le thème sauvegardé au chargement
         document.addEventListener('DOMContentLoaded', () => {
-            // âœ… INITIALISATION THÃˆME ET COULEURS
+            // ✅ INITIALISATION THÈME ET COULEURS
             const headerTitle = document.getElementById('headerTitle');
             const savedTheme = localStorage.getItem('vitrine-theme');
             
@@ -6356,50 +6410,50 @@
                 if (headerTitle) headerTitle.style.color = 'black';
             }
             
-            // âœ… NETTOYAGE : Supprimer toutes les banniÃ¨res d'escalade rÃ©siduelles
+            // ✅ NETTOYAGE : Supprimer toutes les bannières d'escalade résiduelles
             const oldEscalationInterfaces = document.querySelectorAll('.escalation-interface');
             oldEscalationInterfaces.forEach(interface => interface.remove());
             
             const oldEscalationCompact = document.querySelectorAll('.escalation-compact');
             oldEscalationCompact.forEach(compact => compact.remove());
             
-            // âœ… NETTOYAGE IMMÃ‰DIAT : Supprimer tous les messages "Actions automatiques exÃ©cutÃ©es"
+            // ✅ NETTOYAGE IMMÉDIAT : Supprimer tous les messages "Actions automatiques exécutées"
             setTimeout(() => {
                 document.querySelectorAll('.message').forEach(message => {
-                    if (message.textContent && message.textContent.includes('Actions automatiques exÃ©cutÃ©es')) {
+                    if (message.textContent && message.textContent.includes('Actions automatiques exécutées')) {
                         message.remove();
-                        console.log('ðŸ§¹ Message "Actions automatiques exÃ©cutÃ©es" supprimÃ© du DOM');
+                        console.log('🧹 Message "Actions automatiques exécutées" supprimé du DOM');
                     }
                 });
             }, 100);
             
-            // ===== THÃˆME HYBRIDE INTELLIGENT =====
+            // ===== THÈME HYBRIDE INTELLIGENT =====
             initializeTheme();
             setupThemeListener();
-            console.log('ðŸŽ¨ [Theme] SystÃ¨me de thÃ¨me hybride initialisÃ©');
+            console.log('🎨 [Theme] Système de thème hybride initialisé');
             
             // ===== VERROUILLAGE DE SALLE =====
             checkAndApplyRoomLock();
             
             // ===== CHAT SEA INITIALISATION =====
-            console.log('ðŸ’¬ [ChatSEA] Initialisation du systÃ¨me de chat');
+            console.log('💬 [ChatSEA] Initialisation du système de chat');
             
-            // GÃ©nÃ©rer un client_id unique et persistant
+            // Générer un client_id unique et persistant
             clientID = localStorage.getItem('vitrine.client_id');
             if (!clientID) {
                 clientID = generateUUID();
                 localStorage.setItem('vitrine.client_id', clientID);
             }
             
-            // RÃ©cupÃ©rer le kiosk_id depuis l'URL
+            // Récupérer le kiosk_id depuis l'URL
             const urlParams = new URLSearchParams(window.location.search);
             kioskID = urlParams.get('kiosk');
             
             if (kioskID) {
-                console.log('ðŸŽ›ï¸ [ChatSEA] Kiosk dÃ©tectÃ©:', kioskID);
+                console.log('🎛️ [ChatSEA] Kiosk détecté:', kioskID);
             }
             
-            // âœ… CORRIGÃ‰ : Attendre l'initialisation du backend avant de dÃ©marrer les EventSource
+            // ✅ CORRIGÉ : Attendre l'initialisation du backend avant de démarrer les EventSource
             if (getCurrentRoom()) {
                 backendInitPromise.then(() => {
                     startChatRequestListener();
@@ -6413,48 +6467,48 @@
 
 
         // ===== INITIALISATION =====
-        console.log('ðŸŽ›ï¸ Assistant Salle AV - SystÃ¨me initialisÃ©');
-        console.log('ðŸ“‹ FonctionnalitÃ©s disponibles :');
-        console.log('  â€¢ Saisie obligatoire de salle');
-        console.log('  â€¢ Cache persistant de salle');
-        console.log('  â€¢ Diagnostic audio automatique');
-        console.log('  â€¢ Diagnostic vidÃ©o automatique');
-        console.log('  â€¢ Redirection rÃ©seau');
-        console.log('  â€¢ Redirection SIM');
-        console.log('  â€¢ Mode hybride intelligent (clair/sombre)');
-        console.log('  â€¢ DÃ©tection automatique des prÃ©fÃ©rences systÃ¨me');
-        console.log('  â€¢ Bouton de retour');
+        console.log('🎛️ Assistant Salle AV - Système initialisé');
+        console.log('📋 Fonctionnalités disponibles :');
+        console.log('  • Saisie obligatoire de salle');
+        console.log('  • Cache persistant de salle');
+        console.log('  • Diagnostic audio automatique');
+        console.log('  • Diagnostic vidéo automatique');
+        console.log('  • Redirection réseau');
+        console.log('  • Redirection SIM');
+        console.log('  • Mode hybride intelligent (clair/sombre)');
+        console.log('  • Détection automatique des préférences système');
+        console.log('  • Bouton de retour');
         
-        // âœ… CONFIGURATION SIMPLIFIÃ‰E - Pas de surveillance nÃ©cessaire
-        console.log('✅ [Config] Backend unique configuré');
+        // ✅ CONFIGURATION SIMPLIFIÉE - Pas de surveillance nécessaire
+        console.log('? [Config] Backend unique configur�');
 
-// ✅ EXPOSITION DES FONCTIONS GLOBALES POUR VITRINE.HTML
-// Ces fonctions sont nécessaires pour l'interface entre vitrine.html et app.js
+// ? EXPOSITION DES FONCTIONS GLOBALES POUR VITRINE.HTML
+// Ces fonctions sont n�cessaires pour l'interface entre vitrine.html et app.js
 
 // Fonction principale d'initialisation de Vitrine
 window.initializeVitrine = function() {
-    console.log('🚀 [initializeVitrine] Démarrage de l\'application Vitrine');
+    console.log('?? [initializeVitrine] D�marrage de l\'application Vitrine');
     
-    // Créer l'interface Vitrine
+    // Cr�er l'interface Vitrine
     if (typeof createVitrine === 'function') {
         createVitrine();
-        console.log('✅ [initializeVitrine] Interface créée');
+        console.log('? [initializeVitrine] Interface cr��e');
     } else {
-        console.error('❌ [initializeVitrine] Fonction createVitrine non trouvée');
+        console.error('? [initializeVitrine] Fonction createVitrine non trouv�e');
         return false;
     }
     
-    // Initialiser le thème
+    // Initialiser le th�me
     if (typeof initializeTheme === 'function') {
         initializeTheme();
     }
     
-    // Vérifier si une salle est verrouillée
+    // V�rifier si une salle est verrouill�e
     if (window.__VITRINE_LOCK__ && window.__VITRINE_LOCK__.isLocked()) {
         const lockedRoom = window.__LOCKED_ROOM_NAME__;
-        console.log('🔒 [initializeVitrine] Salle verrouillée détectée:', lockedRoom);
+        console.log('?? [initializeVitrine] Salle verrouill�e d�tect�e:', lockedRoom);
         
-        // Simuler la confirmation de salle verrouillée
+        // Simuler la confirmation de salle verrouill�e
         if (typeof setRoomCache === 'function' && typeof parseRoomInfo === 'function') {
             const roomInfo = parseRoomInfo(lockedRoom);
             if (roomInfo) {
@@ -6466,23 +6520,23 @@ window.initializeVitrine = function() {
         }
     }
     
-    console.log('✅ [initializeVitrine] Vitrine initialisée avec succès');
+    console.log('? [initializeVitrine] Vitrine initialis�e avec succ�s');
     return true;
 };
 
-// Fonction de détection du meilleur backend (exposée globalement)
+// Fonction de d�tection du meilleur backend (expos�e globalement)
 window.detectBestBackend = detectBestBackend;
 
 // Fonction pour obtenir l'API courante
 window.getCurrentAPI = getCurrentAPI;
 
-// ✅ FONCTION createVitrine BASIQUE (interface HTML)
+// ? FONCTION createVitrine BASIQUE (interface HTML)
 function createVitrine() {
-    // Éviter la duplication si l'interface existe déjà
+    // �viter la duplication si l'interface existe d�j�
     if (document.querySelector('.main-container')) {
         return;
     }
-    // Créer le container principal de l'application
+    // Cr�er le container principal de l'application
     const container = document.createElement('div');
     container.innerHTML = `
         <div class="main-container">
@@ -6504,7 +6558,7 @@ function createVitrine() {
                 </div>
                 <div class="status-indicator">
                     <div class="status-dot" id="connection-indicator"></div>
-                    <span id="connection-text">Système opérationnel</span>
+                    <span id="connection-text">Syst�me op�rationnel</span>
                 </div>
             </div>
             
@@ -6514,7 +6568,7 @@ function createVitrine() {
                     <div class="welcome-section">
                         <img src="https://zine76.github.io/vitrine/assets/Vitrine.png" alt="Vitrine" class="welcome-logo">
                         <h2>Bienvenue sur la Vitrine SavQonnect</h2>
-                        <p>Sélectionnez votre salle pour commencer</p>
+                        <p>S�lectionnez votre salle pour commencer</p>
                     </div>
                     <div class="room-input-container">
                         <input type="text" id="roomInput" placeholder="Ex: A-1750, B-2500" onkeypress="handleRoomKeyPress(event)">
@@ -6531,12 +6585,12 @@ function createVitrine() {
                 </div>
                 <div class="assistant-content">
                     <div id="problemPalettes" class="problem-palettes">
-                        <button onclick="sendExampleMessage('Problème Vidéo')">Problème Vidéo</button>
-                        <button onclick="sendExampleMessage('Problème Audio')">Problème Audio</button>
-                        <button onclick="sendExampleMessage('Problème de réseau')">Problème Réseau</button>
+                        <button onclick="sendExampleMessage('Probl�me Vid�o')">Probl�me Vid�o</button>
+                        <button onclick="sendExampleMessage('Probl�me Audio')">Probl�me Audio</button>
+                        <button onclick="sendExampleMessage('Probl�me de r�seau')">Probl�me R�seau</button>
                     </div>
                     <div class="problem-input-section">
-                        <input type="text" id="problemInput" placeholder="Décrivez votre problème...">
+                        <input type="text" id="problemInput" placeholder="D�crivez votre probl�me...">
                         <button id="sendBtn" onclick="sendProblemReport()">Signaler</button>
                     </div>
                     <div id="suggestions" class="suggestions"></div>
@@ -6546,7 +6600,7 @@ function createVitrine() {
     `;
     
     document.body.appendChild(container);
-    console.log('✅ [createVitrine] Interface basique créée');
+    console.log('? [createVitrine] Interface basique cr��e');
 
 	// Injecter le modal d'authentification technique si absent
 	if (!document.getElementById('technicalAuthModal')) {
@@ -6592,7 +6646,7 @@ function createVitrine() {
 	}
 }
 
-console.log('✅ [AppJS] Fonctions globales exposées pour vitrine.html');
+console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
 
 // Admin overlay + reset (Alt+Ctrl+K). Also adds click fallback and console hook.
 (function(){
@@ -6748,7 +6802,7 @@ console.log('✅ [AppJS] Fonctions globales exposées pour vitrine.html');
       if (!isLocked()) return;
       var t = e.target;
       var el = t.closest ? t.closest('.change-room-btn,[data-action="choose-room"],[data-action="change-room"],[onclick*="changeRoom"],[href*="landing"],[data-route="landing"]') : null;
-      if (el) { e.stopImmediatePropagation(); e.preventDefault(); toast('🔒 Salle verrouillée. Alt+Ctrl+K pour modifier.'); }
+      if (el) { e.stopImmediatePropagation(); e.preventDefault(); toast('Salle verrouillée. Alt+Ctrl+K pour modifier.'); }
     }, true);
 
     document.querySelectorAll('.change-room-btn,[data-action="choose-room"],[data-action="change-room"],[onclick*="changeRoom"],[href*="landing"],[data-route="landing"]').forEach(function(el){
@@ -6758,7 +6812,7 @@ console.log('✅ [AppJS] Fonctions globales exposées pour vitrine.html');
 
   var originalChange = window.changeRoom;
   window.changeRoom = function(){
-    if (isLocked()) { console.log('[LOCK] changeRoom() bloqué'); toast('🔒 Salle verrouillée. Alt+Ctrl+K pour modifier.'); return; }
+    if (isLocked()) { console.log('[LOCK] changeRoom() bloqué'); toast('Salle verrouillée. Alt+Ctrl+K pour modifier.'); return; }
     if (typeof originalChange === 'function') return originalChange.apply(this, arguments);
   };
   var originalConfirm = window.confirmRoom;
@@ -6785,7 +6839,7 @@ console.log('✅ [AppJS] Fonctions globales exposées pour vitrine.html');
       isConfirm = (txt === 'confirmer' || txt === 'confirm' || txt.includes('confirmer'));
     }
     if (isConfirm) {
-      if (isLocked()) { e.preventDefault(); e.stopImmediatePropagation(); toast('🔒 Salle verrouillée. Alt+Ctrl+K pour modifier.'); return; }
+      if (isLocked()) { e.preventDefault(); e.stopImmediatePropagation(); toast('Salle verrouillée. Alt+Ctrl+K pour modifier.'); return; }
       try {
         var candidate = document.querySelector('input[type="text"],input[type="search"],input[name*="salle" i],input[id*="salle" i]');
         var v = (candidate && candidate.value || '').trim();
@@ -6801,9 +6855,9 @@ console.log('✅ [AppJS] Fonctions globales exposées pour vitrine.html');
       if (pwd === ADMIN_PASS) {
         clear();
         document.documentElement.classList.remove('is-room-locked');
-        toast('🔓 Déverrouillé. Vous pouvez modifier la salle.');
+        toast('Déverrouillé. Vous pouvez modifier la salle.');
       } else if (pwd != null) {
-        toast('❌ Mot de passe invalide.');
+        toast('? Mot de passe invalide.');
       }
     }
   });
