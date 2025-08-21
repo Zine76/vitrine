@@ -59,7 +59,8 @@
         }
         
         // âœ… CONFIGURATION IMAGES LOCALES
-        const ASSETS_BASE = 'assets';
+        // Utiliser les assets distants (identiques à la version d'origine) pour éviter les erreurs file://
+        const ASSETS_BASE = 'https://zine76.github.io/vitrine/assets';
         
         // âœ… NOUVEAU: RedÃ©marrer toutes les connexions SSE aprÃ¨s changement d'API
         function restartSSEConnections() {
@@ -115,7 +116,7 @@
         let suggestionsContainer;
         let latestRAGContext = null;
         let isConnected = false;
-        const problemInput = document.getElementById('problemInput');
+        let problemInput = null;
         
         // ===== CHAT SEA VARIABLES =====
         let currentChatId = null;
@@ -641,7 +642,8 @@
         // ===== FONCTIONS PRINCIPALES RÃ‰ELLES =====
 
         function clearInput() {
-            problemInput.value = '';
+            if (!problemInput) problemInput = document.getElementById('problemInput');
+            if (problemInput) problemInput.value = '';
             
             // âœ… NOUVEAU: Afficher Ã  nouveau les palettes de problÃ¨mes
             const problemPalettes = document.getElementById('problemPalettes');
@@ -751,7 +753,8 @@
             // GÃ©rer les suggestions spÃ©ciales
             if (message === 'Nouveau problÃ¨me AV' || message === 'Nouveau problÃ¨me') {
                 clearInput();
-                problemInput.focus();
+                if (!problemInput) problemInput = document.getElementById('problemInput');
+                if (problemInput) problemInput.focus();
                 return;
             }
             
@@ -760,7 +763,8 @@
                 addMessage('system', 'ðŸ”Š DÃ©crivez votre problÃ¨me audio :', {
                     suggestions: ['Pas de son', 'Microphone en sourdine', 'Bruit parasite', 'Volume trop bas']
                 });
-                problemInput.focus();
+                if (!problemInput) problemInput = document.getElementById('problemInput');
+                if (problemInput) problemInput.focus();
                 return;
             }
             
@@ -769,13 +773,15 @@
                 addMessage('system', 'ðŸ“½ï¸ DÃ©crivez votre problÃ¨me vidÃ©o :', {
                     suggestions: ['Ã‰cran noir', 'Pas d\'image', 'QualitÃ© dÃ©gradÃ©e', 'Projecteur ne s\'allume pas']
                 });
-                problemInput.focus();
+                if (!problemInput) problemInput = document.getElementById('problemInput');
+                if (problemInput) problemInput.focus();
                 return;
             }
             
             if (message === 'Vider la barre') {
                 clearInput();
-                problemInput.focus();
+                if (!problemInput) problemInput = document.getElementById('problemInput');
+                if (problemInput) problemInput.focus();
                 return;
             }
             
@@ -854,8 +860,11 @@
                     startEscalationTimeout(problemType, currentRoom);
                 }
                 
-                problemInput.value = message;
-                sendProblemReport();
+                if (!problemInput) problemInput = document.getElementById('problemInput');
+                if (problemInput) {
+                    problemInput.value = message;
+                    sendProblemReport();
+                }
             } else {
                 addMessage('system', 'âš ï¸ SystÃ¨me en cours d\'initialisation. Veuillez patienter.', {
                     suggestions: ['Patienter', 'Recharger la page']
@@ -869,7 +878,8 @@
 
         // Fonction principale pour envoyer le problÃ¨me au backend
         async function sendProblemReport() {
-            const message = problemInput.value.trim();
+            if (!problemInput) problemInput = document.getElementById('problemInput');
+            const message = problemInput ? problemInput.value.trim() : '';
             
             if (!message) {
                 addMessage('system', 'âŒ Veuillez dÃ©crire votre problÃ¨me.', {
@@ -1034,7 +1044,8 @@
                     processResponse(data);
                     
                     // âœ… CORRECTION UI : Vider l'input seulement aprÃ¨s succÃ¨s
-                    problemInput.value = '';
+                    if (!problemInput) problemInput = document.getElementById('problemInput');
+                    if (problemInput) problemInput.value = '';
                 } else {
                     throw new Error(data.message || 'Erreur lors du traitement');
                 }
@@ -6470,6 +6481,10 @@ window.getCurrentAPI = getCurrentAPI;
 
 // ✅ FONCTION createVitrine BASIQUE (interface HTML)
 function createVitrine() {
+    // Éviter la duplication si l'interface existe déjà
+    if (document.querySelector('.main-container')) {
+        return;
+    }
     // Créer le container principal de l'application
     const container = document.createElement('div');
     container.innerHTML = `
