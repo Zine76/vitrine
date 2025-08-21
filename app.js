@@ -59,8 +59,9 @@
         }
         
         // âœ… CONFIGURATION IMAGES LOCALES
-        // Utiliser les assets distants (identiques à la version d'origine) pour éviter les erreurs file://
-        const ASSETS_BASE = 'https://zine76.github.io/vitrine/assets';
+        // Détecter le bon chemin d'assets selon l'emplacement du fichier
+        const IS_GITHUB_VERSION_PATH = /Github-version/i.test(location.pathname || '');
+        const ASSETS_BASE = IS_GITHUB_VERSION_PATH ? '../assets' : 'assets';
         
         // âœ… NOUVEAU: RedÃ©marrer toutes les connexions SSE aprÃ¨s changement d'API
         function restartSSEConnections() {
@@ -4219,7 +4220,7 @@
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="sea-logo-${escalationId}" src="assets/SEA2.png" alt="Service Expert Audiovisuel UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <img id="sea-logo-${escalationId}" alt="Service Expert Audiovisuel UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                         <div class="sea-fallback-content" style="display: none; color: black !important; text-align: center; padding: 1rem;">
                             <h3 style="margin: 0 0 0.5rem 0; font-size: 1.2rem; color: black !important;">ASSISTANCE TECHNIQUE</h3>
                             <p style="margin: 0 0 0.5rem 0; font-size: 1rem; color: black !important;">COMPOSER LE POSTE</p>
@@ -5903,11 +5904,9 @@
             
             // Charger l'image SEA2 pour les banniÃ¨res d'escalade
             setTimeout(async () => {
-                const escalationImgs = messageDiv.querySelectorAll('.sea-escalation-image');
+                const escalationImgs = messageDiv.querySelectorAll('img[id^="sea-logo-"]');
                 for (const img of escalationImgs) {
-                    if (img && img.id && img.id.includes('sea-logo-escalation')) {
-                        await updateSEALogo(img);
-                    }
+                    await updateSEALogo(img);
                 }
             }, 100);
 
