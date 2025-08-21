@@ -1236,4 +1236,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 log('App.js chargé - En attente de configuration réseau', 'success');
-
