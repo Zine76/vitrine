@@ -2993,7 +2993,9 @@
             document.body.appendChild(bannerDiv);
             
             // âœ… GESTION CLIC BOUTON OUI
-            document.getElementById(`btn-oui-${bannerId}`).addEventListener('click', () => {
+            const btnOui = document.getElementById(`btn-oui-${bannerId}`);
+            if (btnOui) {
+                btnOui.addEventListener('click', () => {
                 console.log('âœ… [InteractiveCorrection] Utilisateur confirme - ProblÃ¨me rÃ©solu');
                 
                 // Masquer la banniÃ¨re avec animation
@@ -3009,10 +3011,13 @@
                 setTimeout(() => {
                     returnToHome();
                 }, 500);
-            });
+                });
+            }
             
             // âœ… GESTION CLIC BOUTON NON
-            document.getElementById(`btn-non-${bannerId}`).addEventListener('click', () => {
+            const btnNon = document.getElementById(`btn-non-${bannerId}`);
+            if (btnNon) {
+                btnNon.addEventListener('click', () => {
                 console.log('âŒ [InteractiveCorrection] Utilisateur confirme - ProblÃ¨me persiste');
                 
                 // Masquer la banniÃ¨re interactive
@@ -3035,7 +3040,8 @@
                         escalation_reason: `ProblÃ¨me persiste aprÃ¨s correction automatique - Intervention technique requise`
                     });
                 }, 500);
-            });
+                });
+            }
             
             // âœ… GESTION CLIC OVERLAY (fermeture)
             overlayDiv.addEventListener('click', (e) => {
@@ -5729,11 +5735,14 @@
         // ===== GESTIONNAIRES D'Ã‰VÃ‰NEMENTS =====
 
         // Fermer la modale en cliquant sur l'overlay
-        document.getElementById('modalOverlay').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
-            }
-        });
+        const modalOverlay = document.getElementById('modalOverlay');
+        if (modalOverlay) {
+            modalOverlay.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeModal();
+                }
+            });
+        }
 
         // Fermer la modale avec la touche Escape
         document.addEventListener('keydown', function(e) {
