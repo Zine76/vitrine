@@ -6904,18 +6904,7 @@ console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
     }
   }, true);
 
-  document.addEventListener('keydown', function(e){
-    if (e.altKey && e.ctrlKey && (e.key||'').toLowerCase()==='k') {
-      var pwd = prompt('Mot de passe administrateur pour modifier la salle :');
-      if (pwd === ADMIN_PASS) {
-        clear();
-        document.documentElement.classList.remove('is-room-locked');
-        toast('Déverrouillé. Vous pouvez modifier la salle.');
-      } else if (pwd != null) {
-        toast('? Mot de passe invalide.');
-      }
-    }
-  });
+  // Supprimé: Alt+Ctrl+K géré uniquement par le panneau admin principal (pas de double prompt)
 
   document.addEventListener('DOMContentLoaded', applyLockUI);
 })();
