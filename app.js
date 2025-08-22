@@ -6865,3 +6865,23 @@ console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
 
   document.addEventListener('DOMContentLoaded', applyLockUI);
 })();
+
+// === Extracted from vitrine.htm (2025-08-22 10:01:06) ===
+
+(function () {
+  var KEY = 'vitrine.room.lock';
+  try {
+    var state = JSON.parse(localStorage.getItem(KEY) || 'null');
+    window.__VITRINE_LOCK__ = {
+      get: function(){ try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ return null; } },
+      set: function(obj){ try { localStorage.setItem(KEY, JSON.stringify(obj)); } catch(e){} },
+      clear: function(){ try { localStorage.removeItem(KEY); } catch(e){} },
+      isLocked: function(){ var s=this.get(); return !!(s && s.locked && s.name); }
+    };
+    if (state && state.locked && state.name) {
+      document.documentElement.classList.add('is-room-locked');
+      window.__LOCKED_ROOM_NAME__ = state.name;
+    }
+  } catch(e){}
+})();
+
