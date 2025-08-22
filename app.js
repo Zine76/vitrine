@@ -180,7 +180,9 @@
                 console.log('🖼️ [UpdateSEALogo] Tentative de chargement image SEA pour:', imgElement.id || 'sans ID');
                 
                 // ✅ UTILISER IMAGES LOCALES
+                // Définir le src immédiatement pour éviter les courses au DOM
                 imgElement.src = `${ASSETS_BASE}/SEA2.png`;
+                imgElement.setAttribute('src', `${ASSETS_BASE}/SEA2.png`);
                 
                 imgElement.onerror = function() {
                     console.log('❌ [UpdateSEALogo] Échec chargement local');
@@ -6005,12 +6007,13 @@
             assistantPage.appendChild(messageDiv);
             
             // Charger l'image SEA2 pour les bannières d'escalade
-            setTimeout(async () => {
-                const escalationImgs = messageDiv.querySelectorAll('img[id^="sea-logo-"]');
-                for (const img of escalationImgs) {
-                    await updateSEALogo(img);
-                }
-            }, 100);
+            // Tenter immédiatement puis après un court délai pour couvrir les transitions
+            const escalationImgsNow = messageDiv.querySelectorAll('img[id^="sea-logo-"]');
+            escalationImgsNow.forEach(img => updateSEALogo(img));
+            setTimeout(() => {
+                const escalationImgsLater = messageDiv.querySelectorAll('img[id^="sea-logo-"]');
+                escalationImgsLater.forEach(img => updateSEALogo(img));
+            }, 50);
 
             return messageId;
         }
