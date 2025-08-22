@@ -6874,9 +6874,13 @@ console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
   window.confirmRoom = function(){
     var r = (typeof originalConfirm === 'function') ? originalConfirm.apply(this, arguments) : undefined;
     try {
-      var candidate = document.querySelector('input[type="text"],input[type="search"],input[name*="salle" i],input[id*="salle" i]');
+      // Ne capturer QUE les inputs de salle, pas ceux de configuration backend
+      var candidate = document.querySelector('#roomInput, input[name*="salle" i], input[id*="salle" i]:not(#backendIpInput)');
       var v = (candidate && candidate.value || '').trim();
-      if (v) set({ locked:true, name:v, setAt: new Date().toISOString() });
+      // Valider que c'est bien un nom de salle et pas une IP
+      if (v && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v) && !v.includes('.') && !v.includes(':')) {
+        set({ locked:true, name:v, setAt: new Date().toISOString() });
+      }
     } catch(e){}
     setTimeout(applyLockUI, 0);
     return r;
@@ -6896,9 +6900,13 @@ console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
     if (isConfirm) {
       if (isLocked()) { e.preventDefault(); e.stopImmediatePropagation(); toast('Salle verrouillée. Alt+Ctrl+K pour modifier.'); return; }
       try {
-        var candidate = document.querySelector('input[type="text"],input[type="search"],input[name*="salle" i],input[id*="salle" i]');
+        // Ne capturer QUE les inputs de salle, pas ceux de configuration backend
+        var candidate = document.querySelector('#roomInput, input[name*="salle" i], input[id*="salle" i]:not(#backendIpInput)');
         var v = (candidate && candidate.value || '').trim();
-        if (v) set({ locked:true, name:v, setAt: new Date().toISOString() });
+        // Valider que c'est bien un nom de salle et pas une IP
+        if (v && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v) && !v.includes('.') && !v.includes(':')) {
+          set({ locked:true, name:v, setAt: new Date().toISOString() });
+        }
         setTimeout(applyLockUI, 0);
       } catch(e){}
     }
