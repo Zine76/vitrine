@@ -7,7 +7,16 @@
         const isSecurePage = location.protocol === 'https:';
         // ✅ CONFIGURATION INTELLIGENTE - DNS avec fallback DNS alternatif
         // ? IDENTIQUE À L'INTÉGRÉE
-        let API_BASE_URL = 'http://C46928_DEE.ddns.uqam.ca:7070';
+        let API_BASE_URL = (function(){
+            try {
+                if (window.BACKEND_BASE) return window.BACKEND_BASE;
+                const storedIp = localStorage.getItem('vitrine.backend.ip');
+                if (storedIp && typeof storedIp === 'string' && storedIp.trim()) {
+                    return `http://${storedIp.trim()}:7070`;
+                }
+            } catch(e) { console.warn('[BackendBase] storage read error', e); }
+            return 'http://C46928_DEE.ddns.uqam.ca:7070';
+        })();
         const FALLBACK_DNS_URL = 'http://sav-atl-por-8.tail12c6c1.ts.net:7070';
         
         // Test rapide du DNS, sinon utiliser DNS alternatif  
@@ -31,6 +40,49 @@
         
         // ✅ INITIALISATION SYNCHRONE AVEC FALLBACK
         let currentAPI = API_BASE_URL; // Par défaut
+
+        // Écoute les changements dynamiques de backend (ex: saisi par l'utilisateur)
+        window.addEventListener('backend:updated', function(evt){
+            try {
+                const base = (evt && evt.detail && evt.detail.base) ? evt.detail.base : null;
+                if (base) {
+                    API_BASE_URL = base;
+                    currentAPI = base;
+                    console.log('[BackendBase] Mis à jour →', base);
+                }
+            } catch(e){ console.warn('[BackendBase] update error', e); }
+        });
+
+        // Surveillance simple de santé backend pour redemander l'IP en cas de déconnexion
+        (function setupBackendHealthWatch(){
+            async function pingOnce(signal){
+                try {
+                    const resp = await fetch(`${API_BASE_URL}/api/health`, { method: 'GET', signal, cache: 'no-store' });
+                    if (!resp.ok) throw new Error('bad status ' + resp.status);
+                    // Indication visuelle simple si éléments présents
+                    const dot = document.getElementById('connection-indicator') || document.querySelector('.status-dot');
+                    const txt = document.getElementById('connection-text') || document.querySelector('.status-indicator span');
+                    if (dot) { dot.style.background = '#22c55e'; }
+                    if (txt) { txt.textContent = 'Système opérationnel'; }
+                    return true;
+                } catch(err) {
+                    const dot = document.getElementById('connection-indicator') || document.querySelector('.status-dot');
+                    const txt = document.getElementById('connection-text') || document.querySelector('.status-indicator span');
+                    if (dot) { dot.style.background = '#ef4444'; }
+                    if (txt) { txt.textContent = 'Hors ligne - Configurer le backend'; }
+                    if (typeof window.showBackendModal === 'function') {
+                        window.showBackendModal(localStorage.getItem('vitrine.backend.ip') || '');
+                    }
+                    return false;
+                }
+            }
+            // Premier ping rapide après chargement
+            document.addEventListener('DOMContentLoaded', () => {
+                pingOnce();
+                // Pings périodiques
+                setInterval(() => pingOnce(), 15000);
+            });
+        })();
         let backendInitialized = false;
         
         // Fonction d'initialisation avec Promise pour attendre
