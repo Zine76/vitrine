@@ -8,7 +8,7 @@
         // ✅ CONFIGURATION INTELLIGENTE - DNS avec fallback DNS alternatif
         // ? IDENTIQUE À L'INTÉGRÉE
         let API_BASE_URL = 'http://C46928_DEE.ddns.uqam.ca:7070';
-        const FALLBACK_DNS_URL = 'http://132.208.182.84:7070';
+        const FALLBACK_DNS_URL = 'http://sav-atl-por-8.tail12c6c1.ts.net:7070';
         
         // Test rapide du DNS, sinon utiliser DNS alternatif  
         async function detectBestBackend() {
