@@ -70,7 +70,8 @@
                     const txt = document.getElementById('connection-text') || document.querySelector('.status-indicator span');
                     if (dot) { dot.style.background = '#ef4444'; }
                     if (txt) { txt.textContent = 'Hors ligne - Configurer le backend'; }
-                    if (typeof window.showBackendModal === 'function') {
+                    // N'afficher la modale que si elle n'est pas déjà ouverte
+                    if (typeof window.showBackendModal === 'function' && !window.__backendPromptOpen) {
                         window.showBackendModal(localStorage.getItem('vitrine.backend.ip') || '');
                     }
                     return false;
@@ -80,7 +81,7 @@
             document.addEventListener('DOMContentLoaded', () => {
                 pingOnce();
                 // Pings périodiques
-                setInterval(() => pingOnce(), 15000);
+                setInterval(() => pingOnce(), 20000);
             });
         })();
         let backendInitialized = false;
