@@ -785,20 +785,19 @@
             
             if (statusIndicator && statusDot) {
                 if (connected) {
-                    statusIndicator.textContent = 'Syst�me op�rationnel';
+                    statusIndicator.textContent = 'Système opérationnel';
                     statusDot.classList.remove('offline');
-                    console.log('? [SystemStatus] Syst�me op�rationnel');
+                    console.log('✅ [SystemStatus] Système opérationnel');
                 } else {
-                    statusIndicator.textContent = 'Syst�me hors ligne';
+                    statusIndicator.textContent = 'Système hors ligne';
                     statusDot.classList.add('offline');
-                    console.log('? [SystemStatus] Syst�me hors ligne');
+                    console.log('❌ [SystemStatus] Système hors ligne');
                 }
             }
             
             // Mettre à jour l'état du bouton d'envoi
             updateSendButton(false);
         }
-
         /**
          * Envoie un message d'exemple (comme dans l'original)
          */
@@ -1534,7 +1533,6 @@
                 return null;
             }
         }
-        
         /**
          * ✅ FONCTION MANQUANTE CRITIQUE : Analyse spécifique des problèmes vidéo
          * Copiée depuis assistant-salle-av-copie.html
@@ -2314,7 +2312,6 @@
                 console.log('⏰ [EscalationTimeout] Timer d\'escalade annulé');
             }
         }
-
         // ===== BANNIÈRE D'ALLUMAGE PROJECTEUR (inspirée modale PJLink) =====
         
         function showProjectorPoweringBanner(roomName) {
@@ -2973,7 +2970,6 @@
                 }, 4000);
             }
         }
-
         /**
          * ✅ NOUVELLE FONCTION : Bannière interactive de correction avec question OUI/NON
          */
@@ -3634,7 +3630,6 @@
                 overlay.remove();
             }
         }
-        
         /**
          * ✅ NOUVEAU: Séquence d'allumage avec surveillance temps réel
          */
@@ -3779,7 +3774,7 @@
                                                     // ✅ NOUVELLE LOGIQUE : Au lieu de considérer le problème résolu, escalader si problème persiste
                                                     setTimeout(() => {
                                                         closeSequentialBanner(bannerId);
-                                                        // Déclencher l'escalade car équipement fonctionne mais problème persiste
+                                                        // Déclencher l'escalade car équipement fonctionne mais problème vidéo persiste
                                                         setTimeout(() => {
                                                             console.log('🎯 [PowerOnSequence] Escalade - Équipement fonctionnel mais problème vidéo persiste');
                                                             showSEAEscalationBanner({
@@ -4395,7 +4390,6 @@
             // ✅ CORRECTION: Créer le ticket AVANT de fermer la bannière
             createTicket(escalationId, escalationActions, description);
         }
-
         /**
          * Affiche la modale pour la description détaillée du ticket
          */
@@ -5172,7 +5166,6 @@
                 banner.style.animation = '';
             }, 500);
         }
-        
         async function acceptChat() {
             try {
                 // ✅ NOUVEAU : S'assurer de la connexion backend avant acceptation
@@ -5341,7 +5334,13 @@
             messageElement.className = `chat-message ${type}`;
             messageElement.textContent = message;
             messagesContainer.appendChild(messageElement);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Scroll vers le bas (doux si supporté)
+            if (typeof messagesContainer.scrollTo === 'function') {
+                messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: 'smooth' });
+            } else {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
             
             console.log(`✅ [Chat] Message ajouté: ${type} - ${message}`);
         }
@@ -5649,7 +5648,7 @@
                 document.body.appendChild(blurOverlay);
             }
             
-            // ? CORRECTION : V�rifier que blurOverlay existe avant d'ajouter les �v�nements
+            // ? CORRECTION : Vérifier que blurOverlay existe avant d'ajouter les événements
             if (blurOverlay) {
                 // ? NOUVEAU : Bloquer tous les clics sur l'overlay
                 blurOverlay.addEventListener('click', function(e) {
@@ -5964,11 +5963,7 @@
 
             return messageId;
         }
-
-
-
         // ===== CACHE PODIO SESSION POUR INFOS SALLES =====
-        
         /**
          * Cache session pour les informations Podio des salles
          * Garde les données jusqu'au F5 de la page
@@ -6488,35 +6483,35 @@
         console.log('  • Bouton de retour');
         
         // ✅ CONFIGURATION SIMPLIFIÉE - Pas de surveillance nécessaire
-        console.log('? [Config] Backend unique configur�');
+        console.log('? [Config] Backend unique configuré');
 
 // ? EXPOSITION DES FONCTIONS GLOBALES POUR VITRINE.HTML
-// Ces fonctions sont n�cessaires pour l'interface entre vitrine.html et app.js
+// Ces fonctions sont nécessaires pour l'interface entre vitrine.html et app.js
 
 // Fonction principale d'initialisation de Vitrine
 window.initializeVitrine = function() {
-    console.log('?? [initializeVitrine] D�marrage de l\'application Vitrine');
+    console.log('?? [initializeVitrine] Démarrage de l\'application Vitrine');
     
-    // Cr�er l'interface Vitrine
+    // Créer l'interface Vitrine
     if (typeof createVitrine === 'function') {
         createVitrine();
-        console.log('? [initializeVitrine] Interface cr��e');
+        console.log('? [initializeVitrine] Interface créée');
     } else {
-        console.error('? [initializeVitrine] Fonction createVitrine non trouv�e');
+        console.error('? [initializeVitrine] Fonction createVitrine non trouvée');
         return false;
     }
     
-    // Initialiser le th�me
+    // Initialiser le thème
     if (typeof initializeTheme === 'function') {
         initializeTheme();
     }
     
-    // V�rifier si une salle est verrouill�e
+    // Vérifier si une salle est verrouillée
     if (window.__VITRINE_LOCK__ && window.__VITRINE_LOCK__.isLocked()) {
         const lockedRoom = window.__LOCKED_ROOM_NAME__;
-        console.log('?? [initializeVitrine] Salle verrouill�e d�tect�e:', lockedRoom);
+        console.log('?? [initializeVitrine] Salle verrouillée détectée:', lockedRoom);
         
-        // Simuler la confirmation de salle verrouill�e
+        // Simuler la confirmation de salle verrouillée
         if (typeof setRoomCache === 'function' && typeof parseRoomInfo === 'function') {
             const roomInfo = parseRoomInfo(lockedRoom);
             if (roomInfo) {
@@ -6528,11 +6523,11 @@ window.initializeVitrine = function() {
         }
     }
     
-    console.log('? [initializeVitrine] Vitrine initialis�e avec succ�s');
+    console.log('? [initializeVitrine] Vitrine initialisée avec succès');
     return true;
 };
 
-// Fonction de d�tection du meilleur backend (expos�e globalement)
+// Fonction de détection du meilleur backend (exposée globalement)
 window.detectBestBackend = detectBestBackend;
 
 // Fonction pour obtenir l'API courante
@@ -6540,11 +6535,11 @@ window.getCurrentAPI = getCurrentAPI;
 
 // ? FONCTION createVitrine BASIQUE (interface HTML)
 function createVitrine() {
-    // �viter la duplication si l'interface existe d�j�
+    // Éviter la duplication si l'interface existe déjà
     if (document.querySelector('.main-container')) {
         return;
     }
-    // Cr�er le container principal de l'application
+    // Créer le container principal de l'application
     const container = document.createElement('div');
     container.innerHTML = `
         <div class="main-container">
@@ -6566,7 +6561,7 @@ function createVitrine() {
                 </div>
                 <div class="status-indicator">
                     <div class="status-dot" id="connection-indicator"></div>
-                    <span id="connection-text">Syst�me op�rationnel</span>
+                    <span id="connection-text">Système opérationnel</span>
                 </div>
             </div>
             
@@ -6576,7 +6571,7 @@ function createVitrine() {
                     <div class="welcome-section">
                         <img src="https://zine76.github.io/vitrine/assets/Vitrine.png" alt="Vitrine" class="welcome-logo">
                         <h2>Bienvenue sur la Vitrine SavQonnect</h2>
-                        <p>S�lectionnez votre salle pour commencer</p>
+                        <p>Sélectionnez votre salle pour commencer</p>
                     </div>
                     <div class="room-input-container">
                         <input type="text" id="roomInput" placeholder="Ex: A-1750, B-2500" onkeypress="handleRoomKeyPress(event)">
@@ -6593,12 +6588,12 @@ function createVitrine() {
                 </div>
                 <div class="assistant-content">
                     <div id="problemPalettes" class="problem-palettes">
-                        <button onclick="sendExampleMessage('Probl�me Vid�o')">Probl�me Vid�o</button>
-                        <button onclick="sendExampleMessage('Probl�me Audio')">Probl�me Audio</button>
-                        <button onclick="sendExampleMessage('Probl�me de r�seau')">Probl�me R�seau</button>
+                        <button onclick="sendExampleMessage('Problème Vidéo')">Problème Vidéo</button>
+                        <button onclick="sendExampleMessage('Problème Audio')">Problème Audio</button>
+                        <button onclick="sendExampleMessage('Problème de réseau')">Problème Réseau</button>
                     </div>
                     <div class="problem-input-section">
-                        <input type="text" id="problemInput" placeholder="D�crivez votre probl�me...">
+                        <input type="text" id="problemInput" placeholder="Décrivez votre problème...">
                         <button id="sendBtn" onclick="sendProblemReport()">Signaler</button>
                     </div>
                     <div id="suggestions" class="suggestions"></div>
@@ -6608,7 +6603,7 @@ function createVitrine() {
     `;
     
     document.body.appendChild(container);
-    console.log('? [createVitrine] Interface basique cr��e');
+    console.log('? [createVitrine] Interface basique créée');
 
 	// Injecter le modal d'authentification technique si absent
 	if (!document.getElementById('technicalAuthModal')) {
@@ -6653,9 +6648,7 @@ function createVitrine() {
 		document.body.appendChild(techPage);
 	}
 }
-
 console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
-
 // Admin overlay + reset (Alt+Ctrl+K). Also adds click fallback and console hook.
 (function(){
   var ADMIN_CODE = 'adminsav';
