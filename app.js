@@ -133,12 +133,12 @@
                 
                 imgElement.onerror = function() {
                     console.log('❌ [UpdateSEALogo] Échec chargement local');
-                    this.src = 'assets/SEA2.png';
+                    this.src = `${ASSETS_BASE}/SEA2.png`;
                     
                     this.onerror = function() {
                         console.log('❌ [UpdateSEALogo] Échec serveur distant, utilisation fallback');
                         // Fallback vers image directement dans le dossier Annexe
-                        this.src = './SEA2.png';
+                        this.src = `${ASSETS_BASE}/SEA2.png`;
                         
                         this.onerror = function() {
                             console.log('❌ [UpdateSEALogo] Tous les chemins échoués, image vide');
@@ -2025,7 +2025,7 @@
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="si-logo" src="assets/SI.png" alt="Services Informatiques UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                        <img id="si-logo" src="${ASSETS_BASE}/SI.png" alt="Services Informatiques UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
                     </div>
                     <div class="escalation-text">
                         <strong style="color: black !important; font-weight: 600; font-size: 1.4rem; display: block; margin-bottom: 0.5rem;">Services Informatiques UQAM</strong>
@@ -2178,7 +2178,7 @@
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="sim-logo" src="assets/SIM.png" alt="Service des Immeubles UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                        <img id="sim-logo" src="${ASSETS_BASE}/SIM.png" alt="Service des Immeubles UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
                     </div>
                     <div class="escalation-text">
                         <strong style="color: black !important; font-weight: 600; font-size: 1.4rem; display: block; margin-bottom: 0.5rem;">Service des Immeubles UQAM</strong>
