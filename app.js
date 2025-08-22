@@ -6317,10 +6317,13 @@
         }
 
         // ✅ NOUVEAU : Fonctions de gestion de l'overlay de chargement diagnostic
+        let __diagnosticLoadingShownAtMs = 0;
+
         function showDiagnosticLoading() {
             console.log('⏳ [Diagnostic] Affichage du chargement');
             const overlay = document.getElementById('diagnosticLoadingOverlay');
             if (overlay) {
+                __diagnosticLoadingShownAtMs = Date.now();
                 overlay.style.display = 'flex';
                 // Petite pause pour la transition CSS
                 setTimeout(() => {
@@ -6333,9 +6336,14 @@
             console.log('✅ [Diagnostic] Masquage du chargement');
             const overlay = document.getElementById('diagnosticLoadingOverlay');
             if (overlay) {
-                // ✅ CORRECTION : Masquage immédiat pour éviter le retard avec les bannières
-                overlay.classList.remove('show');
-                overlay.style.display = 'none';
+                // Respecter une durée minimale d'affichage de 2 secondes
+                const MIN_DURATION_MS = 2000;
+                const elapsed = Date.now() - (__diagnosticLoadingShownAtMs || 0);
+                const delay = Math.max(0, MIN_DURATION_MS - elapsed);
+                setTimeout(() => {
+                    overlay.classList.remove('show');
+                    overlay.style.display = 'none';
+                }, delay);
             }
         }
 
