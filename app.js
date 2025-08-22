@@ -70,10 +70,8 @@
                     const txt = document.getElementById('connection-text') || document.querySelector('.status-indicator span');
                     if (dot) { dot.style.background = '#ef4444'; }
                     if (txt) { txt.textContent = 'Hors ligne - Configurer le backend'; }
-                    // N'afficher la modale que si elle n'est pas déjà ouverte
-                    if (typeof window.showBackendModal === 'function' && !window.__backendPromptOpen) {
-                        window.showBackendModal(localStorage.getItem('vitrine.backend.ip') || '');
-                    }
+                    // Ne plus afficher la modale automatiquement en cas d'échec.
+                    // L'utilisateur utilisera Alt+Ctrl+J pour rouvrir et changer l'IP.
                     return false;
                 }
             }
