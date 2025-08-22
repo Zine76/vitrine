@@ -1,3 +1,21 @@
+/* Vitrine header layout extracted from HTML inline styles */
+.title-section { display: flex; align-items: center; justify-content: flex-start; gap: 2rem; }
+.vitrine-logo { height: 80px; max-width: 300px; object-fit: contain; }
+.header-title { margin: 0; font-size: 1.1rem; font-weight: 600; color: black !important; -webkit-text-fill-color: black !important; }
+
+/* Utility classes */
+.hidden { display: none; }
+.m-0 { margin: 0; }
+.text-muted { color: #64748b; }
+.with-icon { display: flex; align-items: center; gap: 0.5rem; }
+
+/* Card blocks extracted from inline styles */
+.card { background: #ffffff; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.card--spaced { margin-bottom: 2rem; }
+.card-title { color: #1e293b; margin-bottom: 1rem; }
+
+/* Technical auth intro extracted from inline styles */
+.tech-auth-intro { color: #64748b; margin-bottom: 1.5rem; }
 /* FULL CSS replaced by integrated version for visual parity */
 
         /* ===== VARIABLES CSS ===== */
