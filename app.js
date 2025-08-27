@@ -6945,10 +6945,17 @@ console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
         console.log('🔧 [BackendPatch] Application du patch pour backend dynamique');
         
         function getConfiguredBackendUrl() {
+            // ✅ PRIORITÉ 1 : Utiliser currentAPI si défini (même URL que app.js principal)
+            if (typeof currentAPI !== 'undefined' && currentAPI) {
+                return currentAPI;
+            }
+            
+            // ✅ PRIORITÉ 2 : Utiliser window.BACKEND_BASE si défini
             if (window.BACKEND_BASE) {
                 return window.BACKEND_BASE;
             }
             
+            // ✅ PRIORITÉ 3 : Récupérer depuis localStorage
             try {
                 const storedIp = localStorage.getItem('vitrine.backend.ip');
                 if (storedIp) {
@@ -7017,10 +7024,12 @@ function startBackendMonitoring() {
     
     backendMonitoringInterval = setInterval(async () => {
         try {
-            const backendUrl = window.BACKEND_BASE || 
+            // ✅ UTILISER LA MÊME URL QUE APP.JS PRINCIPAL
+            const backendUrl = (typeof currentAPI !== 'undefined' && currentAPI) ? currentAPI :
+                              (window.BACKEND_BASE || 
                               (localStorage.getItem('vitrine.backend.ip') ? 
                                'http://' + localStorage.getItem('vitrine.backend.ip') + ':7070' : 
-                               'http://localhost:7070');
+                               'http://localhost:7070'));
             
             const response = await fetch(`${backendUrl}/api/health`, {
                 method: 'GET',
@@ -7090,7 +7099,12 @@ async function notifyBackendRecallMode() {
         
         console.log(`📡 [RecallMode] Notification backend: salle ${currentRoom} en mode rappel`);
         
-        let apiBase = window.BACKEND_BASE;
+        // ✅ UTILISER LA MÊME URL QUE APP.JS PRINCIPAL
+        let apiBase = (typeof currentAPI !== 'undefined' && currentAPI) ? currentAPI : null;
+        
+        if (!apiBase) {
+            apiBase = window.BACKEND_BASE;
+        }
         
         if (!apiBase) {
             try {
