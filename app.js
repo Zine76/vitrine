@@ -6936,3 +6936,254 @@ console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
   } catch(e){}
 })();
 
+// ===== EXTENSIONS VITRINE - BACKEND DYNAMIQUE & MONITORING =====
+// Ajouté pour permettre à la vitrine de fonctionner depuis n'importe quel PC
+
+// ===== PATCH CRITIQUE POUR BACKEND DYNAMIQUE =====
+(function() {
+    setTimeout(() => {
+        console.log('🔧 [BackendPatch] Application du patch pour backend dynamique');
+        
+        function getConfiguredBackendUrl() {
+            if (window.BACKEND_BASE) {
+                return window.BACKEND_BASE;
+            }
+            
+            try {
+                const storedIp = localStorage.getItem('vitrine.backend.ip');
+                if (storedIp) {
+                    return /^https?:\/\//i.test(storedIp) ? storedIp : ('http://' + storedIp + ':7070');
+                }
+            } catch (e) {
+                console.error('❌ [BackendPatch] Erreur lecture localStorage:', e);
+            }
+            
+            return 'http://localhost:7070';
+        }
+        
+        const configuredUrl = getConfiguredBackendUrl();
+        console.log(`🌐 [BackendPatch] URL backend configurée: ${configuredUrl}`);
+        
+        // Patcher fetch
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            if (typeof url === 'string' && url.includes('localhost:7070')) {
+                const newUrl = url.replace('http://localhost:7070', configuredUrl);
+                console.log(`🔄 [BackendPatch] Redirection: ${url} → ${newUrl}`);
+                return originalFetch(newUrl, options);
+            }
+            
+            if (typeof url === 'string' && url.startsWith('/api')) {
+                const newUrl = configuredUrl + url;
+                console.log(`🔄 [BackendPatch] Absolutisation: ${url} → ${newUrl}`);
+                return originalFetch(newUrl, options);
+            }
+            
+            return originalFetch(url, options);
+        };
+        
+        // Patcher EventSource
+        const originalEventSource = window.EventSource;
+        window.EventSource = function(url, eventSourceInitDict) {
+            if (typeof url === 'string' && url.includes('localhost:7070')) {
+                const newUrl = url.replace('http://localhost:7070', configuredUrl);
+                console.log(`🔄 [BackendPatch] SSE Redirection: ${url} → ${newUrl}`);
+                return new originalEventSource(newUrl, eventSourceInitDict);
+            }
+            
+            if (typeof url === 'string' && url.startsWith('/api')) {
+                const newUrl = configuredUrl + url;
+                console.log(`🔄 [BackendPatch] SSE Absolutisation: ${url} → ${newUrl}`);
+                return new originalEventSource(newUrl, eventSourceInitDict);
+            }
+            
+            return new originalEventSource(url, eventSourceInitDict);
+        };
+        
+        console.log('✅ [BackendPatch] Patch appliqué avec succès');
+    }, 1000);
+})();
+
+// ===== MONITORING AUTOMATIQUE DU BACKEND =====
+let backendMonitoringInterval = null;
+let isBackendOnline = false;
+
+function startBackendMonitoring() {
+    if (backendMonitoringInterval) {
+        clearInterval(backendMonitoringInterval);
+    }
+    
+    console.log('🔍 [BackendMonitor] Démarrage du monitoring automatique');
+    
+    backendMonitoringInterval = setInterval(async () => {
+        try {
+            const backendUrl = window.BACKEND_BASE || 
+                              (localStorage.getItem('vitrine.backend.ip') ? 
+                               'http://' + localStorage.getItem('vitrine.backend.ip') + ':7070' : 
+                               'http://localhost:7070');
+            
+            const response = await fetch(`${backendUrl}/api/health`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(5000)
+            });
+            
+            const wasOnline = isBackendOnline;
+            isBackendOnline = response.ok;
+            
+            if (!wasOnline && isBackendOnline) {
+                console.log('✅ [BackendMonitor] Backend revenu en ligne !');
+                updateSystemStatus(true);
+                
+                if (typeof getCurrentRoom === 'function' && getCurrentRoom()) {
+                    console.log('🔄 [BackendMonitor] Redémarrage des connexions SSE');
+                    setTimeout(() => {
+                        if (typeof startChatRequestListener === 'function') {
+                            startChatRequestListener();
+                        }
+                    }, 1000);
+                }
+            } else if (wasOnline && !isBackendOnline) {
+                console.log('❌ [BackendMonitor] Backend hors ligne détecté');
+                updateSystemStatus(false);
+            }
+            
+        } catch (error) {
+            const wasOnline = isBackendOnline;
+            isBackendOnline = false;
+            
+            if (wasOnline) {
+                console.log('❌ [BackendMonitor] Perte de connexion backend:', error.message);
+                updateSystemStatus(false);
+            }
+        }
+    }, 10000);
+}
+
+function updateSystemStatus(online) {
+    const statusDot = document.querySelector('.status-dot');
+    const statusText = document.querySelector('.status-indicator span');
+    
+    if (statusDot && statusText) {
+        if (online) {
+            statusDot.style.backgroundColor = '#10b981';
+            statusText.textContent = 'Système opérationnel';
+        } else {
+            statusDot.style.backgroundColor = '#ef4444';
+            statusText.textContent = 'Connexion backend interrompue';
+        }
+    }
+}
+
+// ===== NOTIFICATION MODE RAPPEL =====
+let vitrineChatId = null;
+
+async function notifyBackendRecallMode() {
+    try {
+        const currentRoom = typeof getCurrentRoom === 'function' ? getCurrentRoom() : null;
+        const chatId = vitrineChatId;
+        console.log(`🔍 [RecallMode] Debug - currentRoom: ${currentRoom}, vitrineChatId: ${chatId}`);
+        
+        if (!currentRoom || !chatId) {
+            console.log('⚠️ [RecallMode] Pas de salle ou chatId actuel, skip notification');
+            return;
+        }
+        
+        console.log(`📡 [RecallMode] Notification backend: salle ${currentRoom} en mode rappel`);
+        
+        let apiBase = window.BACKEND_BASE;
+        
+        if (!apiBase) {
+            try {
+                const storedIp = localStorage.getItem('vitrine.backend.ip');
+                if (storedIp) {
+                    apiBase = /^https?:\/\//i.test(storedIp) ? storedIp : ('http://' + storedIp + ':7070');
+                    console.log(`🔧 [RecallMode] IP récupérée depuis localStorage: ${apiBase}`);
+                } else {
+                    console.error('❌ [RecallMode] Aucune IP backend configurée !');
+                    return;
+                }
+            } catch (e) {
+                console.error('❌ [RecallMode] Erreur lecture localStorage:', e);
+                return;
+            }
+        }
+        
+        if (!apiBase) {
+            apiBase = 'http://localhost:7070';
+            console.warn('⚠️ [RecallMode] Fallback vers localhost');
+        }
+        
+        console.log(`🌐 [RecallMode] URL backend utilisée: ${apiBase}`);
+        
+        const payload = {
+            room: currentRoom,
+            chat_id: chatId,
+            status: 'recall_mode',
+            message: 'Client n\'a pas répondu - Vitrine en mode rappel'
+        };
+        
+        console.log(`📤 [RecallMode] Payload envoyé:`, payload);
+        
+        const response = await fetch(`${apiBase}/api/tickets/chat/recall-mode`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        console.log(`📡 [RecallMode] Réponse HTTP:`, response.status, response.statusText);
+        
+        if (response.ok) {
+            const responseData = await response.text();
+            console.log('✅ [RecallMode] Backend notifié avec succès, réponse:', responseData);
+        } else {
+            const errorText = await response.text();
+            console.warn('⚠️ [RecallMode] Erreur notification backend:', response.status, errorText);
+        }
+    } catch (error) {
+        console.error('❌ [RecallMode] Erreur notification backend:', error);
+    }
+}
+
+// ===== INITIALISATION DES EXTENSIONS =====
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        startBackendMonitoring();
+    }, 2000);
+    
+    setTimeout(() => {
+        // Hook sur showChatTimeoutBanner
+        if (typeof window.showChatTimeoutBanner === 'function') {
+            const originalShowTimeout = window.showChatTimeoutBanner;
+            window.showChatTimeoutBanner = function() {
+                console.log('🔄 [RecallMode] Hook sur showChatTimeoutBanner original');
+                const result = originalShowTimeout.apply(this, arguments);
+                notifyBackendRecallMode();
+                return result;
+            };
+            console.log('✅ [RecallMode] Hook installé sur showChatTimeoutBanner');
+        }
+
+        // Hook console.log pour capturer channel_id
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('💬 [SSE] Demande de chat RÉELLE reçue:')) {
+                const data = args[1];
+                if (data && data.channel_id) {
+                    vitrineChatId = data.channel_id;
+                    console.log('✅ [RecallMode] Channel ID capturé:', vitrineChatId);
+                }
+            }
+            
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('🛑 [SSE] Chat terminé par:')) {
+                vitrineChatId = null;
+                console.log('🔄 [RecallMode] Channel ID reset');
+            }
+            
+            return originalConsoleLog.apply(this, args);
+        };
+        console.log('✅ [RecallMode] Hook console.log installé pour capturer channel_id');
+    }, 2000);
+});
+
