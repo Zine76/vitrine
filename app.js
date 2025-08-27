@@ -5136,17 +5136,33 @@
             }
         }
         
-        function closeTimeoutBanner() {
-            console.log('❌ [ChatTimeout] Fermeture bannière de timeout');
+        async function closeTimeoutBanner() {
+            console.log('❌ [ChatTimeout] Fermeture bannière de timeout par le client');
             
-            const banner = document.getElementById('chatTimeoutBanner');
-            if (banner) {
-                banner.style.display = 'none';
-                banner.classList.remove('show');
+            try {
+                // ✅ NOUVEAU : Notifier le backend que le client a fermé la bannière de rappel
+                await notifyBackendClientClosedRecall();
+                
+                const banner = document.getElementById('chatTimeoutBanner');
+                if (banner) {
+                    banner.style.display = 'none';
+                    banner.classList.remove('show');
+                }
+                
+                // Restaurer les bannières de statut
+                restoreStatusBannersAfterChat();
+                
+            } catch (error) {
+                console.error('❌ [ChatTimeout] Erreur lors de la fermeture:', error);
+                
+                // Fermer quand même l'interface même en cas d'erreur
+                const banner = document.getElementById('chatTimeoutBanner');
+                if (banner) {
+                    banner.style.display = 'none';
+                    banner.classList.remove('show');
+                }
+                restoreStatusBannersAfterChat();
             }
-            
-            // Restaurer les bannières de statut
-            restoreStatusBannersAfterChat();
         }
         
         async function initiateClientChat() {
@@ -7085,6 +7101,80 @@ function updateSystemStatus(online) {
 
 // ===== NOTIFICATION MODE RAPPEL =====
 let vitrineChatId = null;
+
+async function notifyBackendClientClosedRecall() {
+    try {
+        const currentRoom = typeof getCurrentRoom === 'function' ? getCurrentRoom() : null;
+        const chatId = vitrineChatId;
+        console.log(`🔍 [ClientClosed] Debug - currentRoom: ${currentRoom}, vitrineChatId: ${chatId}`);
+
+        if (!currentRoom || !chatId) {
+            console.log('⚠️ [ClientClosed] Pas de salle ou chatId actuel, skip notification');
+            return;
+        }
+
+        console.log(`📡 [ClientClosed] Notification backend: client a fermé la bannière de rappel`);
+
+        // ✅ UTILISER LA MÊME URL QUE APP.JS PRINCIPAL
+        let apiBase = (typeof currentAPI !== 'undefined' && currentAPI) ? currentAPI : null;
+
+        if (!apiBase) {
+            apiBase = window.BACKEND_BASE;
+        }
+
+        if (!apiBase) {
+            try {
+                const storedIp = localStorage.getItem('vitrine.backend.ip');
+                if (storedIp) {
+                    apiBase = /^https?:\/\//i.test(storedIp) ? storedIp : ('http://' + storedIp + ':7070');
+                    console.log(`🔧 [ClientClosed] IP récupérée depuis localStorage: ${apiBase}`);
+                } else {
+                    console.error('❌ [ClientClosed] Aucune IP backend configurée !');
+                    return;
+                }
+            } catch (e) {
+                console.error('❌ [ClientClosed] Erreur lecture localStorage:', e);
+                return;
+            }
+        }
+
+        if (!apiBase) {
+            apiBase = 'http://localhost:7070';
+            console.warn('⚠️ [ClientClosed] Fallback vers localhost');
+        }
+
+        console.log(`🌐 [ClientClosed] URL backend utilisée: ${apiBase}`);
+
+        const payload = {
+            room: currentRoom,
+            chat_id: chatId,
+            status: 'client_closed',
+            message: 'Client a fermé la bannière de rappel - Non disponible'
+        };
+
+        console.log(`📤 [ClientClosed] Payload envoyé:`, payload);
+
+        const response = await fetch(`${apiBase}/api/tickets/chat/recall-mode`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        console.log(`📡 [ClientClosed] Réponse HTTP:`, response.status, response.statusText);
+
+        if (response.ok) {
+            const responseData = await response.text();
+            console.log('✅ [ClientClosed] Backend notifié avec succès, réponse:', responseData);
+        } else {
+            const errorText = await response.text();
+            console.warn('⚠️ [ClientClosed] Erreur notification backend:', response.status, errorText);
+        }
+    } catch (error) {
+        console.error('❌ [ClientClosed] Erreur notification backend:', error);
+    }
+}
 
 async function notifyBackendRecallMode() {
     try {
