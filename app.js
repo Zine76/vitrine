@@ -5345,9 +5345,72 @@
             }
         }
         
+        // ✅ NOUVEAU : Variables pour la détection de frappe
+        let isTypingVitrine = false;
+        let typingTimeoutVitrine = null;
+        let lastTypingEventVitrine = 0;
+        const TYPING_INTERVAL_VITRINE = 2000; // 2 secondes
+        
         function handleChatKeyPress(event) {
             if (event.key === 'Enter') {
                 sendChatMessage();
+            } else {
+                // ✅ NOUVEAU : Détecter la frappe comme Tickets SEA
+                handleTypingVitrine(event);
+            }
+        }
+        
+        // ✅ NOUVEAU : Fonction de détection de frappe pour Vitrine
+        function handleTypingVitrine(event) {
+            if (!currentChatId) return;
+            
+            console.log(`✅ [TypingVitrine] Chat actif trouvé, chatId: ${currentChatId}`);
+            const now = Date.now();
+            
+            // Éviter d'envoyer trop d'événements de frappe
+            if (!isTypingVitrine) {
+                isTypingVitrine = true;
+                sendTypingStatusVitrine(currentChatId, true);
+                lastTypingEventVitrine = now;
+            } else if (now - lastTypingEventVitrine > TYPING_INTERVAL_VITRINE) {
+                // Renvoyer l'état de frappe toutes les X secondes pour maintenir l'état
+                sendTypingStatusVitrine(currentChatId, true);
+                lastTypingEventVitrine = now;
+            }
+            
+            // Réinitialiser le timeout
+            clearTimeout(typingTimeoutVitrine);
+            typingTimeoutVitrine = setTimeout(() => {
+                isTypingVitrine = false;
+                sendTypingStatusVitrine(currentChatId, false);
+            }, 1000); // Arrêt après 1 seconde d'inactivité
+        }
+        
+        // ✅ NOUVEAU : Fonction d'envoi d'état de frappe pour Vitrine
+        async function sendTypingStatusVitrine(channelId, isTyping) {
+            try {
+                console.log(`⌨️ [TypingVitrine] Envoi état frappe: ${isTyping ? 'en train d\'écrire' : 'arrêté d\'écrire'}`);
+                
+                await ensureBackendConnection();
+                
+                const response = await fetch(`${currentAPI}/api/tickets/chat/typing`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        channel_id: channelId,
+                        is_typing: isTyping
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                console.log(`✅ [TypingVitrine] État frappe envoyé: ${isTyping}`);
+            } catch (error) {
+                console.error(`❌ [TypingVitrine] Erreur d'envoi d'état de frappe:`, error);
             }
         }
         
