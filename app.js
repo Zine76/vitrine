@@ -5487,7 +5487,7 @@
             const roomId = getCurrentRoom();
             console.log(`💬 [Chat] Démarrage écoute SSE RÉELLE pour salle ${roomId}`);
             
-            // ✅ RESTAURATION : Utiliser l'endpoint original pour les messages de chat
+            // ✅ CORRIGÉ : Utiliser currentAPI maintenant que l'initialisation est terminée
             const sseUrl = `${currentAPI}/api/tickets/chat/stream?room_id=${roomId}`;
             
             // ⚠️ DEBUG : Vérifier qu'on n'a pas déjà une connexion active
@@ -5630,7 +5630,7 @@
             // ✅ RÉACTIVÉ : EventSource pour les changements de statuts des tickets
             console.log('🔔 [StatusEvents] Démarrage EventSource pour changements de statuts');
             
-            // ✅ CORRIGÉ : Utiliser l'endpoint original pour les status events
+            // ✅ CORRIGÉ : Utiliser currentAPI maintenant que l'initialisation est terminée
             const sseUrl = `${currentAPI}/api/tickets/chat/events/vitrine?room_id=${currentRoom}`;
             statusEventSource = new EventSource(sseUrl);
 
