@@ -5631,8 +5631,9 @@
             console.log('🔔 [StatusEvents] Démarrage EventSource pour changements de statuts');
             
             // ✅ CORRIGÉ : Utiliser currentAPI maintenant que l'initialisation est terminée
-            // ✅ CORRECTION VITRINE : Utiliser le même endpoint que Tickets SEA pour recevoir typing events
-            const sseUrl = `${currentAPI}/api/tickets/chat/events?room_id=${currentRoom}`;
+            // ✅ SOLUTION FINALE : Utiliser un ticket_id fictif comme Tickets SEA
+            const fakeTicketId = `vitrine-${currentRoom}-${Date.now()}`;
+            const sseUrl = `${currentAPI}/api/tickets/chat/events?ticket_id=${fakeTicketId}`;
             statusEventSource = new EventSource(sseUrl);
 
             statusEventSource.onopen = function() {
