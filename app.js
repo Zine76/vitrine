@@ -5687,9 +5687,9 @@
             // Fonctions pour les indicateurs de typing
             window.showTypingIndicator = function() {
                 console.log('🎯 [DEBUG] showTypingIndicator() appelée');
-                const chatContainer = document.querySelector('.chat-messages');
+                const chatContainer = document.querySelector('#chatMessages');
                 if (!chatContainer) {
-                    console.log('❌ [DEBUG] Pas de container .chat-messages trouvé');
+                    console.log('❌ [DEBUG] Pas de container #chatMessages trouvé');
                     return;
                 }
                 console.log('✅ [DEBUG] Container chat trouvé:', chatContainer);
