@@ -5487,8 +5487,9 @@
             const roomId = getCurrentRoom();
             console.log(`💬 [Chat] Démarrage écoute SSE RÉELLE pour salle ${roomId}`);
             
-            // ✅ CORRIGÉ : Utiliser currentAPI maintenant que l'initialisation est terminée
-            const sseUrl = `${currentAPI}/api/tickets/chat/stream?room_id=${roomId}`;
+            // ✅ CORRECTION FINALE : Utiliser le même endpoint que Tickets SEA pour recevoir typing events
+            const fakeTicketId = `vitrine-${roomId}-${Date.now()}`;
+            const sseUrl = `${currentAPI}/api/tickets/chat/events?ticket_id=${fakeTicketId}`;
             
             // ⚠️ DEBUG : Vérifier qu'on n'a pas déjà une connexion active
             if (window.vitrineChatEventSource) {
@@ -5680,8 +5681,13 @@
             
             // Fonctions pour les indicateurs de typing
             window.showTypingIndicator = function() {
-                const chatContainer = document.querySelector('.chat-interface');
-                if (!chatContainer) return;
+                console.log('🎯 [DEBUG] showTypingIndicator() appelée');
+                const chatContainer = document.querySelector('.chat-messages');
+                if (!chatContainer) {
+                    console.log('❌ [DEBUG] Pas de container .chat-messages trouvé');
+                    return;
+                }
+                console.log('✅ [DEBUG] Container chat trouvé:', chatContainer);
                 
                 // Supprimer indicateur existant
                 const existing = document.getElementById('typing-indicator-vitrine');
