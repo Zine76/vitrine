@@ -3747,6 +3747,21 @@
             to { transform: translateX(100%); opacity: 0; }
         }
         
+        /* ✅ NOUVEAU : Styles pour les indicateurs de frappe */
+        @keyframes typing-pulse {
+            0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+            30% { opacity: 1; transform: scale(1); }
+        }
+        
+        #typing-indicator-vitrine {
+            animation: slideInRight 0.3s ease-out;
+            margin: 8px 0;
+        }
+        
+        #typing-indicator-vitrine div[style*="animation: typing-pulse"] {
+            animation: typing-pulse 1.5s infinite;
+        }
+        
         /* ===== STYLES POUR MESSAGES DE STATUT TICKETS ===== */
         .ticket-status-container {
             position: fixed;
