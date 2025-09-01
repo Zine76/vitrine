@@ -5583,9 +5583,66 @@
                         }
                     } else if (data.type === 'connection_established') {
                         console.log('🔔 [StatusEvents] Connexion SSE établie pour salle:', data.data.room_id);
+                    } else if (data.type === 'client_typing') {
+                        console.log('🔍 [StatusEvents] Événement typing reçu:', data);
+                        if (data.data && data.data.is_typing) {
+                            console.log('💬 [StatusEvents] Technicien en train d\'écrire...');
+                            showTypingIndicator();
+                        } else {
+                            console.log('💬 [StatusEvents] Technicien a arrêté d\'écrire');
+                            hideTypingIndicator();
+                        }
                     }
                 } catch (error) {
                     console.error('🔔 [StatusEvents] Erreur parsing événement:', error);
+                }
+            };
+            
+            // Fonctions pour les indicateurs de typing
+            window.showTypingIndicator = function() {
+                const chatContainer = document.querySelector('.chat-interface');
+                if (!chatContainer) return;
+                
+                // Supprimer indicateur existant
+                const existing = document.getElementById('typing-indicator-vitrine');
+                if (existing) existing.remove();
+                
+                // Créer nouvel indicateur
+                const indicator = document.createElement('div');
+                indicator.id = 'typing-indicator-vitrine';
+                indicator.innerHTML = `
+                    <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 8px 16px; border-radius: 20px; margin: 8px 0; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);">
+                        <div style="display: flex; gap: 4px;">
+                            <div style="width: 6px; height: 6px; background: white; border-radius: 50%; animation: typing-pulse 1.5s infinite;"></div>
+                            <div style="width: 6px; height: 6px; background: white; border-radius: 50%; animation: typing-pulse 1.5s infinite 0.2s;"></div>
+                            <div style="width: 6px; height: 6px; background: white; border-radius: 50%; animation: typing-pulse 1.5s infinite 0.4s;"></div>
+                        </div>
+                        <span>Technicien en train d'écrire...</span>
+                    </div>
+                `;
+                
+                // Ajouter l'animation CSS si pas déjà présente
+                if (!document.getElementById('typing-animation-style')) {
+                    const style = document.createElement('style');
+                    style.id = 'typing-animation-style';
+                    style.textContent = `
+                        @keyframes typing-pulse {
+                            0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
+                            30% { opacity: 1; transform: scale(1); }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+                
+                chatContainer.appendChild(indicator);
+                console.log('✅ [StatusEvents] Indicateur typing affiché dans Vitrine');
+            };
+            
+            window.hideTypingIndicator = function() {
+                const indicator = document.getElementById('typing-indicator-vitrine');
+                if (indicator) {
+                    indicator.remove();
+                    console.log('✅ [StatusEvents] Indicateur typing supprimé de Vitrine');
                 }
             };
 
