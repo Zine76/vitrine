@@ -5487,9 +5487,8 @@
             const roomId = getCurrentRoom();
             console.log(`💬 [Chat] Démarrage écoute SSE RÉELLE pour salle ${roomId}`);
             
-            // ✅ CORRECTION FINALE : Utiliser le même endpoint que Tickets SEA pour recevoir typing events
-            const fakeTicketId = `vitrine-${roomId}-${Date.now()}`;
-            const sseUrl = `${currentAPI}/api/tickets/chat/events?ticket_id=${fakeTicketId}`;
+            // ✅ RESTAURATION : Utiliser l'endpoint original pour les messages de chat
+            const sseUrl = `${currentAPI}/api/tickets/chat/stream?room_id=${roomId}`;
             
             // ⚠️ DEBUG : Vérifier qu'on n'a pas déjà une connexion active
             if (window.vitrineChatEventSource) {
@@ -5631,10 +5630,8 @@
             // ✅ RÉACTIVÉ : EventSource pour les changements de statuts des tickets
             console.log('🔔 [StatusEvents] Démarrage EventSource pour changements de statuts');
             
-            // ✅ CORRIGÉ : Utiliser currentAPI maintenant que l'initialisation est terminée
-            // ✅ SOLUTION FINALE : Utiliser un ticket_id fictif comme Tickets SEA
-            const fakeTicketId = `vitrine-${currentRoom}-${Date.now()}`;
-            const sseUrl = `${currentAPI}/api/tickets/chat/events?ticket_id=${fakeTicketId}`;
+            // ✅ CORRIGÉ : Utiliser l'endpoint original pour les status events
+            const sseUrl = `${currentAPI}/api/tickets/chat/events/vitrine?room_id=${currentRoom}`;
             statusEventSource = new EventSource(sseUrl);
 
             statusEventSource.onopen = function() {
