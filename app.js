@@ -5571,6 +5571,21 @@
                                 addChatMessage(data.data.message, 'received');
                             }
                             break;
+
+                        case 'client_typing':
+                            console.log('🔍 [SSE-Vitrine] Événement typing reçu:', data);
+                            if (data.data && data.data.is_typing) {
+                                console.log('💬 [SSE-Vitrine] Technicien en train d\'écrire...');
+                                if (typeof showTypingIndicator === 'function') {
+                                    showTypingIndicator();
+                                }
+                            } else {
+                                console.log('💬 [SSE-Vitrine] Technicien a arrêté d\'écrire');
+                                if (typeof hideTypingIndicator === 'function') {
+                                    hideTypingIndicator();
+                                }
+                            }
+                            break;
                             
                         default:
                             console.log('📡 [SSE] Événement non géré:', data.type);
