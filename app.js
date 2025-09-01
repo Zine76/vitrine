@@ -5666,12 +5666,20 @@
                         console.log('🔔 [StatusEvents] Connexion SSE établie pour salle:', data.data.room_id);
                     } else if (data.type === 'client_typing') {
                         console.log('🔍 [StatusEvents] Événement typing reçu:', data);
+                        console.log('🎯 [DEBUG] data.data:', data.data);
+                        console.log('🎯 [DEBUG] data.data.is_typing:', data.data.is_typing);
+                        console.log('🎯 [DEBUG] typeof data.data.is_typing:', typeof data.data.is_typing);
                         if (data.data && data.data.is_typing) {
                             console.log('💬 [StatusEvents] Technicien en train d\'écrire...');
+                            console.log('🎯 [DEBUG] AVANT appel showTypingIndicator()');
+                            console.log('🎯 [DEBUG] Type de showTypingIndicator:', typeof showTypingIndicator);
                             showTypingIndicator();
+                            console.log('🎯 [DEBUG] APRÈS appel showTypingIndicator()');
                         } else {
                             console.log('💬 [StatusEvents] Technicien a arrêté d\'écrire');
+                            console.log('🎯 [DEBUG] AVANT appel hideTypingIndicator()');
                             hideTypingIndicator();
+                            console.log('🎯 [DEBUG] APRÈS appel hideTypingIndicator()');
                         }
                     }
                 } catch (error) {
