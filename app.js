@@ -7287,8 +7287,8 @@ async function notifyBackendClientClosedRecall() {
         }
 
         if (!apiBase) {
-            apiBase = 'http://localhost:7070';
-            console.warn('⚠️ [ClientClosed] Fallback vers localhost');
+            console.error('❌ [ClientClosed] Aucun backend configuré - impossible de notifier');
+            return;
         }
 
         console.log(`🌐 [ClientClosed] URL backend utilisée: ${apiBase}`);
@@ -7361,8 +7361,8 @@ async function notifyBackendRecallMode() {
         }
         
         if (!apiBase) {
-            apiBase = 'http://localhost:7070';
-            console.warn('⚠️ [RecallMode] Fallback vers localhost');
+            console.error('❌ [RecallMode] Aucun backend configuré - impossible de notifier');
+            return;
         }
         
         console.log(`🌐 [RecallMode] URL backend utilisée: ${apiBase}`);
