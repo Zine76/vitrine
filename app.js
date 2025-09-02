@@ -108,9 +108,9 @@
             return currentAPI;
         }
         
-        // ✅ CONFIGURATION IMAGES LOCALES
-        // ? CONFIGURATION IMAGES (prend ASSETS_BASE global si d�fini, sinon 'assets')
-        const ASSETS_BASE = window.ASSETS_BASE || 'assets';
+        // ✅ CONFIGURATION IMAGES DEPUIS GITHUB
+        // Utiliser directement GitHub Pages pour les images
+        const ASSETS_BASE = window.ASSETS_BASE || 'https://zine76.github.io/vitrine/assets';
         
         // ✅ NOUVEAU: Redémarrer toutes les connexions SSE après changement d'API
         function restartSSEConnections() {
@@ -177,25 +177,24 @@
         // ===== IMAGE SEA2 =====
         function updateSEALogo(imgElement) {
             if (imgElement) {
-                console.log('🖼️ [UpdateSEALogo] Tentative de chargement image SEA pour:', imgElement.id || 'sans ID');
+                console.log('🖼️ [UpdateSEALogo] Chargement image SEA depuis GitHub pour:', imgElement.id || 'sans ID');
                 
-                // ✅ UTILISER IMAGES LOCALES
-                // Définir le src immédiatement pour éviter les courses au DOM
+                // ✅ CHARGER DIRECTEMENT DEPUIS GITHUB
                 imgElement.src = `${ASSETS_BASE}/SEA2.png`;
                 imgElement.setAttribute('src', `${ASSETS_BASE}/SEA2.png`);
                 
                 imgElement.onerror = function() {
-                    console.log('❌ [UpdateSEALogo] Échec chargement local');
-                    this.src = `${ASSETS_BASE}/SEA2.png`;
+                    console.log('❌ [UpdateSEALogo] Échec chargement depuis GitHub, fallback vers image locale');
+                    this.src = 'assets/SEA2.png';
                     
                     this.onerror = function() {
-                        console.log('❌ [UpdateSEALogo] Échec serveur distant, utilisation fallback');
-                        // Fallback vers image directement dans le dossier Annexe
-                        this.src = `${ASSETS_BASE}/SEA2.png`;
-                        
-                        this.onerror = function() {
-                            console.log('❌ [UpdateSEALogo] Tous les chemins échoués, image vide');
-                        };
+                        console.log('❌ [UpdateSEALogo] Image locale aussi échouée, masquage de l\'image');
+                        this.style.display = 'none';
+                        // Afficher le contenu de fallback si disponible
+                        const fallback = this.nextElementSibling;
+                        if (fallback && fallback.classList.contains('sea-fallback-content')) {
+                            fallback.style.display = 'block';
+                        }
                     };
                 };
                 
