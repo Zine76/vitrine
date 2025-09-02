@@ -179,9 +179,10 @@
             if (imgElement) {
                 console.log('🖼️ [UpdateSEALogo] Chargement image SEA depuis GitHub pour:', imgElement.id || 'sans ID');
                 
-                // ✅ CHARGER DIRECTEMENT DEPUIS GITHUB
-                imgElement.src = `${ASSETS_BASE}/SEA2.png`;
-                imgElement.setAttribute('src', `${ASSETS_BASE}/SEA2.png`);
+                // ✅ SOLUTION TEMPORAIRE : Utiliser SI.png en attendant que SEA2.png soit disponible
+                console.log('🔄 [UpdateSEALogo] Utilisation temporaire de SI.png en attendant SEA2.png');
+                imgElement.src = `${ASSETS_BASE}/SI.png`;
+                imgElement.setAttribute('src', `${ASSETS_BASE}/SI.png`);
                 
                 imgElement.onerror = function() {
                     console.log('❌ [UpdateSEALogo] Échec chargement depuis GitHub, fallback vers image locale');
