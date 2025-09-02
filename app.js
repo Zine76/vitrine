@@ -6523,6 +6523,14 @@
                 technicalRoomSpan.textContent = currentRoom || 'Non définie';
             }
             
+            // ✅ NOUVEAU : Gérer l'affichage du plan unifilaire
+            if (window.RoomPlansConfig) {
+                console.log('🔧 [Technical] Mise à jour des plans pour:', currentRoom);
+                window.RoomPlansConfig.updatePlanSection(currentRoom);
+            } else {
+                console.warn('⚠️ [Technical] Module RoomPlansConfig non chargé');
+            }
+            
             // Masquer Vitrine et afficher la page technique
             if (mainContainer) {
                 mainContainer.style.display = 'none';
@@ -6531,6 +6539,8 @@
             
             console.log('🔧 [Technical] Page technique affichée pour la salle:', currentRoom);
         }
+        
+
 
         function returnToVitrine() {
             console.log('🔧 [Technical] Retour à Vitrine');
