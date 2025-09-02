@@ -185,16 +185,30 @@
                 
                 imgElement.onerror = function() {
                     console.log('❌ [UpdateSEALogo] Échec chargement depuis GitHub, fallback vers image locale');
-                    this.src = 'assets/SEA2.png';
+                    this.src = 'SEA2.png';
                     
                     this.onerror = function() {
-                        console.log('❌ [UpdateSEALogo] Image locale aussi échouée, masquage de l\'image');
-                        this.style.display = 'none';
-                        // Afficher le contenu de fallback si disponible
-                        const fallback = this.nextElementSibling;
-                        if (fallback && fallback.classList.contains('sea-fallback-content')) {
-                            fallback.style.display = 'block';
-                        }
+                        console.log('❌ [UpdateSEALogo] Image locale aussi échouée, affichage texte de remplacement');
+                        // Créer un div de remplacement avec le texte "SEA"
+                        const replacement = document.createElement('div');
+                        replacement.style.cssText = `
+                            display: inline-block;
+                            width: 120px;
+                            height: 80px;
+                            background: linear-gradient(135deg, #1e3c72, #2a5298);
+                            color: white;
+                            font-weight: bold;
+                            font-size: 24px;
+                            text-align: center;
+                            line-height: 80px;
+                            border-radius: 8px;
+                            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+                        `;
+                        replacement.textContent = 'SEA';
+                        replacement.title = 'Services Expert Audiovisuel UQAM';
+                        
+                        // Remplacer l'image par le div
+                        this.parentNode.replaceChild(replacement, this);
                     };
                 };
                 
