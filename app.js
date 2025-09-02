@@ -5043,6 +5043,9 @@
         
         async function closeChat() {
             try {
+                // ✅ NOUVEAU : Marquer comme fermeture normale
+                isNormalClosure = true;
+                
                 // ✅ NOUVEAU : S'assurer de la connexion backend avant fermeture
                 await ensureBackendConnection();
                 
@@ -5309,6 +5312,9 @@
             
             document.getElementById('chatModal').classList.add('active');
             
+            // ✅ NOUVEAU : Démarrer le heartbeat pour détecter les déconnexions
+            startHeartbeat();
+            
             // Ajouter le message d'accueil automatique
             const messagesContainer = document.getElementById('chatMessages');
             if (messagesContainer && messagesContainer.children.length === 0) {
@@ -5334,7 +5340,18 @@
             document.getElementById('chatModal').classList.remove('active');
             document.getElementById('chatMessages').innerHTML = '';
             document.getElementById('chatInput').value = '';
+            
+            // ✅ NOUVEAU : Arrêter le heartbeat
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+                console.log('💓 [Heartbeat] Arrêté lors de la fermeture du chat');
+            }
+            
             currentChatId = null;
+            
+            // ✅ NOUVEAU : Réinitialiser le flag de fermeture normale
+            isNormalClosure = false;
             
             // ✅ NOUVEAU : Restaurer les bannières de statut après fermeture du chat
             restoreStatusBannersAfterChat();
@@ -7395,6 +7412,182 @@ async function notifyBackendRecallMode() {
         }
     } catch (error) {
         console.error('❌ [RecallMode] Erreur notification backend:', error);
+    }
+}
+
+// ✅ NOUVEAU : Système de détection de déconnexion inattendue
+let isNormalClosure = false; // Flag pour distinguer fermeture normale vs inattendue
+let heartbeatInterval = null;
+let lastHeartbeat = Date.now();
+
+// ✅ NOUVEAU : Détecter fermeture de page/navigateur (F5, fermeture, etc.)
+window.addEventListener('beforeunload', function(event) {
+    console.log('🚨 [Disconnect] Détection de fermeture/rechargement de page');
+    
+    // Si on a un chat actif et que ce n'est pas une fermeture normale
+    if (currentChatId && !isNormalClosure) {
+        console.log('⚠️ [Disconnect] Fermeture inattendue avec chat actif:', currentChatId);
+        
+        // Notification immédiate au backend (synchrone)
+        notifyUnexpectedDisconnection();
+        
+        // Message d'avertissement (optionnel - peut être désactivé)
+        // event.preventDefault();
+        // event.returnValue = 'Vous avez un chat en cours. Êtes-vous sûr de vouloir quitter ?';
+        // return event.returnValue;
+    }
+});
+
+// ✅ NOUVEAU : Détecter perte de connexion réseau
+window.addEventListener('offline', function() {
+    console.log('📡 [Disconnect] Connexion réseau perdue');
+    if (currentChatId) {
+        console.log('⚠️ [Disconnect] Chat actif lors de perte de connexion');
+        showNotification('Connexion réseau perdue', 'warning');
+    }
+});
+
+// ✅ NOUVEAU : Détecter retour de connexion
+window.addEventListener('online', function() {
+    console.log('📡 [Reconnect] Connexion réseau rétablie');
+    if (currentChatId) {
+        console.log('🔄 [Reconnect] Tentative de reconnexion du chat');
+        showNotification('Connexion rétablie', 'success');
+        reconnectChat();
+    }
+});
+
+// ✅ NOUVEAU : Système de heartbeat pour détecter les déconnexions
+function startHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+    }
+    
+    console.log('💓 [Heartbeat] Démarrage du système de heartbeat');
+    lastHeartbeat = Date.now();
+    
+    heartbeatInterval = setInterval(async function() {
+        if (currentChatId) {
+            try {
+                const apiBase = await getCurrentAPI();
+                const response = await fetch(`${apiBase}/api/tickets/chat/heartbeat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        channel_id: currentChatId,
+                        room_id: getCurrentRoom(),
+                        timestamp: Date.now()
+                    }),
+                    signal: AbortSignal.timeout(5000) // Timeout de 5 secondes
+                });
+                
+                if (response.ok) {
+                    lastHeartbeat = Date.now();
+                    console.log('💓 [Heartbeat] Ping envoyé avec succès');
+                } else {
+                    console.warn('⚠️ [Heartbeat] Erreur de ping:', response.status);
+                }
+            } catch (error) {
+                console.error('❌ [Heartbeat] Échec du ping:', error);
+                // Si plusieurs échecs consécutifs, considérer comme déconnecté
+                if (Date.now() - lastHeartbeat > 60000) { // 1 minute sans heartbeat
+                    console.log('🚨 [Heartbeat] Déconnexion détectée - Chat considéré comme perdu');
+                    handleHeartbeatTimeout();
+                }
+            }
+        }
+    }, 15000); // Heartbeat toutes les 15 secondes
+}
+
+// ✅ NOUVEAU : Gérer la perte de heartbeat
+function handleHeartbeatTimeout() {
+    if (currentChatId) {
+        console.log('⏰ [Heartbeat] Timeout détecté - Nettoyage local');
+        
+        // Nettoyer l'interface locale
+        closeChatInterface();
+        showNotification('Connexion perdue - Chat fermé', 'error');
+        
+        // Arrêter le heartbeat
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+        }
+    }
+}
+
+// ✅ NOUVEAU : Notification de déconnexion inattendue (synchrone)
+async function notifyUnexpectedDisconnection() {
+    if (!currentChatId) return;
+    
+    try {
+        const apiBase = await getCurrentAPI();
+        
+        const data = JSON.stringify({
+            channel_id: currentChatId,
+            room_id: getCurrentRoom(),
+            disconnection_type: 'unexpected',
+            timestamp: Date.now()
+        });
+        
+        // Utilisation de sendBeacon pour notification synchrone même lors de fermeture
+        const success = navigator.sendBeacon(`${apiBase}/api/tickets/chat/disconnect`, data);
+        console.log('📤 [Disconnect] Notification envoyée via sendBeacon:', success ? 'Succès' : 'Échec');
+        
+        // Fallback avec fetch si sendBeacon échoue
+        if (!success) {
+            fetch(`${apiBase}/api/tickets/chat/disconnect`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: data,
+                keepalive: true // Garder la requête même si la page se ferme
+            }).catch(error => {
+                console.error('❌ [Disconnect] Erreur notification fallback:', error);
+            });
+        }
+    } catch (error) {
+        console.error('❌ [Disconnect] Erreur notification:', error);
+    }
+}
+
+// ✅ NOUVEAU : Tentative de reconnexion
+async function reconnectChat() {
+    if (!currentChatId) return;
+    
+    try {
+        console.log('🔄 [Reconnect] Tentative de reconnexion...');
+        
+        const apiBase = await getCurrentAPI();
+        const response = await fetch(`${apiBase}/api/tickets/chat/reconnect`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                channel_id: currentChatId,
+                room_id: getCurrentRoom()
+            })
+        });
+        
+        if (response.ok) {
+            console.log('✅ [Reconnect] Reconnexion réussie');
+            showNotification('Connexion rétablie', 'success');
+            
+            // Redémarrer le heartbeat
+            startHeartbeat();
+        } else {
+            console.error('❌ [Reconnect] Échec de reconnexion:', response.status);
+            showNotification('Impossible de reconnecter - Chat fermé', 'error');
+            closeChatInterface();
+        }
+    } catch (error) {
+        console.error('❌ [Reconnect] Erreur de reconnexion:', error);
+        showNotification('Erreur de reconnexion - Chat fermé', 'error');
+        closeChatInterface();
     }
 }
 
