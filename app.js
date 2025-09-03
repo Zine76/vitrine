@@ -179,42 +179,19 @@
             if (imgElement) {
                 console.log('🖼️ [UpdateSEALogo] Chargement image SEA depuis GitHub pour:', imgElement.id || 'sans ID');
                 
-                // ✅ SOLUTION TEMPORAIRE : Utiliser SI.png en attendant que SEA2.png soit disponible
-                console.log('🔄 [UpdateSEALogo] Utilisation temporaire de SI.png en attendant SEA2.png');
-                imgElement.src = `${ASSETS_BASE}/SI.png`;
-                imgElement.setAttribute('src', `${ASSETS_BASE}/SI.png`);
+                // 1) Tenter d'abord SEA2.png hébergé sur GitHub
+                imgElement.src = `${ASSETS_BASE}/SEA2.png`;
+                imgElement.setAttribute('src', `${ASSETS_BASE}/SEA2.png`);
                 
-                imgElement.onerror = function() {
-                    console.log('❌ [UpdateSEALogo] Échec chargement depuis GitHub, fallback vers image locale');
-                    this.src = 'SEA2.png';
-                    
-                    this.onerror = function() {
-                        console.log('❌ [UpdateSEALogo] Image locale aussi échouée, affichage texte de remplacement');
-                        // Créer un div de remplacement avec le texte "SEA"
-                        const replacement = document.createElement('div');
-                        replacement.style.cssText = `
-                            display: inline-block;
-                            width: 120px;
-                            height: 80px;
-                            background: linear-gradient(135deg, #1e3c72, #2a5298);
-                            color: white;
-                            font-weight: bold;
-                            font-size: 24px;
-                            text-align: center;
-                            line-height: 80px;
-                            border-radius: 8px;
-                            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-                        `;
-                        replacement.textContent = 'SEA';
-                        replacement.title = 'Services Expert Audiovisuel UQAM';
-                        
-                        // Remplacer l'image par le div
-                        this.parentNode.replaceChild(replacement, this);
-                    };
+                // 2) Fallback : SI.png (toujours depuis /assets)
+                imgElement.onerror = function () {
+                    console.log('❌ [UpdateSEALogo] SEA2.png non disponible, fallback vers SI.png');
+                    this.onerror = null; // éviter boucle
+                    this.src = `${ASSETS_BASE}/SI.png`;
                 };
                 
                 imgElement.onload = function() {
-                    console.log('✅ [UpdateSEALogo] Image SEA chargée avec succès depuis:', this.src);
+                    console.log('✅ [UpdateSEALogo] Image chargée avec succès depuis:', this.src);
                 };
             } else {
                 console.log('❌ [UpdateSEALogo] Élément image non trouvé');
