@@ -175,28 +175,31 @@
         let kioskID = null;
         
         // ===== IMAGE SEA2 =====
-        function updateSEALogo(imgElement) {
-            if (imgElement) {
-                console.log('🖼️ [UpdateSEALogo] Chargement image SEA depuis GitHub pour:', imgElement.id || 'sans ID');
-                
-                // 1) Tenter d'abord SEA2.png hébergé sur GitHub
-                imgElement.src = `${ASSETS_BASE}/SEA2.png`;
-                imgElement.setAttribute('src', `${ASSETS_BASE}/SEA2.png`);
-                
-                // 2) Fallback : SI.png (toujours depuis /assets)
-                imgElement.onerror = function () {
-                    console.log('❌ [UpdateSEALogo] SEA2.png non disponible, fallback vers SI.png');
-                    this.onerror = null; // éviter boucle
-                    this.src = `${ASSETS_BASE}/SI.png`;
-                };
-                
-                imgElement.onload = function() {
-                    console.log('✅ [UpdateSEALogo] Image chargée avec succès depuis:', this.src);
-                };
-            } else {
-                console.log('❌ [UpdateSEALogo] Élément image non trouvé');
-            }
+        
+function updateSEALogo(imgElement) {
+    if (!imgElement) return;
+
+    console.log('🖼️ [UpdateSEALogo] Tentative SEA2.png depuis GitHub:', imgElement.id || '(sans ID)');
+    const primary = `${ASSETS_BASE}/SEA2.png`;
+    const fallback = `${ASSETS_BASE}/SI.png`;
+
+    // Fallback unique pour éviter les boucles d'erreur
+    imgElement.onerror = function onErrorOnce() {
+        if (this.dataset.fallbackDone === '1') {
+            this.onerror = null;
+            console.warn('[UpdateSEALogo] Échec SEA2.png et fallback SI.png — aucune autre tentative.');
+            return;
         }
+        this.dataset.fallbackDone = '1';
+        console.log('↪️ [UpdateSEALogo] SEA2.png indisponible, bascule sur SI.png');
+        this.src = fallback;
+    };
+
+    // Essai principal : SEA2.png
+    imgElement.src = primary;
+    imgElement.setAttribute('src', primary);
+}
+
         
         // ✅ NOUVEAU : Gestion des tickets de session
         let sessionTickets = [];
