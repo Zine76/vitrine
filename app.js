@@ -175,29 +175,17 @@
         let kioskID = null;
         
         // ===== IMAGE SEA2 =====
-        
-function updateSEALogo(imgElement) {
-    if (!imgElement) return;
-
-    console.log('🖼️ [UpdateSEALogo] Tentative SEA2.png depuis GitHub:', imgElement.id || '(sans ID)');
-    const primary = `${ASSETS_BASE}/SEA2.png`;
-    const fallback = `${ASSETS_BASE}/SI.png`;
-
-    // Fallback unique pour éviter les boucles d'erreur
-    imgElement.onerror = function onErrorOnce() {
-        if (this.dataset.fallbackDone === '1') {
-            this.onerror = null;
-            console.warn('[UpdateSEALogo] Échec SEA2.png et fallback SI.png — aucune autre tentative.');
-            return;
-        }
-        this.dataset.fallbackDone = '1';
-        console.log('↪️ [UpdateSEALogo] SEA2.png indisponible, bascule sur SI.png');
-        this.src = fallback;
-    };
-
-    // Essai principal : SEA2.png
-    imgElement.src = primary;
-    imgElement.setAttribute('src', primary);
+        function updateSEALogo(imgElement) {
+  if (!imgElement) return;
+  const primary  = `${ASSETS_BASE}/SEA2.png`;
+  const fallback = `${ASSETS_BASE}/SI.png`;
+  imgElement.onerror = function onErrorOnce() {
+    if (this.dataset.fallbackDone === '1') { this.onerror = null; return; }
+    this.dataset.fallbackDone = '1';
+    this.src = fallback;
+  };
+  imgElement.src = primary;
+  imgElement.setAttribute('src', primary);
 }
 
         
@@ -7636,3 +7624,359 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2000);
 });
 
+
+
+
+
+/* === Inline JS extracted from vitrine.html === */
+window.ASSETS_BASE = window.ASSETS_BASE || "https://zine76.github.io/vitrine/assets";
+
+
+// Backend base handling
+(function(){
+  function isValidHost(input){
+    try{
+      var v = String(input||'').trim();
+      if (!v) return false;
+      if (/^https?:\/\//i.test(v)) return true; // URL complète
+      if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(v)) return true; // IPv4
+      if (/^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$/.test(v)) return true; // domaine/hostname
+      return false;
+    }catch(e){ return false; }
+  }
+  window.showBackendModal = function(prefill){
+    var m = document.getElementById('backendModal');
+    if (!m) return; m.style.display='block';
+    window.__backendPromptOpen = true;
+    var inp = document.getElementById('backendIpInput');
+    if (inp){ inp.value = (prefill||'').toString(); setTimeout(function(){ inp.focus(); inp.select(); }, 50); }
+  };
+  window.hideBackendModal = function(){ var m = document.getElementById('backendModal'); if(m) m.style.display='none'; window.__backendPromptOpen = false; };
+  window.saveBackendIp = function(){
+    var raw = (document.getElementById('backendIpInput')||{}).value||'';
+    if (!isValidHost(raw)){
+      alert('Valeur invalide. Entrez une IP (ex: 132.208.182.85), un nom d\'hôte (ex: host.domaine), ou une URL http(s) complète.');
+      return;
+    }
+    var value = raw.trim();
+    try{ localStorage.setItem('vitrine.backend.ip', value); }catch(e){}
+    var base = /^https?:\/\//i.test(value) ? value : ('http://' + value + ':7070');
+    window.BACKEND_BASE = base;
+    window.dispatchEvent(new CustomEvent('backend:updated', { detail: { base } }));
+    window.hideBackendModal();
+  };
+  // Première ouverture: si aucune IP stockée et si on n'est pas en prod fixe
+  document.addEventListener('DOMContentLoaded', function(){
+    try{
+      // Nettoyer les verrous corrompus (IP stockées comme salle)
+      var lockData = localStorage.getItem('vitrine.room.lock');
+      if (lockData) {
+        var parsed = JSON.parse(lockData);
+        if (parsed && parsed.name && /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(parsed.name)) {
+          console.log('[CleanBadLock] IP détectée comme salle, suppression:', parsed.name);
+          localStorage.removeItem('vitrine.room.lock');
+          location.reload(); // Recharger pour appliquer
+          return;
+        }
+      }
+      
+      // ✅ CORRECTION EXPERT : Retour au système DNS normal (pas de localhost forcé)
+      console.log('🌐 [Backend] Utilisation du système DNS normal pour multi-PC');
+    }catch(e){
+      console.error('❌ [Backend] Erreur initialisation:', e);
+    }
+
+    // Raccourci clavier pour rouvrir la bannière backend
+    document.addEventListener('keydown', function(ev){
+      try{
+        if (ev.altKey && ev.ctrlKey && (ev.key === 'j' || ev.key === 'J')){
+          ev.preventDefault();
+          var currentIp = localStorage.getItem('vitrine.backend.ip') || '';
+          window.showBackendModal(currentIp);
+        }
+      }catch(e){}
+    });
+  });
+})();
+
+
+
+// ===== CHAT VARIABLES =====
+// Note: currentChatId est déjà déclaré dans app.js, on utilise la variable existante
+
+// ===== CHAT TIMEOUT BANNER FUNCTIONS =====
+function showChatTimeoutBanner() {
+    console.log('⏰ [ChatTimeout] Affichage bannière de timeout');
+    
+    // Masquer la bannière de consent si visible
+    if (typeof hideConsentBanner === 'function') {
+        hideConsentBanner();
+    }
+    
+    // Masquer les bannières de statut pour priorité chat
+    if (typeof hideStatusBannersForChat === 'function') {
+        hideStatusBannersForChat();
+    }
+    
+    const banner = document.getElementById('chatTimeoutBanner');
+    if (banner) {
+        banner.style.display = 'block';
+        
+        setTimeout(() => {
+            banner.classList.add('show');
+        }, 10);
+    }
+    
+    // ✅ NOUVEAU : Notifier le backend que la vitrine est passée en mode rappel
+    notifyBackendRecallMode();
+}
+
+async function notifyBackendRecallMode() {
+    try {
+        const currentRoom = typeof getCurrentRoom === 'function' ? getCurrentRoom() : null;
+        const chatId = vitrineChatId; // Utiliser notre variable capturée
+        console.log(`🔍 [RecallMode] Debug - currentRoom: ${currentRoom}, vitrineChatId: ${chatId}`);
+        
+        if (!currentRoom || !chatId) {
+            console.log('⚠️ [RecallMode] Pas de salle ou chatId actuel, skip notification');
+            console.log(`🔍 [RecallMode] currentRoom: ${currentRoom}, vitrineChatId: ${chatId}`);
+            return;
+        }
+        
+        console.log(`📡 [RecallMode] Notification backend: salle ${currentRoom} en mode rappel`);
+        
+        // ✅ CORRECTION CRITIQUE : Récupérer l'IP backend avec getCurrentAPI()
+        let apiBase = null;
+        if (typeof getCurrentAPI === 'function') {
+            try {
+                apiBase = await getCurrentAPI();  // ✅ Utiliser getCurrentAPI() comme dans initiateRecallRequest()
+                console.log(`🔧 [RecallMode] IP récupérée depuis getCurrentAPI: ${apiBase}`);
+            } catch (e) {
+                console.error('❌ [RecallMode] Erreur getCurrentAPI:', e);
+            }
+        }
+        
+        // Fallback vers window.BACKEND_BASE
+        if (!apiBase) {
+            apiBase = window.BACKEND_BASE;
+        }
+        
+        // Fallback vers localStorage
+        if (!apiBase) {
+            try {
+                const storedIp = localStorage.getItem('vitrine.backend.ip');
+                if (storedIp) {
+                    apiBase = /^https?:\/\//i.test(storedIp) ? storedIp : ('http://' + storedIp + ':7070');
+                    console.log(`🔧 [RecallMode] IP récupérée depuis localStorage: ${apiBase}`);
+                }
+            } catch (e) {
+                console.error('❌ [RecallMode] Erreur lecture localStorage:', e);
+            }
+        }
+        
+        if (!apiBase) {
+            console.error('❌ [RecallMode] Aucun backend configuré');
+            return;
+        }
+        
+        console.log(`🌐 [RecallMode] URL backend utilisée: ${apiBase}`);
+        
+        const response = await fetch(`${apiBase}/api/tickets/chat/recall-mode`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                room: currentRoom,
+                chat_id: chatId,
+                status: 'recall_mode',
+                message: 'Client n\'a pas répondu - Vitrine en mode rappel'
+            })
+        });
+        
+        if (response.ok) {
+            console.log('✅ [RecallMode] Backend notifié avec succès');
+        } else {
+            console.warn('⚠️ [RecallMode] Erreur notification backend:', response.status);
+        }
+    } catch (error) {
+        console.error('❌ [RecallMode] Erreur notification backend:', error);
+        console.error('🔍 [RecallMode] Détails erreur:', {
+            message: error.message,
+            stack: error.stack
+        });
+    }
+}
+
+// ===== FONCTION POUR RAPPEL CLIENT =====
+window.initiateRecallRequest = async function() {
+    try {
+        // ✅ CORRECTION EXPERT : Utiliser la vraie fonction getCurrentRoom()
+        const currentRoom = (typeof getCurrentRoom === 'function') ? getCurrentRoom() : null;
+        const ticketNumber = window.lastTicketNumber || '';
+        
+        if (!currentRoom) {
+            console.error('[Recall] Pas de salle définie - getCurrentRoom() retourne:', currentRoom);
+            return;
+        }
+        
+        console.log('✅ [Recall] Salle trouvée:', currentRoom);
+        
+        // ✅ CORRECTION EXPERT : Envoyer au backend au lieu de localStorage
+        const recallData = {
+            room: currentRoom,
+            ticket_number: ticketNumber,
+            requested_at: new Date().toISOString(),
+            status: 'pending',
+            type: 'client_recall_request'  // Type spécifique pour le clic client
+        };
+        
+        // Envoyer la demande de rappel au backend
+        let apiBase = null;
+        if (typeof getCurrentAPI === 'function') {
+            apiBase = await getCurrentAPI();  // ✅ AWAIT la Promise !
+        }
+        
+        if (!apiBase) {
+            apiBase = window.BACKEND_BASE;
+        }
+        
+        if (!apiBase) {
+            try {
+                const storedIp = localStorage.getItem('vitrine.backend.ip');
+                if (storedIp) {
+                    apiBase = /^https?:\/\//i.test(storedIp) ? storedIp : ('http://' + storedIp + ':7070');
+                }
+            } catch (e) {
+                console.error('❌ [Recall] Erreur lecture localStorage:', e);
+            }
+        }
+        
+        if (!apiBase) {
+            console.error('❌ [Recall] Aucun backend configuré');
+            return;
+        }
+        
+        console.log(`📡 [Recall] Envoi demande rappel vers: ${apiBase}`);
+        
+        const response = await fetch(`${apiBase}/api/tickets/chat/client-recall`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(recallData)
+        });
+        
+        if (response.ok) {
+            // Afficher confirmation
+            const banner = document.getElementById('chatTimeoutBanner');
+            if (banner) {
+                banner.innerHTML = `
+                    <h3>
+                        <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                        Demande de rappel envoyée
+                    </h3>
+                    <p>Le technicien SEA a été notifié et reviendra vers vous dès que possible.</p>
+                    <p><strong>Salle : ${currentRoom}</strong></p>
+                    <div class="timeout-actions">
+                        <button class="timeout-btn close" onclick="closeTimeoutBanner()">
+                            <i class="fas fa-check"></i>
+                            OK
+                        </button>
+                    </div>
+                `;
+                
+                // Fermer automatiquement après 5 secondes
+                setTimeout(closeTimeoutBanner, 5000);
+            }
+            
+            console.log('✅ [Recall] Demande de rappel envoyée:', recallData);
+        } else {
+            console.error('[Recall] Erreur lors de l\'envoi du rappel');
+        }
+    } catch (error) {
+        console.error('[Recall] Erreur:', error);
+    }
+};
+
+// ===== HOOK POUR TIMEOUT CHAT =====
+// Variable pour stocker le chat ID actuel (vérifier si déjà déclarée)
+if (typeof vitrineChatId === 'undefined') {
+    let vitrineChatId = null;
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Attendre que l'app.js soit chargé
+    setTimeout(() => {
+        // Hook sur la fonction showChatTimeoutBanner existante dans app.js
+        if (typeof window.showChatTimeoutBanner === 'function') {
+            const originalShowTimeout = window.showChatTimeoutBanner;
+            window.showChatTimeoutBanner = function() {
+                console.log('🔄 [RecallMode] Hook sur showChatTimeoutBanner original');
+                const result = originalShowTimeout.apply(this, arguments);
+                
+                // Appeler notre fonction de notification
+                notifyBackendRecallMode();
+                
+                return result;
+            };
+            console.log('✅ [RecallMode] Hook installé sur showChatTimeoutBanner');
+        } else {
+            console.warn('⚠️ [RecallMode] showChatTimeoutBanner non trouvé dans app.js');
+        }
+
+        // Approche simple : intercepter directement les logs de app.js
+        // On sait que app.js log "💬 [SSE] Demande de chat RÉELLE reçue:" avec les données
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            // Intercepter le log spécifique de app.js
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('💬 [SSE] Demande de chat RÉELLE reçue:')) {
+                const data = args[1];
+                if (data && data.channel_id) {
+                    vitrineChatId = data.channel_id;
+                    console.log('✅ [RecallMode] Channel ID capturé depuis console.log:', vitrineChatId);
+                }
+            }
+            
+            // Intercepter le log de fin de chat
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('🛑 [SSE] Chat terminé par:')) {
+                vitrineChatId = null;
+                console.log('🔄 [RecallMode] Channel ID reset depuis console.log');
+            }
+            
+            return originalConsoleLog.apply(this, args);
+        };
+        console.log('✅ [RecallMode] Hook console.log installé pour capturer channel_id');
+    }, 2000);
+});
+
+
+
+/* === Event bindings extracted from vitrine.html (onclick -> addEventListener) === */
+document.addEventListener('DOMContentLoaded', function(){
+  document.querySelectorAll('button.technical-auth-btn.technical-auth-cancel').forEach(el => el.addEventListener('click', function(e){ try{ window.hideBackendModal(); }catch(ex){ console.warn('handler error for button.technical-auth-btn.technical-auth-cancel', ex); } }));
+  document.querySelectorAll('button.technical-auth-btn.technical-auth-submit').forEach(el => el.addEventListener('click', function(e){ try{ window.saveBackendIp(); }catch(ex){ console.warn('handler error for button.technical-auth-btn.technical-auth-submit', ex); } }));
+  document.querySelectorAll('button.technical-btn').forEach(el => el.addEventListener('click', function(e){ try{ openTechnicalMode(); }catch(ex){ console.warn('handler error for button.technical-btn', ex); } }));
+  document.querySelectorAll('button.theme-toggle').forEach(el => el.addEventListener('click', function(e){ try{ toggleTheme(); }catch(ex){ console.warn('handler error for button.theme-toggle', ex); } }));
+  document.querySelectorAll('#confirmRoomBtn').forEach(el => el.addEventListener('click', function(e){ try{ confirmRoom(); }catch(ex){ console.warn('handler error for #confirmRoomBtn', ex); } }));
+  document.querySelectorAll('span.room-example').forEach(el => el.addEventListener('click', function(e){ try{ setRoomExample('A-1750'); }catch(ex){ console.warn('handler error for span.room-example', ex); } }));
+  document.querySelectorAll('span.room-example').forEach(el => el.addEventListener('click', function(e){ try{ setRoomExample('B-2500'); }catch(ex){ console.warn('handler error for span.room-example', ex); } }));
+  document.querySelectorAll('span.room-example').forEach(el => el.addEventListener('click', function(e){ try{ setRoomExample('J-2430'); }catch(ex){ console.warn('handler error for span.room-example', ex); } }));
+  document.querySelectorAll('span.room-example').forEach(el => el.addEventListener('click', function(e){ try{ setRoomExample('SH-R200'); }catch(ex){ console.warn('handler error for span.room-example', ex); } }));
+  document.querySelectorAll('span.room-example').forEach(el => el.addEventListener('click', function(e){ try{ setRoomExample('DS-4000'); }catch(ex){ console.warn('handler error for span.room-example', ex); } }));
+  document.querySelectorAll('button.change-room-btn').forEach(el => el.addEventListener('click', function(e){ try{ changeRoom(); }catch(ex){ console.warn('handler error for button.change-room-btn', ex); } }));
+  document.querySelectorAll('div.palette.audio').forEach(el => el.addEventListener('click', function(e){ try{ sendExampleMessage('Pas de son'); }catch(ex){ console.warn('handler error for div.palette.audio', ex); } }));
+  document.querySelectorAll('div.palette.video').forEach(el => el.addEventListener('click', function(e){ try{ sendExampleMessage('Écran noir projecteur'); }catch(ex){ console.warn('handler error for div.palette.video', ex); } }));
+  document.querySelectorAll('div.palette.network').forEach(el => el.addEventListener('click', function(e){ try{ sendExampleMessage('Problème de réseau'); }catch(ex){ console.warn('handler error for div.palette.network', ex); } }));
+  document.querySelectorAll('div.palette.other').forEach(el => el.addEventListener('click', function(e){ try{ sendExampleMessage('Système qui ne répond plus'); }catch(ex){ console.warn('handler error for div.palette.other', ex); } }));
+  document.querySelectorAll('button.modal-btn').forEach(el => el.addEventListener('click', function(e){ try{ closeModal(); }catch(ex){ console.warn('handler error for button.modal-btn', ex); } }));
+  document.querySelectorAll('button.chat-close').forEach(el => el.addEventListener('click', function(e){ try{ closeChat(); }catch(ex){ console.warn('handler error for button.chat-close', ex); } }));
+  document.querySelectorAll('button.send-btn').forEach(el => el.addEventListener('click', function(e){ try{ sendChatMessage(); }catch(ex){ console.warn('handler error for button.send-btn', ex); } }));
+  document.querySelectorAll('button.consent-btn.accept').forEach(el => el.addEventListener('click', function(e){ try{ acceptChat(); }catch(ex){ console.warn('handler error for button.consent-btn.accept', ex); } }));
+  document.querySelectorAll('button.consent-btn.decline').forEach(el => el.addEventListener('click', function(e){ try{ declineChat(); }catch(ex){ console.warn('handler error for button.consent-btn.decline', ex); } }));
+  document.querySelectorAll('button.timeout-btn.initiate').forEach(el => el.addEventListener('click', function(e){ try{ initiateRecallRequest(); }catch(ex){ console.warn('handler error for button.timeout-btn.initiate', ex); } }));
+  document.querySelectorAll('button.timeout-btn.close').forEach(el => el.addEventListener('click', function(e){ try{ closeTimeoutBanner(); }catch(ex){ console.warn('handler error for button.timeout-btn.close', ex); } }));
+  document.querySelectorAll('button.technical-auth-btn.technical-auth-cancel').forEach(el => el.addEventListener('click', function(e){ try{ closeTechnicalAuth(); }catch(ex){ console.warn('handler error for button.technical-auth-btn.technical-auth-cancel', ex); } }));
+  document.querySelectorAll('button.technical-auth-btn.technical-auth-submit').forEach(el => el.addEventListener('click', function(e){ try{ submitTechnicalAuth(); }catch(ex){ console.warn('handler error for button.technical-auth-btn.technical-auth-submit', ex); } }));
+  document.querySelectorAll('button.technical-return-btn').forEach(el => el.addEventListener('click', function(e){ try{ returnToVitrine(); }catch(ex){ console.warn('handler error for button.technical-return-btn', ex); } }));
+});
