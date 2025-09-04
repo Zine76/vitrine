@@ -168,7 +168,16 @@
         let isConnected = false;
         let problemInput = null;
         
-        // ===== CHAT SEA VARIABLES =====
+        // ===== CHAT SEA VARIABLES - NOUVEAU SYSTÈME MULTI-CHAT =====
+        // Maps pour gérer plusieurs chats simultanés
+        const chatES = new Map();               // channelId -> EventSource
+        const chatRegistry = {                  // index croisé
+            byTicket: new Map(),                // ticketId -> { channelId, roomId, status }
+            byChannel: new Map()                // channelId -> { ticketId, roomId, status }
+        };
+        const processedEventIds = new Map();    // channelId -> Set(event_id)
+        
+        // Variables legacy maintenues pour compatibilité
         let currentChatId = null;
         let chatEventSource = null;
         let clientID = null;
@@ -5079,6 +5088,10 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
                     
                     if (response.ok) {
                         console.log('✅ [Vitrine] Chat fermé avec succès côté backend');
+                        
+                        // ✅ NOUVEAU : Purger le stockage local pour ce chat
+                        const ticketId = getCurrentRoom(); // Utiliser roomId comme ticketId pour l'instant
+                        markEndedAndPurge(currentChatId, ticketId);
                     } else {
                         console.error('❌ [Vitrine] Erreur lors de la fermeture du chat');
                     }
@@ -5479,31 +5492,286 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
             }
         }
         
-        function addChatMessage(message, type) {
+        function addChatMessage(ticketIdOrMessage, typeOrText, direction = null, eventId = null, channelId = null, options = {}) {
+            // Support de l'ancienne signature (message, type) pour compatibilité
+            let message, type;
+            if (direction === null && eventId === null && channelId === null) {
+                // Ancienne signature: addChatMessage(message, type)
+                message = ticketIdOrMessage;
+                type = typeOrText;
+            } else {
+                // Nouvelle signature: addChatMessage(ticketId, text, direction, eventId, channelId, options)
+                message = typeOrText;
+                type = direction;
+            }
+
             const messagesContainer = document.getElementById('chatMessages');
+            if (!messagesContainer) {
+                console.warn('[Chat] Container de messages non trouvé');
+                return;
+            }
             
-            // Vérifier si le message n'existe pas déjà (éviter les doublons)
-            const existingMessages = messagesContainer.querySelectorAll('.chat-message');
-            for (let msg of existingMessages) {
-                if (msg.textContent === message && msg.className.includes(type)) {
-                    console.log('⚠️ [Chat] Message en double détecté, ignoré:', message);
+            // Anti-doublon amélioré avec event_id
+            if (eventId) {
+                const existingWithEventId = messagesContainer.querySelector(`[data-event-id="${eventId}"]`);
+                if (existingWithEventId) {
+                    console.log(`[Chat] Message avec event_id ${eventId} déjà présent, ignoré`);
                     return;
+                }
+            } else {
+                // Fallback sur l'ancienne méthode pour les messages sans event_id
+                const existingMessages = messagesContainer.querySelectorAll('.chat-message');
+                for (let msg of existingMessages) {
+                    if (msg.textContent === message && msg.className.includes(type)) {
+                        console.log('⚠️ [Chat] Message en double détecté, ignoré:', message);
+                        return;
+                    }
                 }
             }
             
             const messageElement = document.createElement('div');
             messageElement.className = `chat-message ${type}`;
             messageElement.textContent = message;
+            if (eventId) {
+                messageElement.setAttribute('data-event-id', eventId);
+            }
             messagesContainer.appendChild(messageElement);
             
-            // Scroll vers le bas (doux si supporté)
-            if (typeof messagesContainer.scrollTo === 'function') {
-                messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: 'smooth' });
-            } else {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            // Persistance si on a un channelId
+            if (channelId && !options.silent) {
+                const msgData = {
+                    text: message,
+                    direction: type,
+                    event_id: eventId,
+                    ts: Date.now()
+                };
+                persistMessage(channelId, msgData);
             }
             
-            console.log(`✅ [Chat] Message ajouté: ${type} - ${message}`);
+            // Scroll vers le bas (doux si supporté) - sauf si mode silencieux
+            if (!options.silent) {
+                if (typeof messagesContainer.scrollTo === 'function') {
+                    messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: 'smooth' });
+                } else {
+                    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                }
+            }
+            
+            console.log(`✅ [Chat] Message ajouté: ${type} - ${message}${eventId ? ` (event_id: ${eventId})` : ''}`);
+        }
+        
+        // ===== NOUVEAU SYSTÈME SSE PAR CHAT =====
+        
+        // Fonction pour démarrer une SSE pour un chat spécifique
+        function startChatEventSource({ ticketId, channelId = null }) {
+            console.log(`[ChatEvents] ▶ open SSE ticket=${ticketId} ou channel=${channelId}`);
+            
+            const url = channelId
+                ? `${currentAPI}/api/tickets/chat/events?channel_id=${encodeURIComponent(channelId)}`
+                : `${currentAPI}/api/tickets/chat/events?ticket_id=${encodeURIComponent(ticketId)}`;
+
+            const es = new EventSource(url);
+            if (channelId) chatES.set(channelId, es);
+
+            es.onopen = () => {
+                console.log(`✅ [ChatEvents] SSE ouverte: ${url}`);
+            };
+
+            es.onmessage = (evt) => {
+                console.log(`📨 [ChatEvents] Message reçu sur ${channelId || ticketId}:`, evt.data);
+                routeChatEvent(evt, channelId);
+            };
+            
+            es.addEventListener('ping', () => {
+                console.log(`💓 [ChatEvents] Ping reçu sur ${channelId || ticketId}`);
+            }); // keep-alive no-op
+            
+            es.onerror = (error) => {
+                console.error(`❌ [ChatEvents] Erreur SSE pour ${channelId || ticketId}:`, error);
+                console.error(`❌ [ChatEvents] URL SSE: ${url}`);
+                console.error(`❌ [ChatEvents] ReadyState: ${es.readyState}`);
+                // EventSource auto-retry
+            };
+
+            return es;
+        }
+        
+        // Router d'événements pour les chats
+        function routeChatEvent(evt, sourceChannelId) {
+            let payload;
+            try { 
+                payload = JSON.parse(evt.data); 
+            } catch (e) { 
+                console.warn('[Router] Erreur parsing JSON:', e);
+                return; 
+            }
+            
+            const { type, data, ticket_id, channel_id, event_id } = payload;
+
+            // Résolution du canal (priorité au channel_id fourni)
+            const cid = channel_id || sourceChannelId || (chatRegistry.byTicket.get(ticket_id)?.channelId);
+            if (!cid) {
+                console.warn('[Router] Impossible de résoudre le channel_id');
+                return;
+            }
+
+            // Vérif qu'on a bien une SSE pour ce canal
+            if (!chatES.has(cid)) {
+                console.warn(`[Router] Aucune SSE active pour channel ${cid}`);
+                return;
+            }
+
+            // Anti-doublon
+            if (event_id) {
+                const seen = processedEventIds.get(cid) || new Set();
+                if (seen.has(event_id)) {
+                    console.log(`[Router] Event ${event_id} déjà traité pour channel ${cid}`);
+                    return;
+                }
+                seen.add(event_id);
+                if (seen.size > 500) { 
+                    const [first] = seen; 
+                    seen.delete(first); 
+                }
+                processedEventIds.set(cid, seen);
+            }
+
+            const entry = chatRegistry.byChannel.get(cid);
+            if (!entry) {
+                console.warn(`[Router] Aucune entrée registry pour channel ${cid}`);
+                return;
+            }
+            
+            const { ticketId: tid } = entry;
+            console.log(`[Router] incoming type=${type} channel_id=${cid} → ticketId=${tid}`);
+
+            switch (type) {
+                case 'connection_established':
+                    // Quand on a démarré par ticket_id
+                    if (!sourceChannelId && data?.channel_id) {
+                        const newCid = data.channel_id;
+                        chatES.set(newCid, chatES.get(sourceChannelId) || chatES.get(newCid));
+                        chatRegistry.byTicket.set(tid, { ...entry, channelId: newCid, status: 'active' });
+                        chatRegistry.byChannel.set(newCid, { ...entry, channelId: newCid });
+                        persistIndex();
+                        console.log(`[Router] Channel établi: ${newCid} pour ticket ${tid}`);
+                    }
+                    break;
+
+                case 'chat_message':
+                    addChatMessage(tid, data?.text || data?.message || '', 'received', event_id, cid);
+                    break;
+
+                case 'client_typing':
+                    showTypingIndicator(tid);
+                    break;
+
+                case 'client_stopped_typing':
+                    hideTypingIndicator(tid);
+                    break;
+
+                case 'chat_ended':
+                    markEndedAndPurge(cid, tid);
+                    break;
+
+                default:
+                    console.log(`[Router] Événement non géré: ${type}`);
+            }
+        }
+        
+        // Fonctions de persistance locale
+        function persistIndex() {
+            try {
+                const index = {};
+                chatRegistry.byTicket.forEach((v, k) => { index[k] = v; });
+                localStorage.setItem('sea:chat:index', JSON.stringify(index));
+                console.log('[Persist] Index sauvegardé');
+            } catch (e) {
+                console.error('[Persist] Erreur sauvegarde index:', e);
+            }
+        }
+
+        function persistMessage(channelId, msg) {
+            try {
+                const k = `sea:chat:${channelId}:messages`;
+                const arr = JSON.parse(localStorage.getItem(k) || '[]');
+                arr.push(msg);
+                localStorage.setItem(k, JSON.stringify(arr));
+                console.log(`[Persist] Saved message channel=${channelId} event_id=${msg.event_id}`);
+            } catch (e) {
+                console.error('[Persist] Erreur sauvegarde message:', e);
+            }
+        }
+
+        function restoreChatsOnLoad() {
+            try {
+                const raw = localStorage.getItem('sea:chat:index');
+                if (!raw) return;
+                
+                const index = JSON.parse(raw);
+                let restored = 0;
+                
+                for (const [ticketId, { channelId, roomId, status }] of Object.entries(index)) {
+                    if (status === 'ended') { 
+                        purgeStorage(channelId); 
+                        continue; 
+                    }
+                    
+                    // Re-index
+                    chatRegistry.byTicket.set(ticketId, { channelId, roomId, status: 'active' });
+                    chatRegistry.byChannel.set(channelId, { ticketId, roomId, status: 'active' });
+
+                    // Réouvrir SSE et restaurer UI
+                    startChatEventSource({ ticketId, channelId });
+                    const msgCount = restoreMessages(ticketId, channelId);
+                    restored++;
+                    
+                    console.log(`[RestoreChat] ${msgCount} messages restaurés pour ${ticketId}`);
+                }
+                
+                if (restored > 0) {
+                    console.log(`[RestoreChat] ${restored} chats restaurés après F5`);
+                }
+            } catch (e) {
+                console.error('[RestoreChat] Erreur restauration:', e);
+            }
+        }
+
+        function restoreMessages(ticketId, channelId) {
+            try {
+                const k = `sea:chat:${channelId}:messages`;
+                const arr = JSON.parse(localStorage.getItem(k) || '[]');
+                arr.forEach(m => addChatMessage(ticketId, m.text, m.direction, m.event_id, channelId, { silent: true }));
+                return arr.length;
+            } catch (e) {
+                console.error('[RestoreChat] Erreur restauration messages:', e);
+                return 0;
+            }
+        }
+
+        function markEndedAndPurge(channelId, ticketId) {
+            console.log(`[ChatEvents] Chat terminé: ${channelId}`);
+            purgeStorage(channelId);
+            chatRegistry.byChannel.delete(channelId);
+            chatRegistry.byTicket.delete(ticketId);
+            persistIndex();
+            
+            // Fermer SSE de ce chat uniquement
+            const es = chatES.get(channelId);
+            if (es) { 
+                es.close(); 
+                chatES.delete(channelId); 
+                console.log(`[ChatEvents] SSE fermée pour channel ${channelId}`);
+            }
+        }
+
+        function purgeStorage(channelId) {
+            try {
+                localStorage.removeItem(`sea:chat:${channelId}:messages`);
+                console.log(`[ChatEvents] Storage purgé pour channel ${channelId}`);
+            } catch (e) {
+                console.error('[ChatEvents] Erreur purge storage:', e);
+            }
         }
         
         // ===== CHAT EVENT SOURCE - SUPPRIMÉ =====
@@ -5516,19 +5784,35 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
             const roomId = getCurrentRoom();
             console.log(`💬 [Chat] Démarrage écoute SSE RÉELLE pour salle ${roomId}`);
             
-            // ✅ CORRIGÉ : Utiliser currentAPI maintenant que l'initialisation est terminée
-            const sseUrl = `${currentAPI}/api/tickets/chat/stream?room_id=${roomId}`;
+            // ✅ NOUVEAU : Test de connectivité avant SSE
+            testBackendConnectivity().then(isConnected => {
+                if (!isConnected) {
+                    console.error('❌ [Chat] Backend non accessible, SSE non démarrée');
+                    return;
+                }
+                console.log('✅ [Chat] Backend accessible, démarrage SSE');
+                startSSEConnection();
+            });
             
-            // ⚠️ DEBUG : Vérifier qu'on n'a pas déjà une connexion active
-            if (window.vitrineChatEventSource) {
-                console.log('⚠️ [SSE] Fermeture connexion existante pour éviter duplication');
-                window.vitrineChatEventSource.close();
-            }
+            function startSSEConnection() {
+                // ✅ CORRIGÉ : Utiliser currentAPI maintenant que l'initialisation est terminée
+                const sseUrl = `${currentAPI}/api/tickets/chat/stream?room_id=${roomId}`;
+                
+                // ⚠️ DEBUG : Vérifier qu'on n'a pas déjà une connexion active
+                if (window.vitrineChatEventSource) {
+                    console.log('⚠️ [SSE] Fermeture connexion existante pour éviter duplication');
+                    window.vitrineChatEventSource.close();
+                }
             
             const eventSource = new EventSource(sseUrl);
             window.vitrineChatEventSource = eventSource; // Stocker pour éviter duplicata
             
+            eventSource.onopen = function() {
+                console.log(`✅ [SSE-OLD] Connexion SSE établie: ${sseUrl}`);
+            };
+            
             eventSource.onmessage = function(event) {
+                console.log(`📨 [SSE-OLD] Message reçu:`, event.data);
                 try {
                     const data = JSON.parse(event.data);
                     console.log('📡 [SSE] Événement RÉEL reçu:', data);
@@ -5543,6 +5827,30 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
                             // Une demande de chat RÉELLE est arrivée depuis Tickets SEA
                             console.log('💬 [SSE] Demande de chat RÉELLE reçue:', data.data);
                             currentChatId = data.data.channel_id;
+                            
+                            // ✅ NOUVEAU : Enregistrer ce chat dans notre système multi-chat
+                            if (data.data.channel_id) {
+                                const ticketId = roomId; // Utiliser roomId comme ticketId pour l'instant
+                                const channelId = data.data.channel_id;
+                                
+                                // Enregistrer dans le registry
+                                chatRegistry.byTicket.set(ticketId, { 
+                                    channelId, 
+                                    roomId, 
+                                    status: 'active' 
+                                });
+                                chatRegistry.byChannel.set(channelId, { 
+                                    ticketId, 
+                                    roomId, 
+                                    status: 'active' 
+                                });
+                                persistIndex();
+                                
+                                // Démarrer une SSE dédiée pour ce chat
+                                startChatEventSource({ ticketId, channelId });
+                                console.log(`[ChatEvents] ▶ Chat initié: ${channelId} pour ticket ${ticketId}`);
+                            }
+                            
                             showConsentBanner(`Demande de chat pour salle ${roomId}`, roomId);
                             break;
                             
@@ -5625,11 +5933,15 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
             };
             
             eventSource.onerror = function(error) {
-                console.error('❌ [SSE] Erreur de connexion SSE RÉELLE:', error);
+                console.error('❌ [SSE-OLD] Erreur de connexion SSE RÉELLE:', error);
+                console.error('❌ [SSE-OLD] URL SSE:', sseUrl);
+                console.error('❌ [SSE-OLD] ReadyState:', eventSource.readyState);
+                console.error('❌ [SSE-OLD] CurrentAPI:', currentAPI);
+                
                 // Reconnexion automatique avec backoff exponentiel
                 setTimeout(() => {
                     if (getCurrentRoom()) {
-                        console.log('🔄 [SSE] Tentative de reconnexion...');
+                        console.log('🔄 [SSE-OLD] Tentative de reconnexion...');
                         startChatRequestListener();
                     }
                 }, 5000);
@@ -5638,6 +5950,29 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
             eventSource.onopen = function() {
                 console.log('✅ [SSE] Connexion SSE RÉELLE établie pour salle ' + roomId);
             };
+            } // Fin de startSSEConnection
+        } // Fin de startChatRequestListener
+        
+        // ✅ NOUVEAU : Test de connectivité backend
+        async function testBackendConnectivity() {
+            try {
+                console.log(`🔍 [Connectivity] Test backend: ${currentAPI}`);
+                const response = await fetch(`${currentAPI}/api/health`, {
+                    method: 'GET',
+                    signal: AbortSignal.timeout(5000)
+                });
+                
+                if (response.ok) {
+                    console.log('✅ [Connectivity] Backend accessible');
+                    return true;
+                } else {
+                    console.error(`❌ [Connectivity] Backend erreur HTTP: ${response.status}`);
+                    return false;
+                }
+            } catch (error) {
+                console.error('❌ [Connectivity] Backend non accessible:', error.message);
+                return false;
+            }
         }
         
         // ===== STATUS CHANGE LISTENER POUR TICKETS SEA =====
@@ -6714,6 +7049,9 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
             if (kioskID) {
                 console.log('🎛️ [ChatSEA] Kiosk détecté:', kioskID);
             }
+            
+            // ✅ NOUVEAU : Restaurer les chats actifs après F5
+            restoreChatsOnLoad();
             
             // ✅ CORRIGÉ : Attendre l'initialisation du backend avant de démarrer les EventSource
             if (getCurrentRoom()) {
