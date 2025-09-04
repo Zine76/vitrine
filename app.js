@@ -175,30 +175,36 @@
         let kioskID = null;
         
         // ===== IMAGE SEA2 =====
-        function updateSEALogo(imgElement) {
+        
+function updateSEALogo(imgElement) {
   if (!imgElement) return;
-  const base = (typeof ASSETS_BASE !== 'undefined' && ASSETS_BASE) || (typeof window !== 'undefined' && window.ASSETS_BASE) || 'https://zine76.github.io/vitrine/assets';
+  // Base des assets (GitHub Pages) avec valeur de secours
+  const base = (typeof ASSETS_BASE !== 'undefined' && ASSETS_BASE) ||
+               (typeof window !== 'undefined' && window.ASSETS_BASE) ||
+               'https://zine76.github.io/vitrine/assets';
   const primary  = base.replace(/\/$/, '') + '/SEA2.png?v=' + Date.now();
   const fallback = base.replace(/\/$/, '') + '/SI.png';
 
   console.log('[UpdateSEALogo] base=', base);
   console.log('[UpdateSEALogo] primary=', primary);
-  console.log('[UpdateSEALogo] fallback=', fallback);
 
-  // Set primary immediately so you see the request in Network tab
+  // Attacher le fallback JS (pas d'attribut HTML onerror)
+  imgElement.onerror = function() {
+    console.warn('[UpdateSEALogo] SEA2.png failed → showing text fallback (and SI.png)');
+    // Afficher le bloc de repli texte s'il est présent juste après l'image
+    if (this.nextElementSibling && this.nextElementSibling.classList.contains('sea-fallback-content')) {
+      this.style.display = 'none';
+      this.nextElementSibling.style.display = 'block';
+    }
+    // Optionnel: image de secours
+    this.src = fallback;
+    this.setAttribute('src', fallback);
+    this.onerror = null; // éviter boucle
+  };
+
+  // Déclencher immédiatement la demande réseau (visible dans Network)
   imgElement.src = primary;
   imgElement.setAttribute('src', primary);
-
-  const test = new Image();
-  test.onload = function() {
-    console.log('[UpdateSEALogo] SEA2.png loaded → keeping primary');
-  };
-  test.onerror = function() {
-    console.warn('[UpdateSEALogo] SEA2.png failed → switch to fallback');
-    imgElement.src = fallback;
-    imgElement.setAttribute('src', fallback);
-  };
-  test.src = primary;
 }
 
         
@@ -4315,7 +4321,7 @@
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="sea-logo-${escalationId}" alt="Service Expert Audiovisuel UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <img id="sea-logo-${escalationId}">
                         <div class="sea-fallback-content" style="display: none; color: black !important; text-align: center; padding: 1rem;">
                             <h3 style="margin: 0 0 0.5rem 0; font-size: 1.2rem; color: black !important;">ASSISTANCE TECHNIQUE</h3>
                             <p style="margin: 0 0 0.5rem 0; font-size: 1rem; color: black !important;">COMPOSER LE POSTE</p>
