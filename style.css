@@ -3916,11 +3916,3 @@
             100% { opacity: 0; }
         }
     
-
-
-/* === Inline styles extracted from vitrine.html === */
-#backendModal { display:none; }
-.technical-auth-content { max-width:520px; }
-.inline-css-3 { margin-top:8px; text-align:center; color:#64748b; font-size:0.85rem; }
-#technicalPlanSection { display: none; }
-#technicalNoPlan { display: block; }
