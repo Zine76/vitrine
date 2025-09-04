@@ -175,24 +175,26 @@
         let kioskID = null;
         
         // ===== IMAGE SEA2 =====
-        
-function updateSEALogo(imgElement) {
+        function updateSEALogo(imgElement) {
   if (!imgElement) return;
-  // Always compute from ASSETS_BASE and add a cache-buster to avoid stale GH Pages CDN
-  const primary  = `${ASSETS_BASE}/SEA2.png?v=${Date.now()}`;
-  const fallback = `${ASSETS_BASE}/SI.png`;
+  const base = (typeof ASSETS_BASE !== 'undefined' && ASSETS_BASE) || (typeof window !== 'undefined' && window.ASSETS_BASE) || 'https://zine76.github.io/vitrine/assets';
+  const primary  = base.replace(/\/$/, '') + '/SEA2.png?v=' + Date.now();
+  const fallback = base.replace(/\/$/, '') + '/SI.png';
 
-  console.log('[UpdateSEALogo] trying:', primary);
+  console.log('[UpdateSEALogo] base=', base);
+  console.log('[UpdateSEALogo] primary=', primary);
+  console.log('[UpdateSEALogo] fallback=', fallback);
 
-  // Preload and set src only on success; on error use fallback exactly once
+  // Set primary immediately so you see the request in Network tab
+  imgElement.src = primary;
+  imgElement.setAttribute('src', primary);
+
   const test = new Image();
   test.onload = function() {
-    console.log('[UpdateSEALogo] SEA2.png loaded OK');
-    imgElement.src = primary;
-    imgElement.setAttribute('src', primary);
+    console.log('[UpdateSEALogo] SEA2.png loaded → keeping primary');
   };
   test.onerror = function() {
-    console.warn('[UpdateSEALogo] SEA2.png failed (404/blocked). Fallback -> SI.png');
+    console.warn('[UpdateSEALogo] SEA2.png failed → switch to fallback');
     imgElement.src = fallback;
     imgElement.setAttribute('src', fallback);
   };
