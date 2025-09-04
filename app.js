@@ -175,17 +175,28 @@
         let kioskID = null;
         
         // ===== IMAGE SEA2 =====
-        function updateSEALogo(imgElement) {
+        
+function updateSEALogo(imgElement) {
   if (!imgElement) return;
-  const primary  = `${ASSETS_BASE}/SEA2.png`;
-  //const fallback = `${ASSETS_BASE}/SI.png`;
-  imgElement.onerror = function onErrorOnce() {
-    if (this.dataset.fallbackDone === '1') { this.onerror = null; return; }
-    this.dataset.fallbackDone = '1';
-    this.src = fallback;
+  // Always compute from ASSETS_BASE and add a cache-buster to avoid stale GH Pages CDN
+  const primary  = `${ASSETS_BASE}/SEA2.png?v=${Date.now()}`;
+  const fallback = `${ASSETS_BASE}/SI.png`;
+
+  console.log('[UpdateSEALogo] trying:', primary);
+
+  // Preload and set src only on success; on error use fallback exactly once
+  const test = new Image();
+  test.onload = function() {
+    console.log('[UpdateSEALogo] SEA2.png loaded OK');
+    imgElement.src = primary;
+    imgElement.setAttribute('src', primary);
   };
-  imgElement.src = primary;
-  imgElement.setAttribute('src', primary);
+  test.onerror = function() {
+    console.warn('[UpdateSEALogo] SEA2.png failed (404/blocked). Fallback -> SI.png');
+    imgElement.src = fallback;
+    imgElement.setAttribute('src', fallback);
+  };
+  test.src = primary;
 }
 
         
