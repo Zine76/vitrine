@@ -108,9 +108,9 @@
             return currentAPI;
         }
         
-        // ✅ CONFIGURATION IMAGES LOCALES
-        // ? CONFIGURATION IMAGES (prend ASSETS_BASE global si d�fini, sinon 'assets')
-        const ASSETS_BASE = window.ASSETS_BASE || 'assets';
+        // ✅ CONFIGURATION IMAGES DEPUIS GITHUB
+        // Utiliser directement GitHub Pages pour les images
+        const ASSETS_BASE = window.ASSETS_BASE || 'https://zine76.github.io/vitrine/assets';
         
         // ✅ NOUVEAU: Redémarrer toutes les connexions SSE après changement d'API
         function restartSSEConnections() {
@@ -175,37 +175,36 @@
         let kioskID = null;
         
         // ===== IMAGE SEA2 =====
-        function updateSEALogo(imgElement) {
-            if (imgElement) {
-                console.log('🖼️ [UpdateSEALogo] Tentative de chargement image SEA pour:', imgElement.id || 'sans ID');
-                
-                // ✅ UTILISER IMAGES LOCALES
-                // Définir le src immédiatement pour éviter les courses au DOM
-                imgElement.src = `${ASSETS_BASE}/SEA2.png`;
-                imgElement.setAttribute('src', `${ASSETS_BASE}/SEA2.png`);
-                
-                imgElement.onerror = function() {
-                    console.log('❌ [UpdateSEALogo] Échec chargement local');
-                    this.src = `${ASSETS_BASE}/SEA2.png`;
-                    
-                    this.onerror = function() {
-                        console.log('❌ [UpdateSEALogo] Échec serveur distant, utilisation fallback');
-                        // Fallback vers image directement dans le dossier Annexe
-                        this.src = `${ASSETS_BASE}/SEA2.png`;
-                        
-                        this.onerror = function() {
-                            console.log('❌ [UpdateSEALogo] Tous les chemins échoués, image vide');
-                        };
-                    };
-                };
-                
-                imgElement.onload = function() {
-                    console.log('✅ [UpdateSEALogo] Image SEA chargée avec succès depuis:', this.src);
-                };
-            } else {
-                console.log('❌ [UpdateSEALogo] Élément image non trouvé');
-            }
-        }
+        
+function updateSEALogo(imgElement) {
+  if (!imgElement) return;
+  const base = (typeof ASSETS_BASE !== 'undefined' && ASSETS_BASE) ||
+               (typeof window !== 'undefined' && window.ASSETS_BASE) ||
+               'https://zine76.github.io/vitrine/assets';
+  const primary  = base.replace(/\/$/, '') + '/SEA2.png?v=' + Date.now();
+  const fallback = base.replace(/\/$/, '') + '/SI.png';
+  console.log('[UpdateSEALogo] base=', base);
+  console.log('[UpdateSEALogo] primary=', primary);
+
+  // Remove any HTML-level onerror side-effects if present
+  try { imgElement.removeAttribute('onerror'); } catch (e) {}
+
+  imgElement.onerror = function(){
+    console.warn('[UpdateSEALogo] SEA2.png failed → optional fallback to SI.png + reveal text');
+    if (this.nextElementSibling && this.nextElementSibling.classList && this.nextElementSibling.classList.contains('sea-fallback-content')) {
+      this.nextElementSibling.style.display = 'block';
+      this.style.display = 'none';
+    }
+    this.src = fallback;
+    this.setAttribute('src', fallback);
+    this.onerror = null;
+  };
+
+  imgElement.style.display = '';
+  imgElement.src = primary;
+  imgElement.setAttribute('src', primary);
+}
+
         
         // ✅ NOUVEAU : Gestion des tickets de session
         let sessionTickets = [];
@@ -4263,6 +4262,12 @@
          * Affiche la bannière SEA centrée avec overlay (comme les autres bannières)
          */
         function showSEAEscalationBanner(data) {
+
+// Guard: if a SEA banner is already present, do NOT recreate (prevents refresh while typing)
+if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector('[id^="overlay_escalation_sea_"]')) {
+    console.log('🛑 [SEA Banner] Already open — skip re-render');
+    return;
+}
             // ✅ CORRECTION: Fermer toutes les bannières SEA existantes AVANT d'en créer une nouvelle
             const existingSeaBanners = document.querySelectorAll('[id^="escalation_sea_"]');
             const existingSeaOverlays = document.querySelectorAll('[id^="overlay_escalation_sea_"]');
@@ -4320,8 +4325,8 @@
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="sea-logo-${escalationId}" alt="Service Expert Audiovisuel UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                        <div class="sea-fallback-content" style="display: none; color: black !important; text-align: center; padding: 1rem;">
+                        <img id="sea-logo-${escalationId}" alt="Service Expert Audiovisuel UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                        <div class="sea-fallback-content" style="display:none; display: none; color: black !important; text-align: center; padding: 1rem;">
                             <h3 style="margin: 0 0 0.5rem 0; font-size: 1.2rem; color: black !important;">ASSISTANCE TECHNIQUE</h3>
                             <p style="margin: 0 0 0.5rem 0; font-size: 1rem; color: black !important;">COMPOSER LE POSTE</p>
                             <p style="margin: 0; font-size: 3rem; font-weight: bold; color: black !important;">6135</p>
@@ -4418,7 +4423,14 @@
             // Ajouter l'overlay et la bannière au body
             document.body.appendChild(overlayDiv);
             overlayDiv.appendChild(escalationDiv);
-        }
+        
+    window.__SEA_BANNER_OPEN__ = true;
+    // After render, hydrate SEA logo images
+    try {
+        document.querySelectorAll('[id^="sea-logo-"]').forEach(el => updateSEALogo(el));
+    } catch(e) { console.warn('SEA logo hydration error', e); }
+}
+
 
         /**
          * Ferme la bannière SEA
@@ -5043,6 +5055,9 @@
         
         async function closeChat() {
             try {
+                // ✅ NOUVEAU : Marquer comme fermeture normale
+                isNormalClosure = true;
+                
                 // ✅ NOUVEAU : S'assurer de la connexion backend avant fermeture
                 await ensureBackendConnection();
                 
@@ -5309,6 +5324,9 @@
             
             document.getElementById('chatModal').classList.add('active');
             
+            // ✅ NOUVEAU : Démarrer le heartbeat pour détecter les déconnexions
+            startHeartbeat();
+            
             // Ajouter le message d'accueil automatique
             const messagesContainer = document.getElementById('chatMessages');
             if (messagesContainer && messagesContainer.children.length === 0) {
@@ -5334,7 +5352,18 @@
             document.getElementById('chatModal').classList.remove('active');
             document.getElementById('chatMessages').innerHTML = '';
             document.getElementById('chatInput').value = '';
+            
+            // ✅ NOUVEAU : Arrêter le heartbeat
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+                console.log('💓 [Heartbeat] Arrêté lors de la fermeture du chat');
+            }
+            
             currentChatId = null;
+            
+            // ✅ NOUVEAU : Réinitialiser le flag de fermeture normale
+            isNormalClosure = false;
             
             // ✅ NOUVEAU : Restaurer les bannières de statut après fermeture du chat
             restoreStatusBannersAfterChat();
@@ -6025,7 +6054,8 @@
         /**
          * Ferme la modale
          */
-        function closeModal() {
+        function closeModal() {try{ window.__SEA_BANNER_OPEN__ = false; }catch(e){}
+
             const modalOverlay = document.getElementById('modalOverlay');
             modalOverlay.classList.remove('active');
             
@@ -6506,6 +6536,14 @@
                 technicalRoomSpan.textContent = currentRoom || 'Non définie';
             }
             
+            // ✅ NOUVEAU : Gérer l'affichage du plan unifilaire
+            if (window.RoomPlansConfig) {
+                console.log('🔧 [Technical] Mise à jour des plans pour:', currentRoom);
+                window.RoomPlansConfig.updatePlanSection(currentRoom);
+            } else {
+                console.warn('⚠️ [Technical] Module RoomPlansConfig non chargé');
+            }
+            
             // Masquer Vitrine et afficher la page technique
             if (mainContainer) {
                 mainContainer.style.display = 'none';
@@ -6514,8 +6552,11 @@
             
             console.log('🔧 [Technical] Page technique affichée pour la salle:', currentRoom);
         }
+        
 
-        function returnToVitrine() {
+
+        function returnToVitrine() {try{ window.__SEA_BANNER_OPEN__ = false; }catch(e){}
+
             console.log('🔧 [Technical] Retour à Vitrine');
             const technicalPage = document.getElementById('technicalPage');
             const mainContainer = document.querySelector('.main-container');
@@ -7398,6 +7439,182 @@ async function notifyBackendRecallMode() {
     }
 }
 
+// ✅ NOUVEAU : Système de détection de déconnexion inattendue
+let isNormalClosure = false; // Flag pour distinguer fermeture normale vs inattendue
+let heartbeatInterval = null;
+let lastHeartbeat = Date.now();
+
+// ✅ NOUVEAU : Détecter fermeture de page/navigateur (F5, fermeture, etc.)
+window.addEventListener('beforeunload', function(event) {
+    console.log('🚨 [Disconnect] Détection de fermeture/rechargement de page');
+    
+    // Si on a un chat actif et que ce n'est pas une fermeture normale
+    if (currentChatId && !isNormalClosure) {
+        console.log('⚠️ [Disconnect] Fermeture inattendue avec chat actif:', currentChatId);
+        
+        // Notification immédiate au backend (synchrone)
+        notifyUnexpectedDisconnection();
+        
+        // Message d'avertissement (optionnel - peut être désactivé)
+        // event.preventDefault();
+        // event.returnValue = 'Vous avez un chat en cours. Êtes-vous sûr de vouloir quitter ?';
+        // return event.returnValue;
+    }
+});
+
+// ✅ NOUVEAU : Détecter perte de connexion réseau
+window.addEventListener('offline', function() {
+    console.log('📡 [Disconnect] Connexion réseau perdue');
+    if (currentChatId) {
+        console.log('⚠️ [Disconnect] Chat actif lors de perte de connexion');
+        showNotification('Connexion réseau perdue', 'warning');
+    }
+});
+
+// ✅ NOUVEAU : Détecter retour de connexion
+window.addEventListener('online', function() {
+    console.log('📡 [Reconnect] Connexion réseau rétablie');
+    if (currentChatId) {
+        console.log('🔄 [Reconnect] Tentative de reconnexion du chat');
+        showNotification('Connexion rétablie', 'success');
+        reconnectChat();
+    }
+});
+
+// ✅ NOUVEAU : Système de heartbeat pour détecter les déconnexions
+function startHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+    }
+    
+    console.log('💓 [Heartbeat] Démarrage du système de heartbeat');
+    lastHeartbeat = Date.now();
+    
+    heartbeatInterval = setInterval(async function() {
+        if (currentChatId) {
+            try {
+                const apiBase = await getCurrentAPI();
+                const response = await fetch(`${apiBase}/api/tickets/chat/heartbeat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        channel_id: currentChatId,
+                        room_id: getCurrentRoom(),
+                        timestamp: Date.now()
+                    }),
+                    signal: AbortSignal.timeout(5000) // Timeout de 5 secondes
+                });
+                
+                if (response.ok) {
+                    lastHeartbeat = Date.now();
+                    console.log('💓 [Heartbeat] Ping envoyé avec succès');
+                } else {
+                    console.warn('⚠️ [Heartbeat] Erreur de ping:', response.status);
+                }
+            } catch (error) {
+                console.error('❌ [Heartbeat] Échec du ping:', error);
+                // Si plusieurs échecs consécutifs, considérer comme déconnecté
+                if (Date.now() - lastHeartbeat > 60000) { // 1 minute sans heartbeat
+                    console.log('🚨 [Heartbeat] Déconnexion détectée - Chat considéré comme perdu');
+                    handleHeartbeatTimeout();
+                }
+            }
+        }
+    }, 15000); // Heartbeat toutes les 15 secondes
+}
+
+// ✅ NOUVEAU : Gérer la perte de heartbeat
+function handleHeartbeatTimeout() {
+    if (currentChatId) {
+        console.log('⏰ [Heartbeat] Timeout détecté - Nettoyage local');
+        
+        // Nettoyer l'interface locale
+        closeChatInterface();
+        showNotification('Connexion perdue - Chat fermé', 'error');
+        
+        // Arrêter le heartbeat
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+        }
+    }
+}
+
+// ✅ NOUVEAU : Notification de déconnexion inattendue (synchrone)
+async function notifyUnexpectedDisconnection() {
+    if (!currentChatId) return;
+    
+    try {
+        const apiBase = await getCurrentAPI();
+        
+        const data = JSON.stringify({
+            channel_id: currentChatId,
+            room_id: getCurrentRoom(),
+            disconnection_type: 'unexpected',
+            timestamp: Date.now()
+        });
+        
+        // Utilisation de sendBeacon pour notification synchrone même lors de fermeture
+        const success = navigator.sendBeacon(`${apiBase}/api/tickets/chat/disconnect`, data);
+        console.log('📤 [Disconnect] Notification envoyée via sendBeacon:', success ? 'Succès' : 'Échec');
+        
+        // Fallback avec fetch si sendBeacon échoue
+        if (!success) {
+            fetch(`${apiBase}/api/tickets/chat/disconnect`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: data,
+                keepalive: true // Garder la requête même si la page se ferme
+            }).catch(error => {
+                console.error('❌ [Disconnect] Erreur notification fallback:', error);
+            });
+        }
+    } catch (error) {
+        console.error('❌ [Disconnect] Erreur notification:', error);
+    }
+}
+
+// ✅ NOUVEAU : Tentative de reconnexion
+async function reconnectChat() {
+    if (!currentChatId) return;
+    
+    try {
+        console.log('🔄 [Reconnect] Tentative de reconnexion...');
+        
+        const apiBase = await getCurrentAPI();
+        const response = await fetch(`${apiBase}/api/tickets/chat/reconnect`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                channel_id: currentChatId,
+                room_id: getCurrentRoom()
+            })
+        });
+        
+        if (response.ok) {
+            console.log('✅ [Reconnect] Reconnexion réussie');
+            showNotification('Connexion rétablie', 'success');
+            
+            // Redémarrer le heartbeat
+            startHeartbeat();
+        } else {
+            console.error('❌ [Reconnect] Échec de reconnexion:', response.status);
+            showNotification('Impossible de reconnecter - Chat fermé', 'error');
+            closeChatInterface();
+        }
+    } catch (error) {
+        console.error('❌ [Reconnect] Erreur de reconnexion:', error);
+        showNotification('Erreur de reconnexion - Chat fermé', 'error');
+        closeChatInterface();
+    }
+}
+
 // ===== INITIALISATION DES EXTENSIONS =====
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(() => {
@@ -7439,3 +7656,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2000);
 });
 
+
+
+// Global flag for SEA banner open state
+window.__SEA_BANNER_OPEN__ = window.__SEA_BANNER_OPEN__ || false;
