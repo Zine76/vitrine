@@ -178,7 +178,7 @@
         function updateSEALogo(imgElement) {
   if (!imgElement) return;
   const primary  = `${ASSETS_BASE}/SEA2.png`;
-  const fallback = `${ASSETS_BASE}/SI.png`;
+  //const fallback = `${ASSETS_BASE}/SI.png`;
   imgElement.onerror = function onErrorOnce() {
     if (this.dataset.fallbackDone === '1') { this.onerror = null; return; }
     this.dataset.fallbackDone = '1';
