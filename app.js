@@ -178,31 +178,29 @@
         
 function updateSEALogo(imgElement) {
   if (!imgElement) return;
-  // Base des assets (GitHub Pages) avec valeur de secours
   const base = (typeof ASSETS_BASE !== 'undefined' && ASSETS_BASE) ||
                (typeof window !== 'undefined' && window.ASSETS_BASE) ||
                'https://zine76.github.io/vitrine/assets';
   const primary  = base.replace(/\/$/, '') + '/SEA2.png?v=' + Date.now();
   const fallback = base.replace(/\/$/, '') + '/SI.png';
-
   console.log('[UpdateSEALogo] base=', base);
   console.log('[UpdateSEALogo] primary=', primary);
 
-  // Attacher le fallback JS (pas d'attribut HTML onerror)
-  imgElement.onerror = function() {
-    console.warn('[UpdateSEALogo] SEA2.png failed → showing text fallback (and SI.png)');
-    // Afficher le bloc de repli texte s'il est présent juste après l'image
-    if (this.nextElementSibling && this.nextElementSibling.classList.contains('sea-fallback-content')) {
-      this.style.display = 'none';
+  // Remove any HTML-level onerror side-effects if present
+  try { imgElement.removeAttribute('onerror'); } catch (e) {}
+
+  imgElement.onerror = function(){
+    console.warn('[UpdateSEALogo] SEA2.png failed → optional fallback to SI.png + reveal text');
+    if (this.nextElementSibling && this.nextElementSibling.classList && this.nextElementSibling.classList.contains('sea-fallback-content')) {
       this.nextElementSibling.style.display = 'block';
+      this.style.display = 'none';
     }
-    // Optionnel: image de secours
     this.src = fallback;
     this.setAttribute('src', fallback);
-    this.onerror = null; // éviter boucle
+    this.onerror = null;
   };
 
-  // Déclencher immédiatement la demande réseau (visible dans Network)
+  imgElement.style.display = '';
   imgElement.src = primary;
   imgElement.setAttribute('src', primary);
 }
@@ -4264,6 +4262,12 @@ function updateSEALogo(imgElement) {
          * Affiche la bannière SEA centrée avec overlay (comme les autres bannières)
          */
         function showSEAEscalationBanner(data) {
+
+// Guard: if a SEA banner is already present, do NOT recreate (prevents refresh while typing)
+if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector('[id^="overlay_escalation_sea_"]')) {
+    console.log('🛑 [SEA Banner] Already open — skip re-render');
+    return;
+}
             // ✅ CORRECTION: Fermer toutes les bannières SEA existantes AVANT d'en créer une nouvelle
             const existingSeaBanners = document.querySelectorAll('[id^="escalation_sea_"]');
             const existingSeaOverlays = document.querySelectorAll('[id^="overlay_escalation_sea_"]');
@@ -4321,8 +4325,8 @@ function updateSEALogo(imgElement) {
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="sea-logo-${escalationId}">
-                        <div class="sea-fallback-content" style="display: none; color: black !important; text-align: center; padding: 1rem;">
+                        <img id="sea-logo-${escalationId}" alt="Service Expert Audiovisuel UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                        <div class="sea-fallback-content" style="display:none; display: none; color: black !important; text-align: center; padding: 1rem;">
                             <h3 style="margin: 0 0 0.5rem 0; font-size: 1.2rem; color: black !important;">ASSISTANCE TECHNIQUE</h3>
                             <p style="margin: 0 0 0.5rem 0; font-size: 1rem; color: black !important;">COMPOSER LE POSTE</p>
                             <p style="margin: 0; font-size: 3rem; font-weight: bold; color: black !important;">6135</p>
@@ -4419,7 +4423,14 @@ function updateSEALogo(imgElement) {
             // Ajouter l'overlay et la bannière au body
             document.body.appendChild(overlayDiv);
             overlayDiv.appendChild(escalationDiv);
-        }
+        
+    window.__SEA_BANNER_OPEN__ = true;
+    // After render, hydrate SEA logo images
+    try {
+        document.querySelectorAll('[id^="sea-logo-"]').forEach(el => updateSEALogo(el));
+    } catch(e) { console.warn('SEA logo hydration error', e); }
+}
+
 
         /**
          * Ferme la bannière SEA
@@ -6043,7 +6054,8 @@ function updateSEALogo(imgElement) {
         /**
          * Ferme la modale
          */
-        function closeModal() {
+        function closeModal() {try{ window.__SEA_BANNER_OPEN__ = false; }catch(e){}
+
             const modalOverlay = document.getElementById('modalOverlay');
             modalOverlay.classList.remove('active');
             
@@ -6543,7 +6555,8 @@ function updateSEALogo(imgElement) {
         
 
 
-        function returnToVitrine() {
+        function returnToVitrine() {try{ window.__SEA_BANNER_OPEN__ = false; }catch(e){}
+
             console.log('🔧 [Technical] Retour à Vitrine');
             const technicalPage = document.getElementById('technicalPage');
             const mainContainer = document.querySelector('.main-container');
@@ -7643,3 +7656,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2000);
 });
 
+
+
+// Global flag for SEA banner open state
+window.__SEA_BANNER_OPEN__ = window.__SEA_BANNER_OPEN__ || false;
