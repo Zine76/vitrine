@@ -5450,33 +5450,75 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
             if (!message || !currentChatId) return;
             
             try {
-                // ✅ NOUVEAU : S'assurer de la connexion backend avant envoi
-                await ensureBackendConnection();
-                
-                console.log(`🔍 [DEBUG-VITRINE] Envoi message avec channel_id: "${currentChatId}"`);
-                console.warn(`🚨 [DEBUG-VISIBLE] VITRINE ENVOIE AVEC CHANNEL_ID: "${currentChatId}"`);
-                
-                const response = await fetch(`${currentAPI}/api/tickets/chat/message`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        channel_id: currentChatId,
-                        room_id: getCurrentRoom(),
-                        message: message,
-                        sender: 'vitrine'
-                    })
-                });
-                
-                if (response.ok) {
-                    addChatMessage(message, 'sent');
-                    input.value = '';
+                // 🚀 NOUVEAU : Utiliser le gestionnaire unifié si disponible
+                if (typeof window.unifiedChat !== 'undefined') {
+                    console.log(`🔗 [Vitrine] Envoi via gestionnaire unifié`);
+                    
+                    // Trouver le ticket ID correspondant
+                    const ticketId = findTicketIdFromChatId(currentChatId);
+                    if (ticketId) {
+                        const result = await window.unifiedChat.sendMessage(ticketId, message, 'vitrine');
+                        if (result.success) {
+                            addChatMessage(message, 'sent');
+                            input.value = '';
+                            return;
+                        } else {
+                            console.warn(`⚠️ [Vitrine] Fallback vers envoi legacy:`, result.error);
+                        }
+                    }
                 }
+                
+                // Fallback vers l'ancien système
+                await sendChatMessageLegacy(message);
                 
             } catch (error) {
                 console.error('❌ [Chat] Erreur envoi message:', error);
             }
+        }
+        
+        // 🔄 Ancien système d'envoi en fallback
+        async function sendChatMessageLegacy(message) {
+            const input = document.getElementById('chatInput');
+            
+            // ✅ NOUVEAU : S'assurer de la connexion backend avant envoi
+            await ensureBackendConnection();
+            
+            console.log(`🔍 [DEBUG-VITRINE] Envoi message legacy avec channel_id: "${currentChatId}"`);
+            console.warn(`🚨 [DEBUG-VISIBLE] VITRINE ENVOIE LEGACY AVEC CHANNEL_ID: "${currentChatId}"`);
+            
+            const response = await fetch(`${currentAPI}/api/tickets/chat/message`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    channel_id: currentChatId,
+                    room_id: getCurrentRoom(),
+                    message: message,
+                    sender: 'vitrine'
+                })
+            });
+            
+            if (response.ok) {
+                addChatMessage(message, 'sent');
+                input.value = '';
+            }
+        }
+        
+        // 🛠️ Fonction utilitaire pour trouver le ticket ID depuis chat ID
+        function findTicketIdFromChatId(chatId) {
+            // Essayer de parser le chat ID pour extraire le ticket ID
+            const match = chatId.match(/chat_(\d+)_/);
+            if (match) {
+                return match[1];
+            }
+            
+            // Fallback : utiliser le chat ID comme ticket ID si format simple
+            if (/^\d+$/.test(chatId)) {
+                return chatId;
+            }
+            
+            return null;
         }
         
         function addChatMessage(message, type) {
