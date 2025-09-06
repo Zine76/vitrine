@@ -5679,6 +5679,14 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
             
             eventSource.onopen = function() {
                 console.log('✅ [SSE] Connexion SSE RÉELLE établie pour salle ' + roomId);
+                
+                // 🔄 Démarrer le heartbeat pour cette connexion
+                startHeartbeat();
+                
+                // 🔄 Enregistrer le client dans le système SSE
+                if (clientId) {
+                    console.log('📡 [SSE] Client enregistré pour heartbeat:', clientId);
+                }
             };
         }
         
@@ -7483,7 +7491,6 @@ async function notifyBackendRecallMode() {
 
 // ✅ NOUVEAU : Système de détection de déconnexion inattendue
 let isNormalClosure = false; // Flag pour distinguer fermeture normale vs inattendue
-let heartbeatInterval = null;
 let lastHeartbeat = Date.now();
 
 // ✅ NOUVEAU : Détecter fermeture de page/navigateur (F5, fermeture, etc.)
@@ -7702,3 +7709,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Global flag for SEA banner open state
 window.__SEA_BANNER_OPEN__ = window.__SEA_BANNER_OPEN__ || false;
+
+// 🔄 ===== SYSTÈME DE HEARTBEAT POUR DÉTECTION DÉCONNEXIONS =====
+let heartbeatInterval = null;
+let clientId = null;
+
+function generateClientId() {
+    const room = getCurrentRoom();
+    if (!room) return null;
+    
+    return `vitrine-${room}-${Date.now()}`;
+}
+
+function startHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+    }
+    
+    clientId = generateClientId();
+    if (!clientId) {
+        console.log('🔄 [Heartbeat] Impossible de générer clientId');
+        return;
+    }
+    
+    console.log('🔄 [Heartbeat] Démarrage heartbeat pour client:', clientId);
+    
+    // Envoyer un heartbeat toutes les 15 secondes
+    heartbeatInterval = setInterval(async () => {
+        try {
+            const response = await fetch('/api/chat/heartbeat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    client_id: clientId
+                })
+            });
+            
+            if (response.ok) {
+                console.log('💓 [Heartbeat] Heartbeat envoyé avec succès');
+            } else {
+                console.warn('⚠️ [Heartbeat] Erreur heartbeat:', response.status);
+            }
+        } catch (error) {
+            console.error('❌ [Heartbeat] Erreur réseau heartbeat:', error);
+        }
+    }, 15000); // 15 secondes
+}
+
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+        console.log('🔄 [Heartbeat] Arrêt heartbeat pour client:', clientId);
+        clientId = null;
+    }
+}
+
+// Arrêter heartbeat quand la page se ferme
+window.addEventListener('beforeunload', () => {
+    stopHeartbeat();
+});
