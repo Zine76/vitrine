@@ -5380,6 +5380,10 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
         let lastTypingEventVitrine = 0;
         const TYPING_INTERVAL_VITRINE = 2000; // 2 secondes
         
+        // 🔐 IDENTIFIANT UNIQUE pour ce client Vitrine
+        const VITRINE_CLIENT_ID = `vitrine-${getCurrentRoom()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        console.log(`🔐 [TypingVitrine] ID client Vitrine généré: ${VITRINE_CLIENT_ID}`);
+        
         function handleChatKeyPress(event) {
             if (event.key === 'Enter') {
                 sendChatMessage();
@@ -5429,7 +5433,10 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
                     },
                     body: JSON.stringify({
                         channel_id: channelId,
-                        is_typing: isTyping
+                        room_id: getCurrentRoom(),
+                        is_typing: isTyping,
+                        client_id: VITRINE_CLIENT_ID,
+                        sender: 'vitrine'
                     })
                 });
                 
@@ -5644,14 +5651,25 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
                             break;
 
                         case 'client_typing':
+                        case 'vitrine_typing':
                             console.log('🔍 [SSE-Vitrine] Événement typing reçu:', data);
+                            
+                            // 🚫 BLACKLIST : Ne pas afficher si c'est ce client Vitrine qui tape
+                            const eventClientId = data.data?.client_id;
+                            const eventSender = data.data?.sender || 'sea';
+                            
+                            if (eventClientId && eventClientId === VITRINE_CLIENT_ID) {
+                                console.log(`🚫 [TypingVitrine] BLACKLIST - Événement typing ignoré car c'est ce client Vitrine qui tape (${eventClientId})`);
+                                break;
+                            }
+                            
                             if (data.data && data.data.is_typing) {
-                                console.log('💬 [SSE-Vitrine] Technicien en train d\'écrire...');
+                                console.log(`💬 [SSE-Vitrine] ${eventSender.toUpperCase()} en train d'écrire... (client: ${eventClientId})`);
                                 if (typeof showTypingIndicator === 'function') {
-                                    showTypingIndicator();
+                                    showTypingIndicator(eventSender);
                                 }
                             } else {
-                                console.log('💬 [SSE-Vitrine] Technicien a arrêté d\'écrire');
+                                console.log(`💬 [SSE-Vitrine] ${eventSender.toUpperCase()} a arrêté d'écrire`);
                                 if (typeof hideTypingIndicator === 'function') {
                                     hideTypingIndicator();
                                 }
@@ -5740,22 +5758,24 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
                         }
                     } else if (data.type === 'connection_established') {
                         console.log('🔔 [StatusEvents] Connexion SSE établie pour salle:', data.data.room_id);
-                    } else if (data.type === 'client_typing') {
+                    } else if (data.type === 'client_typing' || data.type === 'vitrine_typing') {
                         console.log('🔍 [StatusEvents] Événement typing reçu:', data);
-                        console.log('🎯 [DEBUG] data.data:', data.data);
-                        console.log('🎯 [DEBUG] data.data.is_typing:', data.data.is_typing);
-                        console.log('🎯 [DEBUG] typeof data.data.is_typing:', typeof data.data.is_typing);
+                        
+                        // 🚫 BLACKLIST : Ne pas afficher si c'est ce client Vitrine qui tape
+                        const eventClientId = data.data?.client_id;
+                        const eventSender = data.data?.sender || 'sea';
+                        
+                        if (eventClientId && eventClientId === VITRINE_CLIENT_ID) {
+                            console.log(`🚫 [StatusEvents] BLACKLIST - Événement typing ignoré car c'est ce client Vitrine qui tape (${eventClientId})`);
+                            return;
+                        }
+                        
                         if (data.data && data.data.is_typing) {
-                            console.log('💬 [StatusEvents] Technicien en train d\'écrire...');
-                            console.log('🎯 [DEBUG] AVANT appel showTypingIndicator()');
-                            console.log('🎯 [DEBUG] Type de showTypingIndicator:', typeof showTypingIndicator);
-                            showTypingIndicator();
-                            console.log('🎯 [DEBUG] APRÈS appel showTypingIndicator()');
+                            console.log(`💬 [StatusEvents] ${eventSender.toUpperCase()} en train d'écrire... (client: ${eventClientId})`);
+                            showTypingIndicator(eventSender);
                         } else {
-                            console.log('💬 [StatusEvents] Technicien a arrêté d\'écrire');
-                            console.log('🎯 [DEBUG] AVANT appel hideTypingIndicator()');
+                            console.log(`💬 [StatusEvents] ${eventSender.toUpperCase()} a arrêté d'écrire`);
                             hideTypingIndicator();
-                            console.log('🎯 [DEBUG] APRÈS appel hideTypingIndicator()');
                         }
                     }
                 } catch (error) {
@@ -5764,8 +5784,8 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
             };
             
             // Fonctions pour les indicateurs de typing
-            window.showTypingIndicator = function() {
-                console.log('🎯 [DEBUG] showTypingIndicator() appelée');
+            window.showTypingIndicator = function(sender = 'sea') {
+                console.log(`🎯 [DEBUG] showTypingIndicator() appelée pour ${sender}`);
                 const chatContainer = document.querySelector('#chatMessages');
                 if (!chatContainer) {
                     console.log('❌ [DEBUG] Pas de container #chatMessages trouvé');
@@ -5777,32 +5797,27 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
                 const existing = document.getElementById('typing-indicator-vitrine');
                 if (existing) existing.remove();
                 
-                // Créer nouvel indicateur
+                // 🎨 Style selon la source
+                const senderIcon = sender === 'sea' ? '🎧' : '👤';
+                const senderText = sender === 'sea' ? 'Technicien' : 'Client';
+                const senderColor = sender === 'sea' ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)';
+                
+                // Créer nouvel indicateur SANS ANIMATION
                 const indicator = document.createElement('div');
                 indicator.id = 'typing-indicator-vitrine';
                 indicator.innerHTML = `
-                    <div style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 8px 16px; border-radius: 20px; margin: 8px 0; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);">
-                        <div style="display: flex; gap: 4px;">
-                            <div style="width: 6px; height: 6px; background: white; border-radius: 50%; animation: typing-pulse 1.5s infinite;"></div>
-                            <div style="width: 6px; height: 6px; background: white; border-radius: 50%; animation: typing-pulse 1.5s infinite 0.2s;"></div>
-                            <div style="width: 6px; height: 6px; background: white; border-radius: 50%; animation: typing-pulse 1.5s infinite 0.4s;"></div>
+                    <div style="background: ${senderColor}; color: white; padding: 12px 16px; border-radius: 20px; margin: 8px 0; font-size: 0.95rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25); font-weight: 600;">
+                        <span style="font-size: 1.2em;">${senderIcon}</span>
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div>
                         </div>
-                        <span>Technicien en train d'écrire...</span>
+                        <span>${senderText} en train d'écrire...</span>
                     </div>
                 `;
                 
-                // Ajouter l'animation CSS si pas déjà présente
-                if (!document.getElementById('typing-animation-style')) {
-                    const style = document.createElement('style');
-                    style.id = 'typing-animation-style';
-                    style.textContent = `
-                        @keyframes typing-pulse {
-                            0%, 60%, 100% { opacity: 0.3; transform: scale(0.8); }
-                            30% { opacity: 1; transform: scale(1); }
-                        }
-                    `;
-                    document.head.appendChild(style);
-                }
+                // Animation supprimée pour éviter la bande qui bouge
                 
                 chatContainer.appendChild(indicator);
                 console.log('✅ [StatusEvents] Indicateur typing affiché dans Vitrine');
@@ -7771,3 +7786,30 @@ function stopHeartbeat() {
 window.addEventListener('beforeunload', () => {
     stopHeartbeat();
 });
+
+// ✅ FONCTION DE TEST POUR LE TYPING CÔTÉ VITRINE
+window.testVitrineTyping = function() {
+    console.log('🧪 [Test] Test du système de typing côté Vitrine...');
+    console.log(`🔐 [Test] ID client Vitrine: ${VITRINE_CLIENT_ID}`);
+    
+    // 1. Test indicateur Technicien (SEA)
+    setTimeout(() => {
+        console.log('🧪 Test: Indicateur Technicien (sans animation)...');
+        showTypingIndicator('sea');
+    }, 1000);
+    
+    // 2. Test indicateur Client (autre Vitrine)
+    setTimeout(() => {
+        console.log('🧪 Test: Indicateur autre Client...');
+        hideTypingIndicator();
+        showTypingIndicator('vitrine');
+    }, 3000);
+    
+    // 3. Nettoyage
+    setTimeout(() => {
+        console.log('🧪 Test: Nettoyage...');
+        hideTypingIndicator();
+    }, 6000);
+    
+    console.log('✅ Test typing Vitrine démarré - Plus de bande qui bouge !');
+};
