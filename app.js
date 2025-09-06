@@ -1,4 +1,4 @@
-﻿        // ===== CONFIGURATION DYNAMIQUE =====
+        // ===== CONFIGURATION DYNAMIQUE =====
         // Récupérer le backend depuis les paramètres URL ou utiliser IP locale par défaut
         const urlParams = new URLSearchParams(window.location.search);
         const customBackend = urlParams.get('backend');
@@ -108,9 +108,9 @@
             return currentAPI;
         }
         
-        // ✅ CONFIGURATION IMAGES LOCALES
-        // ? CONFIGURATION IMAGES (prend ASSETS_BASE global si d�fini, sinon 'assets')
-        const ASSETS_BASE = window.ASSETS_BASE || 'assets';
+        // ✅ CONFIGURATION IMAGES DEPUIS GITHUB
+        // Utiliser directement GitHub Pages pour les images
+        const ASSETS_BASE = window.ASSETS_BASE || 'https://zine76.github.io/vitrine/assets';
         
         // ✅ NOUVEAU: Redémarrer toutes les connexions SSE après changement d'API
         function restartSSEConnections() {
@@ -175,37 +175,36 @@
         let kioskID = null;
         
         // ===== IMAGE SEA2 =====
-        function updateSEALogo(imgElement) {
-            if (imgElement) {
-                console.log('🖼️ [UpdateSEALogo] Tentative de chargement image SEA pour:', imgElement.id || 'sans ID');
-                
-                // ✅ UTILISER IMAGES LOCALES
-                // Définir le src immédiatement pour éviter les courses au DOM
-                imgElement.src = `${ASSETS_BASE}/SEA2.png`;
-                imgElement.setAttribute('src', `${ASSETS_BASE}/SEA2.png`);
-                
-                imgElement.onerror = function() {
-                    console.log('❌ [UpdateSEALogo] Échec chargement local');
-                    this.src = `${ASSETS_BASE}/SEA2.png`;
-                    
-                    this.onerror = function() {
-                        console.log('❌ [UpdateSEALogo] Échec serveur distant, utilisation fallback');
-                        // Fallback vers image directement dans le dossier Annexe
-                        this.src = `${ASSETS_BASE}/SEA2.png`;
-                        
-                        this.onerror = function() {
-                            console.log('❌ [UpdateSEALogo] Tous les chemins échoués, image vide');
-                        };
-                    };
-                };
-                
-                imgElement.onload = function() {
-                    console.log('✅ [UpdateSEALogo] Image SEA chargée avec succès depuis:', this.src);
-                };
-            } else {
-                console.log('❌ [UpdateSEALogo] Élément image non trouvé');
-            }
-        }
+        
+function updateSEALogo(imgElement) {
+  if (!imgElement) return;
+  const base = (typeof ASSETS_BASE !== 'undefined' && ASSETS_BASE) ||
+               (typeof window !== 'undefined' && window.ASSETS_BASE) ||
+               'https://zine76.github.io/vitrine/assets';
+  const primary  = base.replace(/\/$/, '') + '/SEA2.png?v=' + Date.now();
+  const fallback = base.replace(/\/$/, '') + '/SI.png';
+  console.log('[UpdateSEALogo] base=', base);
+  console.log('[UpdateSEALogo] primary=', primary);
+
+  // Remove any HTML-level onerror side-effects if present
+  try { imgElement.removeAttribute('onerror'); } catch (e) {}
+
+  imgElement.onerror = function(){
+    console.warn('[UpdateSEALogo] SEA2.png failed → optional fallback to SI.png + reveal text');
+    if (this.nextElementSibling && this.nextElementSibling.classList && this.nextElementSibling.classList.contains('sea-fallback-content')) {
+      this.nextElementSibling.style.display = 'block';
+      this.style.display = 'none';
+    }
+    this.src = fallback;
+    this.setAttribute('src', fallback);
+    this.onerror = null;
+  };
+
+  imgElement.style.display = '';
+  imgElement.src = primary;
+  imgElement.setAttribute('src', primary);
+}
+
         
         // ✅ NOUVEAU : Gestion des tickets de session
         let sessionTickets = [];
@@ -4263,6 +4262,12 @@
          * Affiche la bannière SEA centrée avec overlay (comme les autres bannières)
          */
         function showSEAEscalationBanner(data) {
+
+// Guard: if a SEA banner is already present, do NOT recreate (prevents refresh while typing)
+if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector('[id^="overlay_escalation_sea_"]')) {
+    console.log('🛑 [SEA Banner] Already open — skip re-render');
+    return;
+}
             // ✅ CORRECTION: Fermer toutes les bannières SEA existantes AVANT d'en créer une nouvelle
             const existingSeaBanners = document.querySelectorAll('[id^="escalation_sea_"]');
             const existingSeaOverlays = document.querySelectorAll('[id^="overlay_escalation_sea_"]');
@@ -4320,8 +4325,8 @@
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="sea-logo-${escalationId}" alt="Service Expert Audiovisuel UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                        <div class="sea-fallback-content" style="display: none; color: black !important; text-align: center; padding: 1rem;">
+                        <img id="sea-logo-${escalationId}" alt="Service Expert Audiovisuel UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                        <div class="sea-fallback-content" style="display:none; display: none; color: black !important; text-align: center; padding: 1rem;">
                             <h3 style="margin: 0 0 0.5rem 0; font-size: 1.2rem; color: black !important;">ASSISTANCE TECHNIQUE</h3>
                             <p style="margin: 0 0 0.5rem 0; font-size: 1rem; color: black !important;">COMPOSER LE POSTE</p>
                             <p style="margin: 0; font-size: 3rem; font-weight: bold; color: black !important;">6135</p>
@@ -4418,7 +4423,14 @@
             // Ajouter l'overlay et la bannière au body
             document.body.appendChild(overlayDiv);
             overlayDiv.appendChild(escalationDiv);
-        }
+        
+    window.__SEA_BANNER_OPEN__ = true;
+    // After render, hydrate SEA logo images
+    try {
+        document.querySelectorAll('[id^="sea-logo-"]').forEach(el => updateSEALogo(el));
+    } catch(e) { console.warn('SEA logo hydration error', e); }
+}
+
 
         /**
          * Ferme la bannière SEA
@@ -5043,6 +5055,9 @@
         
         async function closeChat() {
             try {
+                // ✅ NOUVEAU : Marquer comme fermeture normale
+                isNormalClosure = true;
+                
                 // ✅ NOUVEAU : S'assurer de la connexion backend avant fermeture
                 await ensureBackendConnection();
                 
@@ -5134,10 +5149,52 @@
                     banner.classList.add('show');
                 }, 10);
             }
+            
+            // ✅ NOUVEAU : Notifier le backend que la vitrine est passée en mode rappel
+            notifyBackendRecallMode();
+        }
+        
+        async function notifyBackendRecallMode() {
+            try {
+                const currentRoom = getCurrentRoom();
+                const chatId = currentChatId; // Utiliser la variable de chat actuelle
+                console.log(`🔍 [RecallMode] Debug - currentRoom: ${currentRoom}, currentChatId: ${chatId}`);
+                
+                if (!currentRoom || !chatId) {
+                    console.log('⚠️ [RecallMode] Pas de salle ou chatId actuel, skip notification');
+                    return;
+                }
+                
+                console.log(`📡 [RecallMode] Notification backend: salle ${currentRoom} en mode rappel`);
+                
+                // S'assurer d'utiliser le bon backend
+                await ensureBackendConnection();
+                
+                const response = await fetch(`${currentAPI}/api/tickets/chat/recall-mode`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        chat_id: chatId,
+                        status: 'recall_mode',
+                        message: 'Client n\'a pas répondu - Vitrine en mode rappel'
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ [RecallMode] Backend notifié avec succès');
+                } else {
+                    console.warn('⚠️ [RecallMode] Erreur notification backend:', response.status);
+                }
+            } catch (error) {
+                console.error('❌ [RecallMode] Erreur notification backend:', error);
+            }
         }
         
         async function closeTimeoutBanner() {
-            console.log('❌ [ChatTimeout] Fermeture bannière de timeout par le client');
+            console.log('❌ [ChatTimeout] Fermeture bannière de timeout normale');
             
             try {
                 // ✅ NOUVEAU : Notifier le backend que le client a fermé la bannière de rappel
@@ -5162,6 +5219,113 @@
                     banner.classList.remove('show');
                 }
                 restoreStatusBannersAfterChat();
+            }
+        }
+        
+        // ✅ NOUVELLE FONCTION : Fermer la bannière avec envoi de refus
+        async function closeTimeoutBannerWithDecline() {
+            console.log('❌ [ChatTimeout] Fermeture bannière de timeout avec refus');
+            
+            try {
+                // Envoyer un refus au backend (comme pour un chat normal)
+                const response = await fetch(`${currentAPI}/api/tickets/chat/consent`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        room_id: getCurrentRoom(),
+                        action: 'decline',
+                        channel_id: currentChatId,
+                        type: 'recall' // Indiquer que c'est un refus de rappel
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ [ChatTimeout] Refus de rappel envoyé au serveur');
+                }
+            } catch (error) {
+                console.error('❌ [ChatTimeout] Erreur lors de l\'envoi du refus:', error);
+            }
+            
+            // Fermer la bannière dans tous les cas
+            const banner = document.getElementById('chatTimeoutBanner');
+            if (banner) {
+                banner.style.display = 'none';
+                banner.classList.remove('show');
+            }
+            
+            // Restaurer les bannières de statut
+            restoreStatusBannersAfterChat();
+        }
+        
+        // ✅ NOUVELLE FONCTION : Initier une demande de rappel client
+        async function initiateRecallRequest() {
+            console.log('💬 [Recall] Client demande un rappel');
+            
+            try {
+                // S'assurer d'utiliser le bon backend
+                await ensureBackendConnection();
+                
+                const currentRoom = getCurrentRoom();
+                const ticketNumber = window.lastTicketNumber || '';
+                
+                if (!currentRoom) {
+                    console.error('[Recall] Pas de salle définie');
+                    return;
+                }
+                
+                console.log('✅ [Recall] Salle trouvée:', currentRoom);
+                
+                // Données de rappel
+                const recallData = {
+                    room: currentRoom,
+                    ticket_number: ticketNumber,
+                    requested_at: new Date().toISOString(),
+                    status: 'pending',
+                    type: 'client_recall_request'
+                };
+                
+                // Envoyer la demande de rappel au backend
+                const response = await fetch(`${currentAPI}/api/tickets/chat/client-recall`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(recallData)
+                });
+                
+                if (response.ok) {
+                    // Afficher la bannière de confirmation
+                    const banner = document.getElementById('chatTimeoutBanner');
+                    if (banner) {
+                        banner.innerHTML = `
+                            <h3>
+                                <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                                Demande de rappel envoyée
+                            </h3>
+                            <p>Le technicien SEA a été notifié et reviendra vers vous dès que possible.</p>
+                            <p><strong>Salle : ${currentRoom}</strong></p>
+                            <div class="timeout-actions">
+                                <button class="timeout-btn close" onclick="closeTimeoutBanner()">
+                                    <i class="fas fa-check"></i>
+                                    OK
+                                </button>
+                            </div>
+                        `;
+                        
+                        // Fermer automatiquement après 5 secondes
+                        setTimeout(closeTimeoutBanner, 5000);
+                    }
+                    
+                    console.log('✅ [Recall] Demande de rappel envoyée:', recallData);
+                } else {
+                    console.error('[Recall] Erreur lors de l\'envoi du rappel');
+                    showNotification('Erreur lors de l\'envoi de la demande de rappel');
+                }
+            } catch (error) {
+                console.error('[Recall] Erreur:', error);
+                showNotification('Erreur de connexion');
             }
         }
         
@@ -5309,6 +5473,9 @@
             
             document.getElementById('chatModal').classList.add('active');
             
+            // ✅ NOUVEAU : Démarrer le heartbeat pour détecter les déconnexions
+            startHeartbeat();
+            
             // Ajouter le message d'accueil automatique
             const messagesContainer = document.getElementById('chatMessages');
             if (messagesContainer && messagesContainer.children.length === 0) {
@@ -5334,7 +5501,18 @@
             document.getElementById('chatModal').classList.remove('active');
             document.getElementById('chatMessages').innerHTML = '';
             document.getElementById('chatInput').value = '';
+            
+            // ✅ NOUVEAU : Arrêter le heartbeat
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+                console.log('💓 [Heartbeat] Arrêté lors de la fermeture du chat');
+            }
+            
             currentChatId = null;
+            
+            // ✅ NOUVEAU : Réinitialiser le flag de fermeture normale
+            isNormalClosure = false;
             
             // ✅ NOUVEAU : Restaurer les bannières de statut après fermeture du chat
             restoreStatusBannersAfterChat();
@@ -5345,9 +5523,79 @@
             }
         }
         
+        // ✅ NOUVEAU : Variables pour la détection de frappe
+        let isTypingVitrine = false;
+        let typingTimeoutVitrine = null;
+        let lastTypingEventVitrine = 0;
+        const TYPING_INTERVAL_VITRINE = 2000; // 2 secondes
+        
+        // 🔐 IDENTIFIANT UNIQUE pour ce client Vitrine
+        const VITRINE_CLIENT_ID = `vitrine-${getCurrentRoom()}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        console.log(`🔐 [TypingVitrine] ID client Vitrine généré: ${VITRINE_CLIENT_ID}`);
+        
         function handleChatKeyPress(event) {
             if (event.key === 'Enter') {
                 sendChatMessage();
+            } else {
+                // ✅ NOUVEAU : Détecter la frappe comme Tickets SEA
+                handleTypingVitrine(event);
+            }
+        }
+        
+        // ✅ NOUVEAU : Fonction de détection de frappe pour Vitrine
+        function handleTypingVitrine(event) {
+            if (!currentChatId) return;
+            
+            console.log(`✅ [TypingVitrine] Chat actif trouvé, chatId: ${currentChatId}`);
+            const now = Date.now();
+            
+            // Éviter d'envoyer trop d'événements de frappe
+            if (!isTypingVitrine) {
+                isTypingVitrine = true;
+                sendTypingStatusVitrine(currentChatId, true);
+                lastTypingEventVitrine = now;
+            } else if (now - lastTypingEventVitrine > TYPING_INTERVAL_VITRINE) {
+                // Renvoyer l'état de frappe toutes les X secondes pour maintenir l'état
+                sendTypingStatusVitrine(currentChatId, true);
+                lastTypingEventVitrine = now;
+            }
+            
+            // Réinitialiser le timeout
+            clearTimeout(typingTimeoutVitrine);
+            typingTimeoutVitrine = setTimeout(() => {
+                isTypingVitrine = false;
+                sendTypingStatusVitrine(currentChatId, false);
+            }, 1000); // Arrêt après 1 seconde d'inactivité
+        }
+        
+        // ✅ NOUVEAU : Fonction d'envoi d'état de frappe pour Vitrine
+        async function sendTypingStatusVitrine(channelId, isTyping) {
+            try {
+                console.log(`⌨️ [TypingVitrine] Envoi état frappe: ${isTyping ? 'en train d\'écrire' : 'arrêté d\'écrire'}`);
+                
+                await ensureBackendConnection();
+                
+                const response = await fetch(`${currentAPI}/api/tickets/chat/typing`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        channel_id: channelId,
+                        room_id: getCurrentRoom(),
+                        is_typing: isTyping,
+                        client_id: VITRINE_CLIENT_ID,
+                        sender: 'vitrine'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                console.log(`✅ [TypingVitrine] État frappe envoyé: ${isTyping}`);
+            } catch (error) {
+                console.error(`❌ [TypingVitrine] Erreur d'envoi d'état de frappe:`, error);
             }
         }
         
@@ -5358,33 +5606,75 @@
             if (!message || !currentChatId) return;
             
             try {
-                // ✅ NOUVEAU : S'assurer de la connexion backend avant envoi
-                await ensureBackendConnection();
-                
-                console.log(`🔍 [DEBUG-VITRINE] Envoi message avec channel_id: "${currentChatId}"`);
-                console.warn(`🚨 [DEBUG-VISIBLE] VITRINE ENVOIE AVEC CHANNEL_ID: "${currentChatId}"`);
-                
-                const response = await fetch(`${currentAPI}/api/tickets/chat/message`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        channel_id: currentChatId,
-                        room_id: getCurrentRoom(),
-                        message: message,
-                        sender: 'vitrine'
-                    })
-                });
-                
-                if (response.ok) {
-                    addChatMessage(message, 'sent');
-                    input.value = '';
+                // 🚀 NOUVEAU : Utiliser le gestionnaire unifié si disponible
+                if (typeof window.unifiedChat !== 'undefined') {
+                    console.log(`🔗 [Vitrine] Envoi via gestionnaire unifié`);
+                    
+                    // Trouver le ticket ID correspondant
+                    const ticketId = findTicketIdFromChatId(currentChatId);
+                    if (ticketId) {
+                        const result = await window.unifiedChat.sendMessage(ticketId, message, 'vitrine');
+                        if (result.success) {
+                            addChatMessage(message, 'sent');
+                            input.value = '';
+                            return;
+                        } else {
+                            console.warn(`⚠️ [Vitrine] Fallback vers envoi legacy:`, result.error);
+                        }
+                    }
                 }
+                
+                // Fallback vers l'ancien système
+                await sendChatMessageLegacy(message);
                 
             } catch (error) {
                 console.error('❌ [Chat] Erreur envoi message:', error);
             }
+        }
+        
+        // 🔄 Ancien système d'envoi en fallback
+        async function sendChatMessageLegacy(message) {
+            const input = document.getElementById('chatInput');
+            
+            // ✅ NOUVEAU : S'assurer de la connexion backend avant envoi
+            await ensureBackendConnection();
+            
+            console.log(`🔍 [DEBUG-VITRINE] Envoi message legacy avec channel_id: "${currentChatId}"`);
+            console.warn(`🚨 [DEBUG-VISIBLE] VITRINE ENVOIE LEGACY AVEC CHANNEL_ID: "${currentChatId}"`);
+            
+            const response = await fetch(`${currentAPI}/api/tickets/chat/message`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    channel_id: currentChatId,
+                    room_id: getCurrentRoom(),
+                    message: message,
+                    sender: 'vitrine'
+                })
+            });
+            
+            if (response.ok) {
+                addChatMessage(message, 'sent');
+                input.value = '';
+            }
+        }
+        
+        // 🛠️ Fonction utilitaire pour trouver le ticket ID depuis chat ID
+        function findTicketIdFromChatId(chatId) {
+            // Essayer de parser le chat ID pour extraire le ticket ID
+            const match = chatId.match(/chat_(\d+)_/);
+            if (match) {
+                return match[1];
+            }
+            
+            // Fallback : utiliser le chat ID comme ticket ID si format simple
+            if (/^\d+$/.test(chatId)) {
+                return chatId;
+            }
+            
+            return null;
         }
         
         function addChatMessage(message, type) {
@@ -5508,6 +5798,32 @@
                                 addChatMessage(data.data.message, 'received');
                             }
                             break;
+
+                        case 'client_typing':
+                        case 'vitrine_typing':
+                            console.log('🔍 [SSE-Vitrine] Événement typing reçu:', data);
+                            
+                            // 🚫 BLACKLIST : Ne pas afficher si c'est ce client Vitrine qui tape
+                            const eventClientId = data.data?.client_id;
+                            const eventSender = data.data?.sender || 'sea';
+                            
+                            if (eventClientId && eventClientId === VITRINE_CLIENT_ID) {
+                                console.log(`🚫 [TypingVitrine] BLACKLIST - Événement typing ignoré car c'est ce client Vitrine qui tape (${eventClientId})`);
+                                break;
+                            }
+                            
+                            if (data.data && data.data.is_typing) {
+                                console.log(`💬 [SSE-Vitrine] ${eventSender.toUpperCase()} en train d'écrire... (client: ${eventClientId})`);
+                                if (typeof showTypingIndicator === 'function') {
+                                    showTypingIndicator(eventSender);
+                                }
+                            } else {
+                                console.log(`💬 [SSE-Vitrine] ${eventSender.toUpperCase()} a arrêté d'écrire`);
+                                if (typeof hideTypingIndicator === 'function') {
+                                    hideTypingIndicator();
+                                }
+                            }
+                            break;
                             
                         default:
                             console.log('📡 [SSE] Événement non géré:', data.type);
@@ -5530,6 +5846,14 @@
             
             eventSource.onopen = function() {
                 console.log('✅ [SSE] Connexion SSE RÉELLE établie pour salle ' + roomId);
+                
+                // 🔄 Démarrer le heartbeat pour cette connexion
+                startHeartbeat();
+                
+                // 🔄 Enregistrer le client dans le système SSE
+                if (clientId) {
+                    console.log('📡 [SSE] Client enregistré pour heartbeat:', clientId);
+                }
             };
         }
         
@@ -5583,9 +5907,76 @@
                         }
                     } else if (data.type === 'connection_established') {
                         console.log('🔔 [StatusEvents] Connexion SSE établie pour salle:', data.data.room_id);
+                    } else if (data.type === 'client_typing' || data.type === 'vitrine_typing') {
+                        console.log('🔍 [StatusEvents] Événement typing reçu:', data);
+                        
+                        // 🚫 BLACKLIST : Ne pas afficher si c'est ce client Vitrine qui tape
+                        const eventClientId = data.data?.client_id;
+                        const eventSender = data.data?.sender || 'sea';
+                        
+                        if (eventClientId && eventClientId === VITRINE_CLIENT_ID) {
+                            console.log(`🚫 [StatusEvents] BLACKLIST - Événement typing ignoré car c'est ce client Vitrine qui tape (${eventClientId})`);
+                            return;
+                        }
+                        
+                        if (data.data && data.data.is_typing) {
+                            console.log(`💬 [StatusEvents] ${eventSender.toUpperCase()} en train d'écrire... (client: ${eventClientId})`);
+                            showTypingIndicator(eventSender);
+                        } else {
+                            console.log(`💬 [StatusEvents] ${eventSender.toUpperCase()} a arrêté d'écrire`);
+                            hideTypingIndicator();
+                        }
                     }
                 } catch (error) {
                     console.error('🔔 [StatusEvents] Erreur parsing événement:', error);
+                }
+            };
+            
+            // Fonctions pour les indicateurs de typing
+            window.showTypingIndicator = function(sender = 'sea') {
+                console.log(`🎯 [DEBUG] showTypingIndicator() appelée pour ${sender}`);
+                const chatContainer = document.querySelector('#chatMessages');
+                if (!chatContainer) {
+                    console.log('❌ [DEBUG] Pas de container #chatMessages trouvé');
+                    return;
+                }
+                console.log('✅ [DEBUG] Container chat trouvé:', chatContainer);
+                
+                // Supprimer indicateur existant
+                const existing = document.getElementById('typing-indicator-vitrine');
+                if (existing) existing.remove();
+                
+                // 🎨 Style selon la source
+                const senderIcon = sender === 'sea' ? '🎧' : '👤';
+                const senderText = sender === 'sea' ? 'Technicien' : 'Client';
+                const senderColor = sender === 'sea' ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'linear-gradient(135deg, #8b5cf6, #7c3aed)';
+                
+                // Créer nouvel indicateur SANS ANIMATION
+                const indicator = document.createElement('div');
+                indicator.id = 'typing-indicator-vitrine';
+                indicator.innerHTML = `
+                    <div style="background: ${senderColor}; color: white; padding: 12px 16px; border-radius: 20px; margin: 8px 0; font-size: 0.95rem; display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25); font-weight: 600;">
+                        <span style="font-size: 1.2em;">${senderIcon}</span>
+                        <div style="display: flex; gap: 4px; align-items: center;">
+                            <div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div>
+                            <div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div>
+                        </div>
+                        <span>${senderText} en train d'écrire...</span>
+                    </div>
+                `;
+                
+                // Animation supprimée pour éviter la bande qui bouge
+                
+                chatContainer.appendChild(indicator);
+                console.log('✅ [StatusEvents] Indicateur typing affiché dans Vitrine');
+            };
+            
+            window.hideTypingIndicator = function() {
+                const indicator = document.getElementById('typing-indicator-vitrine');
+                if (indicator) {
+                    indicator.remove();
+                    console.log('✅ [StatusEvents] Indicateur typing supprimé de Vitrine');
                 }
             };
 
@@ -5877,7 +6268,8 @@
         /**
          * Ferme la modale
          */
-        function closeModal() {
+        function closeModal() {try{ window.__SEA_BANNER_OPEN__ = false; }catch(e){}
+
             const modalOverlay = document.getElementById('modalOverlay');
             modalOverlay.classList.remove('active');
             
@@ -6358,6 +6750,14 @@
                 technicalRoomSpan.textContent = currentRoom || 'Non définie';
             }
             
+            // ✅ NOUVEAU : Gérer l'affichage du plan unifilaire
+            if (window.RoomPlansConfig) {
+                console.log('🔧 [Technical] Mise à jour des plans pour:', currentRoom);
+                window.RoomPlansConfig.updatePlanSection(currentRoom);
+            } else {
+                console.warn('⚠️ [Technical] Module RoomPlansConfig non chargé');
+            }
+            
             // Masquer Vitrine et afficher la page technique
             if (mainContainer) {
                 mainContainer.style.display = 'none';
@@ -6366,8 +6766,11 @@
             
             console.log('🔧 [Technical] Page technique affichée pour la salle:', currentRoom);
         }
+        
 
-        function returnToVitrine() {
+
+        function returnToVitrine() {try{ window.__SEA_BANNER_OPEN__ = false; }catch(e){}
+
             console.log('🔧 [Technical] Retour à Vitrine');
             const technicalPage = document.getElementById('technicalPage');
             const mainContainer = document.querySelector('.main-container');
@@ -7139,8 +7542,8 @@ async function notifyBackendClientClosedRecall() {
         }
 
         if (!apiBase) {
-            apiBase = 'http://localhost:7070';
-            console.warn('⚠️ [ClientClosed] Fallback vers localhost');
+            console.error('❌ [ClientClosed] Aucun backend configuré - impossible de notifier');
+            return;
         }
 
         console.log(`🌐 [ClientClosed] URL backend utilisée: ${apiBase}`);
@@ -7213,8 +7616,8 @@ async function notifyBackendRecallMode() {
         }
         
         if (!apiBase) {
-            apiBase = 'http://localhost:7070';
-            console.warn('⚠️ [RecallMode] Fallback vers localhost');
+            console.error('❌ [RecallMode] Aucun backend configuré - impossible de notifier');
+            return;
         }
         
         console.log(`🌐 [RecallMode] URL backend utilisée: ${apiBase}`);
@@ -7249,6 +7652,189 @@ async function notifyBackendRecallMode() {
         console.error('❌ [RecallMode] Erreur notification backend:', error);
     }
 }
+
+// ✅ NOUVEAU : Système de détection de déconnexion inattendue
+let isNormalClosure = false; // Flag pour distinguer fermeture normale vs inattendue
+let lastHeartbeat = Date.now();
+
+// ✅ NOUVEAU : Détecter fermeture de page/navigateur (F5, fermeture, etc.)
+window.addEventListener('beforeunload', function(event) {
+    console.log('🚨 [Disconnect] Détection de fermeture/rechargement de page');
+    
+    // Si on a un chat actif et que ce n'est pas une fermeture normale
+    if (currentChatId && !isNormalClosure) {
+        console.log('⚠️ [Disconnect] Fermeture inattendue avec chat actif:', currentChatId);
+        
+        // Notification immédiate au backend (synchrone)
+        notifyUnexpectedDisconnection();
+        
+        // Message d'avertissement (optionnel - peut être désactivé)
+        // event.preventDefault();
+        // event.returnValue = 'Vous avez un chat en cours. Êtes-vous sûr de vouloir quitter ?';
+        // return event.returnValue;
+    }
+});
+
+// ✅ NOUVEAU : Détecter perte de connexion réseau
+window.addEventListener('offline', function() {
+    console.log('📡 [Disconnect] Connexion réseau perdue');
+    if (currentChatId) {
+        console.log('⚠️ [Disconnect] Chat actif lors de perte de connexion');
+        showNotification('Connexion réseau perdue', 'warning');
+    }
+});
+
+// ✅ NOUVEAU : Détecter retour de connexion
+window.addEventListener('online', function() {
+    console.log('📡 [Reconnect] Connexion réseau rétablie');
+    if (currentChatId) {
+        console.log('🔄 [Reconnect] Tentative de reconnexion du chat');
+        showNotification('Connexion rétablie', 'success');
+        reconnectChat();
+    }
+});
+
+// ✅ NOUVEAU : Système de heartbeat pour détecter les déconnexions
+function startHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+    }
+    
+    console.log('💓 [Heartbeat] Démarrage du système de heartbeat');
+    lastHeartbeat = Date.now();
+    
+    heartbeatInterval = setInterval(async function() {
+        if (currentChatId) {
+            try {
+                const apiBase = await getCurrentAPI();
+                const response = await fetch(`${apiBase}/api/tickets/chat/heartbeat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        channel_id: currentChatId,
+                        room_id: getCurrentRoom(),
+                        timestamp: Date.now()
+                    }),
+                    signal: AbortSignal.timeout(5000) // Timeout de 5 secondes
+                });
+                
+                if (response.ok) {
+                    lastHeartbeat = Date.now();
+                    console.log('💓 [Heartbeat] Ping envoyé avec succès');
+                } else {
+                    console.warn('⚠️ [Heartbeat] Erreur de ping:', response.status);
+                }
+            } catch (error) {
+                console.error('❌ [Heartbeat] Échec du ping:', error);
+                // Si plusieurs échecs consécutifs, considérer comme déconnecté
+                if (Date.now() - lastHeartbeat > 60000) { // 1 minute sans heartbeat
+                    console.log('🚨 [Heartbeat] Déconnexion détectée - Chat considéré comme perdu');
+                    handleHeartbeatTimeout();
+                }
+            }
+        }
+    }, 15000); // Heartbeat toutes les 15 secondes
+}
+
+// ✅ NOUVEAU : Gérer la perte de heartbeat
+function handleHeartbeatTimeout() {
+    if (currentChatId) {
+        console.log('⏰ [Heartbeat] Timeout détecté - Nettoyage local');
+        
+        // Nettoyer l'interface locale
+        closeChatInterface();
+        showNotification('Connexion perdue - Chat fermé', 'error');
+        
+        // Arrêter le heartbeat
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+        }
+    }
+}
+
+// ✅ NOUVEAU : Notification de déconnexion inattendue (synchrone)
+async function notifyUnexpectedDisconnection() {
+    if (!currentChatId) return;
+    
+    try {
+        const apiBase = await getCurrentAPI();
+        
+        const data = JSON.stringify({
+            channel_id: currentChatId,
+            room_id: getCurrentRoom(),
+            disconnection_type: 'unexpected',
+            timestamp: Date.now()
+        });
+        
+        // Utilisation de sendBeacon pour notification synchrone même lors de fermeture
+        const success = navigator.sendBeacon(`${apiBase}/api/tickets/chat/disconnect`, data);
+        console.log('📤 [Disconnect] Notification envoyée via sendBeacon:', success ? 'Succès' : 'Échec');
+        
+        // Fallback avec fetch si sendBeacon échoue
+        if (!success) {
+            fetch(`${apiBase}/api/tickets/chat/disconnect`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: data,
+                keepalive: true // Garder la requête même si la page se ferme
+            }).catch(error => {
+                console.error('❌ [Disconnect] Erreur notification fallback:', error);
+            });
+        }
+    } catch (error) {
+        console.error('❌ [Disconnect] Erreur notification:', error);
+    }
+}
+
+// ✅ NOUVEAU : Tentative de reconnexion
+async function reconnectChat() {
+    if (!currentChatId) return;
+    
+    try {
+        console.log('🔄 [Reconnect] Tentative de reconnexion...');
+        
+        const apiBase = await getCurrentAPI();
+        const response = await fetch(`${apiBase}/api/tickets/chat/reconnect`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                channel_id: currentChatId,
+                room_id: getCurrentRoom()
+            })
+        });
+        
+        if (response.ok) {
+            console.log('✅ [Reconnect] Reconnexion réussie');
+            showNotification('Connexion rétablie', 'success');
+            
+            // Redémarrer le heartbeat
+            startHeartbeat();
+        } else {
+            console.error('❌ [Reconnect] Échec de reconnexion:', response.status);
+            showNotification('Impossible de reconnecter - Chat fermé', 'error');
+            closeChatInterface();
+        }
+    } catch (error) {
+        console.error('❌ [Reconnect] Erreur de reconnexion:', error);
+        showNotification('Erreur de reconnexion - Chat fermé', 'error');
+        closeChatInterface();
+    }
+}
+
+// ===== EXPORT DES FONCTIONS POUR LE HTML =====
+// Export des fonctions de rappel et timeout
+window.closeTimeoutBanner = closeTimeoutBanner;
+window.closeTimeoutBannerWithDecline = closeTimeoutBannerWithDecline;
+window.initiateRecallRequest = initiateRecallRequest;
+window.showChatTimeoutBanner = showChatTimeoutBanner;
+window.notifyBackendRecallMode = notifyBackendRecallMode;
 
 // ===== INITIALISATION DES EXTENSIONS =====
 document.addEventListener('DOMContentLoaded', () => {
@@ -7291,3 +7877,96 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2000);
 });
 
+
+
+// Global flag for SEA banner open state
+window.__SEA_BANNER_OPEN__ = window.__SEA_BANNER_OPEN__ || false;
+
+// 🔄 ===== SYSTÈME DE HEARTBEAT POUR DÉTECTION DÉCONNEXIONS =====
+let heartbeatInterval = null;
+let clientId = null;
+
+function generateClientId() {
+    const room = getCurrentRoom();
+    if (!room) return null;
+    
+    return `vitrine-${room}-${Date.now()}`;
+}
+
+function startHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+    }
+    
+    clientId = generateClientId();
+    if (!clientId) {
+        console.log('🔄 [Heartbeat] Impossible de générer clientId');
+        return;
+    }
+    
+    console.log('🔄 [Heartbeat] Démarrage heartbeat pour client:', clientId);
+    
+    // Envoyer un heartbeat toutes les 15 secondes
+    heartbeatInterval = setInterval(async () => {
+        try {
+            const response = await fetch('/api/chat/heartbeat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    client_id: clientId
+                })
+            });
+            
+            if (response.ok) {
+                console.log('💓 [Heartbeat] Heartbeat envoyé avec succès');
+            } else {
+                console.warn('⚠️ [Heartbeat] Erreur heartbeat:', response.status);
+            }
+        } catch (error) {
+            console.error('❌ [Heartbeat] Erreur réseau heartbeat:', error);
+        }
+    }, 15000); // 15 secondes
+}
+
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+        console.log('🔄 [Heartbeat] Arrêt heartbeat pour client:', clientId);
+        clientId = null;
+    }
+}
+
+// Arrêter heartbeat quand la page se ferme
+window.addEventListener('beforeunload', () => {
+    stopHeartbeat();
+});
+
+// ✅ FONCTION DE TEST POUR LE TYPING CÔTÉ VITRINE
+window.testVitrineTyping = function() {
+    console.log('🧪 [Test] Test du système de typing côté Vitrine...');
+    console.log(`🔐 [Test] ID client Vitrine: ${VITRINE_CLIENT_ID}`);
+    
+    // 1. Test indicateur Technicien (SEA)
+    setTimeout(() => {
+        console.log('🧪 Test: Indicateur Technicien (sans animation)...');
+        showTypingIndicator('sea');
+    }, 1000);
+    
+    // 2. Test indicateur Client (autre Vitrine)
+    setTimeout(() => {
+        console.log('🧪 Test: Indicateur autre Client...');
+        hideTypingIndicator();
+        showTypingIndicator('vitrine');
+    }, 3000);
+    
+    // 3. Nettoyage
+    setTimeout(() => {
+        console.log('🧪 Test: Nettoyage...');
+        hideTypingIndicator();
+    }, 6000);
+    
+    console.log('✅ Test typing Vitrine démarré - Plus de bande qui bouge !');
+};
