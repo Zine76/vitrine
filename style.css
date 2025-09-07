@@ -1,4 +1,4 @@
-﻿/* Vitrine header layout extracted from HTML inline styles */
+/* Vitrine header layout extracted from HTML inline styles */
 .title-section { display: flex; align-items: center; justify-content: flex-start; gap: 2rem; }
 .vitrine-logo { height: 80px; max-width: 300px; object-fit: contain; }
 .header-title { margin: 0; font-size: 1.1rem; font-weight: 600; color: black !important; -webkit-text-fill-color: black !important; }
@@ -189,6 +189,7 @@
         }
 
         .chat-message {
+            max-width: 80%;
             padding: 0.75rem 1rem;
             border-radius: 12px;
             font-size: 0.9rem;
@@ -204,16 +205,12 @@
             align-self: flex-end;
             background: var(--primary-blue);
             color: white;
-            max-width: 80%;
-            display: inline-block;
         }
 
         .chat-message.received {
             align-self: flex-start;
             background: #e5e7eb;
             color: var(--text-primary);
-            max-width: 80%;
-            display: inline-block;
         }
         
         /* âœ… MESSAGES CHAT MODE NUIT */
@@ -234,8 +231,8 @@
             color: white;
             border: 2px solid rgba(59, 130, 246, 0.3);
             max-width: 90%;
-            display: block;
-            margin: 0 auto;
+            text-align: center;
+            padding: 1.5rem;
             text-align: center;
             padding: 1.5rem;
         }
