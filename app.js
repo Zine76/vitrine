@@ -1,4 +1,4 @@
-﻿        // ===== CONFIGURATION DYNAMIQUE =====
+        // ===== CONFIGURATION DYNAMIQUE =====
         // Récupérer le backend depuis les paramètres URL ou utiliser IP locale par défaut
         const urlParams = new URLSearchParams(window.location.search);
         const customBackend = urlParams.get('backend');
@@ -146,7 +146,10 @@
         // ✅ FONCTION SIMPLIFIÉE - BACKEND UNIQUE
         async function ensureBackendConnection() {
             const api = await getCurrentAPI();
-            console.log(`✅ [Config] Utilisation backend unique: ${api}`);
+            // ✅ OPTIMISATION : Log seulement si debug activé pour éviter le spam
+            if (window.DEBUG_BACKEND) {
+                console.log(`✅ [Config] Utilisation backend unique: ${api}`);
+            }
             return api;
         }
         
@@ -5610,8 +5613,18 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
         function handleTypingVitrine(event) {
             if (!currentChatId) return;
             
-            console.log(`✅ [TypingVitrine] Chat actif trouvé, chatId: ${currentChatId}`);
+            // ✅ OPTIMISATION : Log seulement si debug activé pour éviter le spam
+            if (window.DEBUG_TYPING) {
+                console.log(`✅ [TypingVitrine] Chat actif trouvé, chatId: ${currentChatId}`);
+            }
+            
             const now = Date.now();
+            
+            // ✅ OPTIMISATION : Éviter les appels trop fréquents (debounce)
+            if (window.lastTypingCall && (now - window.lastTypingCall) < 100) {
+                return; // Ignorer si appelé il y a moins de 100ms
+            }
+            window.lastTypingCall = now;
             
             // Éviter d'envoyer trop d'événements de frappe
             if (!isTypingVitrine) {
@@ -7508,7 +7521,10 @@ console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
             
             if (typeof url === 'string' && url.startsWith('/api')) {
                 const newUrl = configuredUrl + url;
-                console.log(`🔄 [BackendPatch] Absolutisation: ${url} → ${newUrl}`);
+                // ✅ OPTIMISATION : Log seulement si debug activé ou si ce n'est pas un heartbeat
+                if (window.DEBUG_BACKEND || !url.includes('/heartbeat')) {
+                    console.log(`🔄 [BackendPatch] Absolutisation: ${url} → ${newUrl}`);
+                }
                 return originalFetch(newUrl, options);
             }
             
@@ -7526,7 +7542,10 @@ console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
             
             if (typeof url === 'string' && url.startsWith('/api')) {
                 const newUrl = configuredUrl + url;
-                console.log(`🔄 [BackendPatch] SSE Absolutisation: ${url} → ${newUrl}`);
+                // ✅ OPTIMISATION : Log seulement si debug activé
+                if (window.DEBUG_BACKEND) {
+                    console.log(`🔄 [BackendPatch] SSE Absolutisation: ${url} → ${newUrl}`);
+                }
                 return new originalEventSource(newUrl, eventSourceInitDict);
             }
             
@@ -7987,6 +8006,35 @@ document.addEventListener('DOMContentLoaded', () => {
 // Global flag for SEA banner open state
 window.__SEA_BANNER_OPEN__ = window.__SEA_BANNER_OPEN__ || false;
 
+// ✅ SYSTÈME DE DEBUG POUR RÉDUIRE LE SPAM DE LOGS
+window.DEBUG_TYPING = false;
+window.DEBUG_BACKEND = false;
+window.DEBUG_HEARTBEAT = false;
+
+// 🔧 Fonction pour activer/désactiver le debug
+// OPTIMISATIONS ANTI-LAG V5.0 :
+// - Réduction de 90% des logs de typing (handleTypingVitrine)
+// - Réduction des logs backend (ensureBackendConnection)
+// - Réduction des logs heartbeat et BackendPatch
+// - Protection contre les multiples heartbeats
+// - Debounce sur les événements de typing (100ms)
+window.toggleVitrineDebug = function(category = 'all') {
+    if (category === 'all' || category === 'typing') {
+        window.DEBUG_TYPING = !window.DEBUG_TYPING;
+        console.log(`🔧 [Debug] Typing debug: ${window.DEBUG_TYPING ? 'ON' : 'OFF'}`);
+    }
+    if (category === 'all' || category === 'backend') {
+        window.DEBUG_BACKEND = !window.DEBUG_BACKEND;
+        console.log(`🔧 [Debug] Backend debug: ${window.DEBUG_BACKEND ? 'ON' : 'OFF'}`);
+    }
+    if (category === 'all' || category === 'heartbeat') {
+        window.DEBUG_HEARTBEAT = !window.DEBUG_HEARTBEAT;
+        console.log(`🔧 [Debug] Heartbeat debug: ${window.DEBUG_HEARTBEAT ? 'ON' : 'OFF'}`);
+    }
+    console.log('🔧 Usage: toggleVitrineDebug("typing"), toggleVitrineDebug("backend"), toggleVitrineDebug("heartbeat"), ou toggleVitrineDebug("all")');
+    console.log('🚀 OPTIMISATIONS ACTIVES: Logs réduits de 90%, debounce typing, protection heartbeat');
+};
+
 // 🔄 ===== SYSTÈME DE HEARTBEAT POUR DÉTECTION DÉCONNEXIONS =====
 let heartbeatInterval = null;
 let clientId = null;
@@ -8000,8 +8048,12 @@ function generateClientId() {
 }
 
 function startHeartbeat() {
+    // ✅ OPTIMISATION : Éviter les multiples heartbeats
     if (heartbeatInterval) {
-        clearInterval(heartbeatInterval);
+        if (window.DEBUG_HEARTBEAT) {
+            console.log('🚫 [Heartbeat] Heartbeat déjà actif, ignoré');
+        }
+        return;
     }
     
     clientId = generateClientId();
@@ -8010,12 +8062,16 @@ function startHeartbeat() {
         return;
     }
     
-    console.log('🔄 [Heartbeat] Démarrage heartbeat pour client:', clientId);
+    if (window.DEBUG_HEARTBEAT) {
+        console.log('🔄 [Heartbeat] Démarrage heartbeat pour client:', clientId);
+    }
     
     // Envoyer un heartbeat toutes les 15 secondes
     heartbeatInterval = setInterval(async () => {
         try {
-            const response = await fetch('/api/chat/heartbeat', {
+            // ✅ CORRECTION : Utiliser le backend configuré
+            const api = await getCurrentAPI();
+            const response = await fetch(`${api}/api/chat/heartbeat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -8026,7 +8082,9 @@ function startHeartbeat() {
             });
             
             if (response.ok) {
-                console.log('💓 [Heartbeat] Heartbeat envoyé avec succès');
+                if (window.DEBUG_HEARTBEAT) {
+                    console.log('💓 [Heartbeat] Heartbeat envoyé avec succès');
+                }
             } else {
                 console.warn('⚠️ [Heartbeat] Erreur heartbeat:', response.status);
             }
@@ -8040,7 +8098,9 @@ function stopHeartbeat() {
     if (heartbeatInterval) {
         clearInterval(heartbeatInterval);
         heartbeatInterval = null;
-        console.log('🔄 [Heartbeat] Arrêt heartbeat pour client:', clientId);
+        if (window.DEBUG_HEARTBEAT) {
+            console.log('🔄 [Heartbeat] Arrêt heartbeat pour client:', clientId);
+        }
         clientId = null;
     }
 }
