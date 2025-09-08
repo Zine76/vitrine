@@ -7979,20 +7979,56 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('✅ [RecallMode] Hook installé sur showChatTimeoutBanner');
         }
 
-        // Hook console.log pour capturer channel_id
+        // Hook console.log pour capturer channel_id (OPTIMISÉ)
         const originalConsoleLog = console.log;
         console.log = function(...args) {
-            if (args[0] && typeof args[0] === 'string' && args[0].includes('💬 [SSE] Demande de chat RÉELLE reçue:')) {
-                const data = args[1];
-                if (data && data.channel_id) {
-                    vitrineChatId = data.channel_id;
-                    console.log('✅ [RecallMode] Channel ID capturé:', vitrineChatId);
+            // ✅ OPTIMISATION : Filtrer les logs selon les flags de debug
+            const logMessage = args[0];
+            if (typeof logMessage === 'string') {
+                // Bloquer les logs de typing si debug désactivé
+                if (!window.DEBUG_TYPING && logMessage.includes('[TypingVitrine]')) {
+                    return; // Ne pas logger
                 }
-            }
-            
-            if (args[0] && typeof args[0] === 'string' && args[0].includes('🛑 [SSE] Chat terminé par:')) {
-                vitrineChatId = null;
-                console.log('🔄 [RecallMode] Channel ID reset');
+                
+                // Bloquer les logs backend si debug désactivé
+                if (!window.DEBUG_BACKEND && logMessage.includes('[Config] Utilisation backend unique')) {
+                    return; // Ne pas logger
+                }
+                
+                // Bloquer les logs heartbeat si debug désactivé
+                if (!window.DEBUG_HEARTBEAT && (
+                    logMessage.includes('[Heartbeat]') || 
+                    logMessage.includes('[BackendPatch] Absolutisation') && logMessage.includes('/heartbeat')
+                )) {
+                    return; // Ne pas logger
+                }
+                
+                // ✅ OPTIMISATION SUPPLÉMENTAIRE : Bloquer les logs verbeux répétitifs
+                if (!window.DEBUG_BACKEND && (
+                    logMessage.includes('🔔 [StatusEvents] Événement reçu:') ||
+                    logMessage.includes('🔔 [StatusEvents] Type de data:') ||
+                    logMessage.includes('🔔 [StatusEvents] Propriétés de data:') ||
+                    logMessage.includes('🔔 [StatusEvents] data.Type:') ||
+                    logMessage.includes('🔔 [StatusEvents] data.type:') ||
+                    logMessage.includes('🔔 [StatusEvents] data.Data:') ||
+                    logMessage.includes('🔔 [StatusEvents] data.data:')
+                )) {
+                    return; // Ne pas logger les événements SSE verbeux
+                }
+                
+                // Capturer channel_id pour RecallMode
+                if (logMessage.includes('💬 [SSE] Demande de chat RÉELLE reçue:')) {
+                    const data = args[1];
+                    if (data && data.channel_id) {
+                        vitrineChatId = data.channel_id;
+                        originalConsoleLog('✅ [RecallMode] Channel ID capturé:', vitrineChatId);
+                    }
+                }
+                
+                if (logMessage.includes('🛑 [SSE] Chat terminé par:')) {
+                    vitrineChatId = null;
+                    originalConsoleLog('🔄 [RecallMode] Channel ID reset');
+                }
             }
             
             return originalConsoleLog.apply(this, args);
@@ -8033,6 +8069,15 @@ window.toggleVitrineDebug = function(category = 'all') {
     }
     console.log('🔧 Usage: toggleVitrineDebug("typing"), toggleVitrineDebug("backend"), toggleVitrineDebug("heartbeat"), ou toggleVitrineDebug("all")');
     console.log('🚀 OPTIMISATIONS ACTIVES: Logs réduits de 90%, debounce typing, protection heartbeat');
+};
+
+// 🚨 Fonction d'urgence pour réactiver tous les logs (debugging)
+window.enableAllVitrineDebug = function() {
+    window.DEBUG_TYPING = true;
+    window.DEBUG_BACKEND = true;
+    window.DEBUG_HEARTBEAT = true;
+    console.log('🚨 [Debug] TOUS LES LOGS RÉACTIVÉS pour debugging');
+    console.log('🔧 Pour les désactiver: toggleVitrineDebug("all")');
 };
 
 // 🔄 ===== SYSTÈME DE HEARTBEAT POUR DÉTECTION DÉCONNEXIONS =====
