@@ -5938,12 +5938,21 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
                     window.vitrineChatEventSource = null; // Nettoyer la référence
                 }
                 
-                // ⚠️ Pas de reconnexion automatique - géré par le monitoring du backend
-                console.log('⚠️ [SSE] Pas de reconnexion automatique - géré par le monitoring');
+                // ✅ NOUVELLE LOGIQUE : Reconnexion automatique avec backoff
+                const reconnectDelay = (window.sseReconnectAttempts || 0) * 2000 + 5000; // Backoff exponentiel
+                window.sseReconnectAttempts = (window.sseReconnectAttempts || 0) + 1;
+                
+                setTimeout(() => {
+                    console.log(`🔄 [SSE] Tentative de reconnexion automatique (${window.sseReconnectAttempts})...`);
+                    startChatRequestListener(); // Relancer la connexion
+                }, reconnectDelay);
             };
             
             eventSource.onopen = function() {
                 console.log('✅ [SSE] Connexion SSE RÉELLE établie pour salle ' + roomId);
+                
+                // ✅ Réinitialiser le compteur de reconnexions après succès
+                window.sseReconnectAttempts = 0;
                 
                 // 🔄 Démarrer le heartbeat pour cette connexion
                 startHeartbeat();
@@ -5995,6 +6004,9 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
 
             statusEventSource.onopen = function() {
                 console.log('🔔 [StatusEvents] EventSource ouvert pour les changements de statut de la salle ' + currentRoom);
+                
+                // ✅ Réinitialiser le compteur de reconnexions après succès
+                window.statusReconnectAttempts = 0;
             };
 
             statusEventSource.onmessage = function(event) {
@@ -6100,11 +6112,17 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
                 if (statusEventSource.readyState !== EventSource.CLOSED) {
                     console.log('🔒 [StatusEvents] Fermeture forcée de la connexion SSE pour éviter les boucles');
                     statusEventSource.close();
-                    window.statusEventSource = null; // Nettoyer la référence si elle existe
+                    statusEventSource = null; // Nettoyer la référence locale
                 }
                 
-                // ⚠️ Pas de reconnexion automatique - géré par le monitoring
-                console.log('⚠️ [StatusEvents] Pas de reconnexion automatique - géré par le monitoring');
+                // ✅ NOUVELLE LOGIQUE : Reconnexion automatique avec backoff
+                const reconnectDelay = (window.statusReconnectAttempts || 0) * 2000 + 7000; // Backoff exponentiel
+                window.statusReconnectAttempts = (window.statusReconnectAttempts || 0) + 1;
+                
+                setTimeout(() => {
+                    console.log(`🔄 [StatusEvents] Tentative de reconnexion automatique (${window.statusReconnectAttempts})...`);
+                    startStatusEventSource(); // Relancer la connexion
+                }, reconnectDelay);
             };
         }
         
