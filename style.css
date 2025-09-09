@@ -1,4 +1,4 @@
-﻿/* Vitrine header layout extracted from HTML inline styles */
+/* Vitrine header layout extracted from HTML inline styles */
 .title-section { display: flex; align-items: center; justify-content: flex-start; gap: 2rem; }
 .vitrine-logo { height: 80px; max-width: 300px; object-fit: contain; }
 .header-title { margin: 0; font-size: 1.1rem; font-weight: 600; color: black !important; -webkit-text-fill-color: black !important; }
@@ -198,7 +198,7 @@
             word-break: break-word;
             overflow-wrap: anywhere;
             white-space: pre-wrap;
-            overflow-x: hidden;
+            overflow: visible; /* Pas de scroll interne sur les messages */
         }
 
         .chat-message.sent {
@@ -3366,7 +3366,7 @@
             word-break: break-word;
             overflow-wrap: anywhere;
             white-space: pre-wrap;
-            overflow-x: hidden;
+            overflow: visible; /* Pas de scroll interne sur le contenu */
         }
 
         .message-actions {
