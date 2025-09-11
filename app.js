@@ -1,4 +1,4 @@
-﻿        // ===== CONFIGURATION DYNAMIQUE =====
+        // ===== CONFIGURATION DYNAMIQUE =====
         // Récupérer le backend depuis les paramètres URL ou utiliser IP locale par défaut
         const urlParams = new URLSearchParams(window.location.search);
         const customBackend = urlParams.get('backend');
@@ -5063,6 +5063,9 @@ if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector(
                 if (currentChatId) {
                     console.log('🔚 [Vitrine] Fermeture du chat par l\'utilisateur');
                     
+                    // ✅ NOUVEAU : Marquer comme fermeture volontaire pour éviter les reconnexions
+                    window.chatClosedVoluntarily = true;
+                    
                     const response = await fetch(`${currentAPI}/api/tickets/chat/end`, {
                         method: 'POST',
                         headers: {
@@ -5876,6 +5879,12 @@ window.testF5Detection = function() {
             
             const roomId = getCurrentRoom();
             
+            // ✅ NOUVEAU : Protection contre les reconnexions multiples
+            if (window.sseReconnectionInProgress) {
+                console.log('🚫 [SSE] Reconnexion déjà en cours, annulation');
+                return;
+            }
+            
             // ✅ PROTECTION MAXIMALE : Vérifier si une connexion active existe déjà
             if (window.vitrineChatEventSource && window.vitrineChatEventSource.readyState === EventSource.OPEN) {
                 console.log('✅ [SSE] Connexion SSE déjà active et fonctionnelle - ARRÊT');
@@ -5920,6 +5929,10 @@ window.testF5Detection = function() {
                             // Une demande de chat RÉELLE est arrivée depuis Tickets SEA
                             console.log('💬 [SSE] Demande de chat RÉELLE reçue:', data.data);
                             currentChatId = data.data.channel_id;
+                            
+                            // ✅ NOUVEAU : Réinitialiser le flag de fermeture volontaire pour nouveau chat
+                            window.chatClosedVoluntarily = false;
+                            
                             showConsentBanner(`Demande de chat pour salle ${roomId}`, roomId);
                             break;
                             
@@ -5961,6 +5974,9 @@ window.testF5Detection = function() {
                             if (data.data && data.data.channel_id) {
                                 currentChatId = data.data.channel_id;
                                 console.log('✅ [SSE] currentChatId mis à jour:', currentChatId);
+                                
+                                // ✅ NOUVEAU : Réinitialiser le flag de fermeture volontaire pour nouveau chat
+                                window.chatClosedVoluntarily = false;
                             }
                             hideConsentBanner();
                             openChatInterface();
@@ -6014,6 +6030,17 @@ window.testF5Detection = function() {
             
             eventSource.onerror = function(error) {
                 console.error('❌ [SSE] Erreur de connexion SSE RÉELLE:', error);
+                console.log(`🔍 [SSE] Détails erreur SSE:`, {
+                    readyState: eventSource?.readyState,
+                    url: eventSource?.url,
+                    error: error
+                });
+                
+                // ✅ NOUVEAU : Protection contre les reconnexions multiples
+                if (window.sseReconnectionInProgress) {
+                    console.log('🚫 [SSE] Reconnexion déjà en cours, annulation');
+                    return;
+                }
                 
                 // ✅ CORRECTION : Fermer complètement la connexion pour éviter les reconnexions automatiques
                 if (eventSource.readyState !== EventSource.CLOSED) {
@@ -6022,12 +6049,27 @@ window.testF5Detection = function() {
                     window.vitrineChatEventSource = null; // Nettoyer la référence
                 }
                 
-                // ✅ NOUVELLE LOGIQUE : Reconnexion automatique avec backoff
-                const reconnectDelay = (window.sseReconnectAttempts || 0) * 2000 + 5000; // Backoff exponentiel
+                // ✅ NOUVEAU : Protection contre les timers multiples
+                if (window.sseReconnectionTimer) {
+                    console.log('🚫 [SSE] Timer de reconnexion déjà actif, annulation');
+                    return;
+                }
+                
+                // ✅ NOUVEAU : Ne pas se reconnecter si le chat a été fermé volontairement
+                if (window.chatClosedVoluntarily) {
+                    console.log('🚫 [SSE] Chat fermé volontairement - Pas de reconnexion');
+                    return;
+                }
+                
+                // ✅ NOUVELLE LOGIQUE : Reconnexion automatique avec backoff et protection
+                const reconnectDelay = Math.min((window.sseReconnectAttempts || 0) * 2000 + 5000, 30000); // Max 30s
                 window.sseReconnectAttempts = (window.sseReconnectAttempts || 0) + 1;
                 
-                setTimeout(() => {
+                window.sseReconnectionInProgress = true;
+                window.sseReconnectionTimer = setTimeout(() => {
                     console.log(`🔄 [SSE] Tentative de reconnexion automatique (${window.sseReconnectAttempts})...`);
+                    window.sseReconnectionInProgress = false;
+                    window.sseReconnectionTimer = null;
                     startChatRequestListener(); // Relancer la connexion
                 }, reconnectDelay);
             };
@@ -6037,6 +6079,13 @@ window.testF5Detection = function() {
                 
                 // ✅ Réinitialiser le compteur de reconnexions après succès
                 window.sseReconnectAttempts = 0;
+                
+                // ✅ NOUVEAU : Nettoyer les flags de reconnexion après succès
+                if (window.sseReconnectionTimer) {
+                    clearTimeout(window.sseReconnectionTimer);
+                    window.sseReconnectionTimer = null;
+                }
+                window.sseReconnectionInProgress = false;
                 
                 // 🔄 Démarrer le heartbeat pour cette connexion
                 startHeartbeat();
@@ -6055,6 +6104,12 @@ window.testF5Detection = function() {
             const currentRoom = getCurrentRoom();
             if (!currentRoom) {
                 console.log('🔔 [StatusEvents] Pas de salle définie, EventSource non démarré');
+                return;
+            }
+
+            // ✅ NOUVEAU : Protection contre les reconnexions multiples
+            if (window.statusReconnectionInProgress) {
+                console.log('🚫 [StatusEvents] Reconnexion déjà en cours, annulation');
                 return;
             }
 
@@ -6088,9 +6143,17 @@ window.testF5Detection = function() {
 
             statusEventSource.onopen = function() {
                 console.log('🔔 [StatusEvents] EventSource ouvert pour les changements de statut de la salle ' + currentRoom);
+                console.log('🔔 [StatusEvents] Connexion SSE établie pour salle:', currentRoom);
                 
                 // ✅ Réinitialiser le compteur de reconnexions après succès
                 window.statusReconnectAttempts = 0;
+                
+                // ✅ NOUVEAU : Nettoyer les flags de reconnexion après succès
+                if (window.statusReconnectionTimer) {
+                    clearTimeout(window.statusReconnectionTimer);
+                    window.statusReconnectionTimer = null;
+                }
+                window.statusReconnectionInProgress = false;
             };
 
             statusEventSource.onmessage = function(event) {
@@ -6191,6 +6254,17 @@ window.testF5Detection = function() {
 
             statusEventSource.onerror = function(error) {
                 console.error('🔔 [StatusEvents] Erreur EventSource:', error);
+                console.log(`🔍 [StatusEvents] Détails erreur SSE status:`, {
+                    readyState: statusEventSource?.readyState,
+                    url: statusEventSource?.url,
+                    error: error
+                });
+                
+                // ✅ NOUVEAU : Protection contre les reconnexions multiples
+                if (window.statusReconnectionInProgress) {
+                    console.log('🚫 [StatusEvents] Reconnexion déjà en cours, annulation');
+                    return;
+                }
                 
                 // ✅ CORRECTION : Fermer complètement la connexion pour éviter les reconnexions automatiques
                 if (statusEventSource.readyState !== EventSource.CLOSED) {
@@ -6199,12 +6273,27 @@ window.testF5Detection = function() {
                     statusEventSource = null; // Nettoyer la référence locale
                 }
                 
-                // ✅ NOUVELLE LOGIQUE : Reconnexion automatique avec backoff
-                const reconnectDelay = (window.statusReconnectAttempts || 0) * 2000 + 7000; // Backoff exponentiel
+                // ✅ NOUVEAU : Protection contre les timers multiples
+                if (window.statusReconnectionTimer) {
+                    console.log('🚫 [StatusEvents] Timer de reconnexion status déjà actif, annulation');
+                    return;
+                }
+                
+                // ✅ NOUVEAU : Ne pas se reconnecter si le chat a été fermé volontairement
+                if (window.chatClosedVoluntarily) {
+                    console.log('🚫 [StatusEvents] Chat fermé volontairement - Pas de reconnexion status');
+                    return;
+                }
+                
+                // ✅ NOUVELLE LOGIQUE : Reconnexion automatique avec backoff et protection
+                const reconnectDelay = Math.min((window.statusReconnectAttempts || 0) * 2000 + 7000, 30000); // Max 30s
                 window.statusReconnectAttempts = (window.statusReconnectAttempts || 0) + 1;
                 
-                setTimeout(() => {
+                window.statusReconnectionInProgress = true;
+                window.statusReconnectionTimer = setTimeout(() => {
                     console.log(`🔄 [StatusEvents] Tentative de reconnexion automatique (${window.statusReconnectAttempts})...`);
+                    window.statusReconnectionInProgress = false;
+                    window.statusReconnectionTimer = null;
                     startStatusEventSource(); // Relancer la connexion
                 }, reconnectDelay);
             };
