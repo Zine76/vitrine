@@ -1,6 +1,9 @@
         // ===== CONFIGURATION DYNAMIQUE =====
+// 📋 FICHIER LOCAL - TRACE DES MODIFICATIONS
 // VERSION: RESEAU-10.206.173.30-v1.0
-console.log('🔧 [Version] app.js chargé - Réseau 10.206.173.30 v1.0');
+// Ce fichier est gardé localement comme trace des modifications
+// La vitrine.html utilise les fichiers GitHub + override local
+console.log('🔧 [Version] app.js LOCAL - Trace modifications réseau 10.206.173.30 v1.0');
         // Récupérer le backend depuis les paramètres URL ou utiliser IP locale par défaut
         const urlParams = new URLSearchParams(window.location.search);
         const customBackend = urlParams.get('backend');
@@ -609,6 +612,13 @@ function updateSEALogo(imgElement) {
             setInterval(async () => {
                 await checkConnection();
             }, 10000);
+            
+            // ✅ NOUVEAU : Restaurer le statut persistant si salle déjà sélectionnée
+            setTimeout(() => {
+                restorePersistentStatus();
+                // Vérifier le statut côté serveur pour s'assurer de la cohérence
+                checkCurrentTicketStatus();
+            }, 3000);
             
             // Focus sur l'input principal
             setTimeout(() => {
@@ -6477,6 +6487,24 @@ window.testF5Detection = function() {
         function showTicketStatusMessage(message, statusType) {
             const statusContainer = document.getElementById('ticketStatusContainer') || createTicketStatusContainer();
             
+            // ✅ NOUVEAU : Sauvegarder les bannières persistantes dans localStorage
+            const currentRoom = getCurrentRoom();
+            if (statusType === 'in_progress' || statusType === 'resolved') {
+                const persistentStatus = {
+                    message: message,
+                    statusType: statusType,
+                    room: currentRoom,
+                    timestamp: new Date().toISOString(),
+                    active: true
+                };
+                try {
+                    localStorage.setItem('vitrine.persistent.status', JSON.stringify(persistentStatus));
+                    console.log('💾 [StatusPersistence] Statut persistant sauvegardé:', persistentStatus);
+                } catch (e) {
+                    console.warn('⚠️ [StatusPersistence] Erreur sauvegarde:', e);
+                }
+            }
+            
             // ✅ NOUVEAU : Déterminer le style basé sur le type de statut
             let iconClass, bgColor;
             const isPersistent = statusType && (statusType === 'in_progress' || statusType === 'resolved');
@@ -6545,6 +6573,16 @@ window.testF5Detection = function() {
                 addPageBlurEffect();
             }
             
+            // ✅ NOUVEAU : Nettoyer le statut persistant si ce n'est plus un statut persistant
+            if (!isPersistent) {
+                try {
+                    localStorage.removeItem('vitrine.persistent.status');
+                    console.log('🧹 [StatusPersistence] Statut non-persistant - Nettoyage localStorage');
+                } catch (e) {
+                    console.warn('⚠️ [StatusPersistence] Erreur nettoyage:', e);
+                }
+            }
+            
             // ✅ NOUVEAU : Les statuts temporaires disparaissent après 5 secondes, les persistants restent
             if (!isPersistent) {
                 setTimeout(() => {
@@ -6561,6 +6599,96 @@ window.testF5Detection = function() {
                 statusContainer.style.display = 'none';
                 // ✅ NOUVEAU : Retirer l'effet blur quand on ferme la bannière
                 removePageBlurEffect();
+                
+                // ✅ NOUVEAU : Nettoyer le statut persistant quand fermé manuellement
+                try {
+                    localStorage.removeItem('vitrine.persistent.status');
+                    console.log('🧹 [StatusPersistence] Statut persistant nettoyé suite à fermeture manuelle');
+                } catch (e) {
+                    console.warn('⚠️ [StatusPersistence] Erreur nettoyage fermeture:', e);
+                }
+            }
+        }
+        
+        // ✅ NOUVEAU : Fonction pour restaurer le statut persistant au démarrage
+        function restorePersistentStatus() {
+            try {
+                const persistentData = localStorage.getItem('vitrine.persistent.status');
+                if (!persistentData) {
+                    console.log('💾 [StatusPersistence] Aucun statut persistant à restaurer');
+                    return;
+                }
+                
+                const status = JSON.parse(persistentData);
+                const currentRoom = getCurrentRoom();
+                
+                // Vérifier que le statut concerne la salle actuelle
+                if (status.room !== currentRoom) {
+                    console.log(`💾 [StatusPersistence] Statut pour salle différente (${status.room} vs ${currentRoom}) - Nettoyage`);
+                    localStorage.removeItem('vitrine.persistent.status');
+                    return;
+                }
+                
+                // Vérifier que le statut est encore valide (pas trop ancien)
+                const statusAge = Date.now() - new Date(status.timestamp).getTime();
+                const maxAge = 24 * 60 * 60 * 1000; // 24 heures
+                
+                if (statusAge > maxAge) {
+                    console.log(`💾 [StatusPersistence] Statut trop ancien (${Math.round(statusAge / 1000 / 60)} minutes) - Nettoyage`);
+                    localStorage.removeItem('vitrine.persistent.status');
+                    return;
+                }
+                
+                // Restaurer la bannière de statut
+                console.log('🔄 [StatusPersistence] Restauration du statut persistant:', status);
+                showTicketStatusMessage(status.message, status.statusType);
+                
+            } catch (e) {
+                console.warn('⚠️ [StatusPersistence] Erreur restauration statut persistant:', e);
+                // Nettoyer en cas d'erreur
+                try {
+                    localStorage.removeItem('vitrine.persistent.status');
+                } catch (cleanupError) {
+                    console.warn('⚠️ [StatusPersistence] Erreur nettoyage après erreur:', cleanupError);
+                }
+            }
+        }
+        
+        // ✅ NOUVEAU : Fonction pour vérifier le statut actuel côté serveur
+        async function checkCurrentTicketStatus() {
+            const currentRoom = getCurrentRoom();
+            if (!currentRoom) return;
+            
+            try {
+                console.log('🔍 [StatusCheck] Vérification statut ticket actuel pour salle:', currentRoom);
+                
+                await ensureBackendConnection();
+                const response = await fetch(`${currentAPI}/api/tickets/status/current?room=${encodeURIComponent(currentRoom)}`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    const statusData = await response.json();
+                    console.log('✅ [StatusCheck] Statut actuel reçu:', statusData);
+                    
+                    // Si un ticket est en cours, afficher la bannière
+                    if (statusData.success && statusData.ticket && statusData.ticket.status === 'in_progress') {
+                        console.log('🎫 [StatusCheck] Ticket en cours détecté - Restauration bannière');
+                        showTicketStatusMessage(statusData.ticket.status_message || 'Ticket en cours de traitement', 'in_progress');
+                    } else if (statusData.success && statusData.ticket && statusData.ticket.status === 'resolved') {
+                        console.log('🎫 [StatusCheck] Ticket résolu détecté - Restauration bannière');
+                        showTicketStatusMessage(statusData.ticket.status_message || 'Ticket résolu', 'resolved');
+                    } else {
+                        // Pas de ticket actif, nettoyer le localStorage
+                        localStorage.removeItem('vitrine.persistent.status');
+                        console.log('🧹 [StatusCheck] Pas de ticket actif - Nettoyage localStorage');
+                    }
+                } else {
+                    console.log('⚠️ [StatusCheck] Erreur vérification statut:', response.status);
+                }
+            } catch (error) {
+                console.warn('❌ [StatusCheck] Erreur vérification statut ticket:', error);
             }
         }
         
@@ -7420,6 +7548,13 @@ window.testF5Detection = function() {
                 backendInitPromise.then(() => {
                     startChatRequestListener();
                     startStatusEventSource();
+                    
+                    // ✅ NOUVEAU : Restaurer le statut persistant après initialisation
+                    setTimeout(() => {
+                        restorePersistentStatus();
+                        // Vérifier aussi le statut côté serveur pour synchronisation
+                        checkCurrentTicketStatus();
+                    }, 2000); // Attendre 2s pour que les connexions SSE soient établies
                 });
             }
         });
