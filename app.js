@@ -5,37 +5,195 @@
         
         // ✅ DÉTECTION AUTOMATIQUE PROTOCOLE (HTTPS si page HTTPS)
         const isSecurePage = location.protocol === 'https:';
-        // ✅ CONFIGURATION INTELLIGENTE - DNS avec fallback DNS alternatif
-        // ? IDENTIQUE À L'INTÉGRÉE
+        // ✅ CONFIGURATION INTELLIGENTE - Détection automatique du réseau
+        // Détection du réseau UQAM public (132.x.x.x)
+        function isUQAMPublicNetwork() {
+            try {
+                const hostname = window.location.hostname;
+                
+                // Si on accède via une IP 132.x.x.x ou un hostname UQAM
+                if (hostname.includes('uqam') || /132\.\d+\.\d+\.\d+/.test(hostname)) {
+                    return true;
+                }
+                
+                // Vérifier si on est dans le contexte d'un fichier local ouvert sur un PC UQAM
+                if (hostname === '' || hostname === 'localhost' || /^file:/.test(window.location.protocol)) {
+                    // Essayer de détecter via d'autres moyens
+                    const userAgent = navigator.userAgent.toLowerCase();
+                    if (userAgent.includes('uqam') || userAgent.includes('132.208')) {
+                        return true;
+                    }
+                    
+                    // Heuristique: si on ne peut pas se connecter au DNS interne mais qu'on peut potentiellement 
+                    // accéder à l'IP publique, on est probablement sur le réseau public UQAM
+                    // Cette vérification sera faite dans detectBestBackend()
+                }
+                
+                return false;
+            } catch(e) {
+                console.warn('[Config] Erreur détection réseau:', e);
+                return false;
+            }
+        }
+
+        // Détection asynchrone du réseau basée sur la connectivité
+        async function detectNetworkContext() {
+            // Test rapide pour déterminer le contexte réseau
+            const testUrls = [
+                { url: 'http://C46928_DEE.ddns.uqam.ca:7070/api/health', type: 'internal' },
+                { url: 'http://132.208.182.85:7070/api/health', type: 'public' },
+                { url: 'http://sav-atl-por-8.tail12c6c1.ts.net:7070/api/health', type: 'tailscale' }
+            ];
+            
+            const results = await Promise.allSettled(
+                testUrls.map(async ({ url, type }) => {
+                    try {
+                        const response = await fetch(url, { 
+                            method: 'GET', 
+                            signal: AbortSignal.timeout(2000) 
+                        });
+                        return { type, accessible: response.ok, url };
+                    } catch (error) {
+                        return { type, accessible: false, url };
+                    }
+                })
+            );
+            
+            const accessible = results
+                .filter(result => result.status === 'fulfilled')
+                .map(result => result.value)
+                .filter(result => result.accessible);
+            
+            console.log('🌐 [Config] Résultats test connectivité:', accessible);
+            
+            // Si seule l'IP publique est accessible, on est sur le réseau public UQAM
+            if (accessible.length === 1 && accessible[0].type === 'public') {
+                return 'uqam_public';
+            }
+            // Si le DNS interne est accessible, on est sur le réseau privé
+            if (accessible.some(r => r.type === 'internal')) {
+                return 'uqam_internal';
+            }
+            // Si seul Tailscale est accessible, on est sur un réseau externe avec VPN
+            if (accessible.length === 1 && accessible[0].type === 'tailscale') {
+                return 'external_vpn';
+            }
+            
+            return 'unknown';
+        }
+
+        // Configuration des backends selon le contexte
         let API_BASE_URL = (function(){
             try {
                 if (window.BACKEND_BASE) return window.BACKEND_BASE;
                 const storedIp = localStorage.getItem('vitrine.backend.ip');
                 if (storedIp && typeof storedIp === 'string' && storedIp.trim()) {
-                    return `http://${storedIp.trim()}:7070`;
+                    return /^https?:\/\//i.test(storedIp) ? storedIp : `http://${storedIp.trim()}:7070`;
                 }
             } catch(e) { console.warn('[BackendBase] storage read error', e); }
-            return 'http://C46928_DEE.ddns.uqam.ca:7070';
+            
+            // Sélection automatique selon le réseau (détection basique)
+            if (isUQAMPublicNetwork()) {
+                console.log('🌐 [Config] Réseau UQAM public détecté (basique), utilisation IP publique');
+                return 'http://132.208.182.85:7070'; // IP publique accessible depuis UQAM
+            } else {
+                return 'http://C46928_DEE.ddns.uqam.ca:7070'; // DNS interne pour réseau privé
+            }
         })();
-        const FALLBACK_DNS_URL = 'http://sav-atl-por-8.tail12c6c1.ts.net:7070';
         
-        // Test rapide du DNS, sinon utiliser DNS alternatif  
+        // Fallbacks intelligents selon le contexte réseau détecté
+        function getFallbackUrls(networkContext = 'unknown') {
+            switch (networkContext) {
+                case 'uqam_public':
+                    return [
+                        'http://132.208.182.85:7070',  // IP publique (priorité absolue)
+                        'http://C46928_DEE.ddns.uqam.ca:7070',  // DNS interne (au cas où)
+                    ];
+                case 'uqam_internal':
+                    return [
+                        'http://C46928_DEE.ddns.uqam.ca:7070',  // DNS interne (priorité)
+                        'http://132.208.182.85:7070',  // IP publique (fallback)
+                        'http://sav-atl-por-8.tail12c6c1.ts.net:7070'  // Tailscale
+                    ];
+                case 'external_vpn':
+                    return [
+                        'http://sav-atl-por-8.tail12c6c1.ts.net:7070',  // Tailscale (priorité)
+                        'http://132.208.182.85:7070',  // IP publique
+                        'http://C46928_DEE.ddns.uqam.ca:7070'  // DNS interne
+                    ];
+                default:
+                    return [
+                        'http://132.208.182.85:7070',  // IP publique (par défaut)
+                        'http://C46928_DEE.ddns.uqam.ca:7070',  // DNS interne UQAM
+                        'http://sav-atl-por-8.tail12c6c1.ts.net:7070'  // Tailscale
+                    ];
+            }
+        }
+        
+        // Fallbacks par défaut (seront mis à jour par detectBestBackend)
+        let FALLBACK_URLS = getFallbackUrls();
+        
+        // Test intelligent avec fallbacks multiples et détection réseau
         async function detectBestBackend() {
+            console.log('🔍 [Config] Démarrage détection intelligente du backend...');
+            
+            // Étape 1: Détection du contexte réseau
+            console.log('📡 [Config] Détection du contexte réseau...');
+            const networkContext = await detectNetworkContext();
+            console.log(`🌐 [Config] Contexte réseau détecté: ${networkContext}`);
+            
+            // Étape 2: Mise à jour des fallbacks selon le contexte
+            FALLBACK_URLS = getFallbackUrls(networkContext);
+            console.log('🔄 [Config] Fallbacks adaptés au contexte:', FALLBACK_URLS);
+            
+            // Étape 3: Si le contexte réseau nous donne une indication claire, ajuster l'URL principale
+            if (networkContext === 'uqam_public' && !API_BASE_URL.includes('132.208.182.85')) {
+                console.log('🎯 [Config] Réseau UQAM public confirmé, bascule vers IP publique');
+                API_BASE_URL = 'http://132.208.182.85:7070';
+            } else if (networkContext === 'external_vpn' && !API_BASE_URL.includes('tail12c6c1.ts.net')) {
+                console.log('🎯 [Config] Réseau externe avec VPN confirmé, bascule vers Tailscale');
+                API_BASE_URL = 'http://sav-atl-por-8.tail12c6c1.ts.net:7070';
+            }
+            
+            // Étape 4: Test du backend configuré
             try {
                 const testResponse = await fetch(`${API_BASE_URL}/api/health`, { 
                     method: 'GET', 
-                    signal: AbortSignal.timeout(5000) // ✅ CORRIGÉ : Timeout plus long (5s au lieu de 2s)
+                    signal: AbortSignal.timeout(3000)
                 });
                 if (testResponse.ok) {
-                    console.log('[Config] DNS accessible, utilisation du backend configuré');
+                    console.log(`✅ [Config] Backend principal accessible: ${API_BASE_URL}`);
+                    currentAPI = API_BASE_URL;
                     return API_BASE_URL;
                 }
             } catch (error) {
-                console.log('⚠️ [Config] DNS timeout, bascule vers IP directe');
-                API_BASE_URL = FALLBACK_DNS_URL;
-                currentAPI = FALLBACK_DNS_URL;
-                return FALLBACK_DNS_URL;
+                console.log(`⚠️ [Config] Backend principal inaccessible: ${API_BASE_URL}`);
             }
+            
+            // Étape 5: Test des fallbacks dans l'ordre optimisé
+            for (const fallbackUrl of FALLBACK_URLS) {
+                if (fallbackUrl === API_BASE_URL) continue; // Skip si déjà testé
+                
+                try {
+                    console.log(`🔄 [Config] Test fallback: ${fallbackUrl}`);
+                    const testResponse = await fetch(`${fallbackUrl}/api/health`, { 
+                        method: 'GET', 
+                        signal: AbortSignal.timeout(3000)
+                    });
+                    if (testResponse.ok) {
+                        console.log(`✅ [Config] Fallback accessible: ${fallbackUrl}`);
+                        API_BASE_URL = fallbackUrl;
+                        currentAPI = fallbackUrl;
+                        return fallbackUrl;
+                    }
+                } catch (error) {
+                    console.log(`❌ [Config] Fallback inaccessible: ${fallbackUrl}`);
+                }
+            }
+            
+            console.error('🚨 [Config] Aucun backend accessible trouvé !');
+            console.log('💡 [Config] Suggestion: Utilisez Ctrl+Alt+J pour configurer manuellement le backend');
+            return API_BASE_URL; // Retourner le backend par défaut même s'il ne fonctionne pas
         }
         
         // ✅ INITIALISATION SYNCHRONE AVEC FALLBACK
