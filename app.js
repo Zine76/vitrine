@@ -613,12 +613,7 @@ function updateSEALogo(imgElement) {
                 await checkConnection();
             }, 10000);
             
-            // ✅ NOUVEAU : Restaurer le statut persistant si salle déjà sélectionnée
-            setTimeout(() => {
-                restorePersistentStatus();
-                // Vérifier le statut côté serveur pour s'assurer de la cohérence
-                checkCurrentTicketStatus();
-            }, 3000);
+            // ✅ SUPPRIMÉ : Restauration déplacée vers DOMContentLoaded pour éviter les doublons
             
             // Focus sur l'input principal
             setTimeout(() => {
@@ -637,6 +632,9 @@ function updateSEALogo(imgElement) {
             // Réinitialiser le cache
             window.roomCache.isSet = false;
             
+            // ✅ NOUVEAU : Réinitialiser le flag de restauration pour la nouvelle salle
+            statusRestorationDone = false;
+            
             // Nettoyer les inputs
             const roomInput = document.getElementById('roomInput');
             if (roomInput) roomInput.value = '';
@@ -648,7 +646,7 @@ function updateSEALogo(imgElement) {
                 console.log('🔔 [StatusEvents] EventSource de statut fermé');
             }
             
-            // 🔔 Masquer le message de statut
+            // 🔔 Masquer le message de statut et nettoyer localStorage
             hideTicketStatusMessage();
             
             // Retour �  la landing page
@@ -6487,6 +6485,13 @@ window.testF5Detection = function() {
         function showTicketStatusMessage(message, statusType) {
             const statusContainer = document.getElementById('ticketStatusContainer') || createTicketStatusContainer();
             
+            // ✅ PROTECTION : Éviter les doublons si bannière déjà affichée avec le même contenu
+            const existingMessage = statusContainer.querySelector('.ticket-status-message');
+            if (existingMessage && existingMessage.textContent.includes(message.replace(/🔧\s*/, ''))) {
+                console.log('🚫 [StatusPersistence] Bannière identique déjà affichée, ignoré');
+                return;
+            }
+            
             // ✅ NOUVEAU : Sauvegarder les bannières persistantes dans localStorage
             const currentRoom = getCurrentRoom();
             if (statusType === 'in_progress' || statusType === 'resolved') {
@@ -6611,11 +6616,20 @@ window.testF5Detection = function() {
         }
         
         // ✅ NOUVEAU : Fonction pour restaurer le statut persistant au démarrage
+        let statusRestorationDone = false; // Protection contre les appels multiples
+        
         function restorePersistentStatus() {
+            // ✅ PROTECTION : Éviter les appels multiples
+            if (statusRestorationDone) {
+                console.log('🚫 [StatusPersistence] Restauration déjà effectuée, ignoré');
+                return;
+            }
+            
             try {
                 const persistentData = localStorage.getItem('vitrine.persistent.status');
                 if (!persistentData) {
                     console.log('💾 [StatusPersistence] Aucun statut persistant à restaurer');
+                    statusRestorationDone = true;
                     return;
                 }
                 
@@ -6626,6 +6640,7 @@ window.testF5Detection = function() {
                 if (status.room !== currentRoom) {
                     console.log(`💾 [StatusPersistence] Statut pour salle différente (${status.room} vs ${currentRoom}) - Nettoyage`);
                     localStorage.removeItem('vitrine.persistent.status');
+                    statusRestorationDone = true;
                     return;
                 }
                 
@@ -6636,12 +6651,14 @@ window.testF5Detection = function() {
                 if (statusAge > maxAge) {
                     console.log(`💾 [StatusPersistence] Statut trop ancien (${Math.round(statusAge / 1000 / 60)} minutes) - Nettoyage`);
                     localStorage.removeItem('vitrine.persistent.status');
+                    statusRestorationDone = true;
                     return;
                 }
                 
                 // Restaurer la bannière de statut
                 console.log('🔄 [StatusPersistence] Restauration du statut persistant:', status);
                 showTicketStatusMessage(status.message, status.statusType);
+                statusRestorationDone = true;
                 
             } catch (e) {
                 console.warn('⚠️ [StatusPersistence] Erreur restauration statut persistant:', e);
@@ -6651,6 +6668,7 @@ window.testF5Detection = function() {
                 } catch (cleanupError) {
                     console.warn('⚠️ [StatusPersistence] Erreur nettoyage après erreur:', cleanupError);
                 }
+                statusRestorationDone = true;
             }
         }
         
@@ -6658,6 +6676,12 @@ window.testF5Detection = function() {
         async function checkCurrentTicketStatus() {
             const currentRoom = getCurrentRoom();
             if (!currentRoom) return;
+            
+            // ✅ PROTECTION : Ne pas vérifier si la restauration locale a déjà trouvé un statut
+            if (statusRestorationDone && document.getElementById('ticketStatusContainer')?.style.display !== 'none') {
+                console.log('🚫 [StatusCheck] Bannière déjà restaurée localement, skip vérification serveur');
+                return;
+            }
             
             try {
                 console.log('🔍 [StatusCheck] Vérification statut ticket actuel pour salle:', currentRoom);
@@ -6672,13 +6696,19 @@ window.testF5Detection = function() {
                     const statusData = await response.json();
                     console.log('✅ [StatusCheck] Statut actuel reçu:', statusData);
                     
-                    // Si un ticket est en cours, afficher la bannière
+                    // Si un ticket est en cours, afficher la bannière (seulement si pas déjà affichée)
                     if (statusData.success && statusData.ticket && statusData.ticket.status === 'in_progress') {
-                        console.log('🎫 [StatusCheck] Ticket en cours détecté - Restauration bannière');
-                        showTicketStatusMessage(statusData.ticket.status_message || 'Ticket en cours de traitement', 'in_progress');
+                        console.log('🎫 [StatusCheck] Ticket en cours détecté - Vérification si bannière nécessaire');
+                        const existingBanner = document.getElementById('ticketStatusContainer');
+                        if (!existingBanner || existingBanner.style.display === 'none') {
+                            showTicketStatusMessage(statusData.ticket.status_message || 'Ticket en cours de traitement', 'in_progress');
+                        }
                     } else if (statusData.success && statusData.ticket && statusData.ticket.status === 'resolved') {
-                        console.log('🎫 [StatusCheck] Ticket résolu détecté - Restauration bannière');
-                        showTicketStatusMessage(statusData.ticket.status_message || 'Ticket résolu', 'resolved');
+                        console.log('🎫 [StatusCheck] Ticket résolu détecté - Vérification si bannière nécessaire');
+                        const existingBanner = document.getElementById('ticketStatusContainer');
+                        if (!existingBanner || existingBanner.style.display === 'none') {
+                            showTicketStatusMessage(statusData.ticket.status_message || 'Ticket résolu', 'resolved');
+                        }
                     } else {
                         // Pas de ticket actif, nettoyer le localStorage
                         localStorage.removeItem('vitrine.persistent.status');
