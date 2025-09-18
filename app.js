@@ -646,8 +646,13 @@ function updateSEALogo(imgElement) {
                 console.log('🔔 [StatusEvents] EventSource de statut fermé');
             }
             
-            // 🔔 Masquer le message de statut et nettoyer localStorage
-            hideTicketStatusMessage();
+            // 🔔 Masquer le message de statut SANS nettoyer localStorage (pour garder le statut de cette salle)
+            const statusContainer = document.getElementById('ticketStatusContainer');
+            if (statusContainer) {
+                statusContainer.style.display = 'none';
+                removePageBlurEffect();
+                console.log('🔔 [ChangeRoom] Bannière masquée SANS nettoyage localStorage');
+            }
             
             // Retour �  la landing page
             const assistantPage = document.getElementById('assistantPage');
@@ -6492,7 +6497,7 @@ window.testF5Detection = function() {
                 return;
             }
             
-            // ✅ NOUVEAU : Sauvegarder les bannières persistantes dans localStorage
+            // ✅ NOUVEAU : Sauvegarder les bannières persistantes par salle dans localStorage
             const currentRoom = getCurrentRoom();
             if (statusType === 'in_progress' || statusType === 'resolved') {
                 const persistentStatus = {
@@ -6503,8 +6508,10 @@ window.testF5Detection = function() {
                     active: true
                 };
                 try {
-                    localStorage.setItem('vitrine.persistent.status', JSON.stringify(persistentStatus));
-                    console.log('💾 [StatusPersistence] Statut persistant sauvegardé:', persistentStatus);
+                    // ✅ CORRECTION : Stocker par salle pour éviter les conflits
+                    const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                    localStorage.setItem(storageKey, JSON.stringify(persistentStatus));
+                    console.log(`💾 [StatusPersistence] Statut persistant sauvegardé pour ${currentRoom}:`, persistentStatus);
                 } catch (e) {
                     console.warn('⚠️ [StatusPersistence] Erreur sauvegarde:', e);
                 }
@@ -6581,8 +6588,9 @@ window.testF5Detection = function() {
             // ✅ NOUVEAU : Nettoyer le statut persistant si ce n'est plus un statut persistant
             if (!isPersistent) {
                 try {
-                    localStorage.removeItem('vitrine.persistent.status');
-                    console.log('🧹 [StatusPersistence] Statut non-persistant - Nettoyage localStorage');
+                    const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                    localStorage.removeItem(storageKey);
+                    console.log(`🧹 [StatusPersistence] Statut non-persistant - Nettoyage localStorage pour ${currentRoom}`);
                 } catch (e) {
                     console.warn('⚠️ [StatusPersistence] Erreur nettoyage:', e);
                 }
@@ -6605,10 +6613,12 @@ window.testF5Detection = function() {
                 // ✅ NOUVEAU : Retirer l'effet blur quand on ferme la bannière
                 removePageBlurEffect();
                 
-                // ✅ NOUVEAU : Nettoyer le statut persistant quand fermé manuellement
+                // ✅ NOUVEAU : Nettoyer le statut persistant de la salle actuelle quand fermé manuellement
                 try {
-                    localStorage.removeItem('vitrine.persistent.status');
-                    console.log('🧹 [StatusPersistence] Statut persistant nettoyé suite à fermeture manuelle');
+                    const currentRoom = getCurrentRoom();
+                    const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                    localStorage.removeItem(storageKey);
+                    console.log(`🧹 [StatusPersistence] Statut persistant nettoyé pour ${currentRoom} suite à fermeture manuelle`);
                 } catch (e) {
                     console.warn('⚠️ [StatusPersistence] Erreur nettoyage fermeture:', e);
                 }
@@ -6626,20 +6636,22 @@ window.testF5Detection = function() {
             }
             
             try {
-                const persistentData = localStorage.getItem('vitrine.persistent.status');
+                const currentRoom = getCurrentRoom();
+                const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                const persistentData = localStorage.getItem(storageKey);
+                
                 if (!persistentData) {
-                    console.log('💾 [StatusPersistence] Aucun statut persistant à restaurer');
+                    console.log(`💾 [StatusPersistence] Aucun statut persistant à restaurer pour ${currentRoom}`);
                     statusRestorationDone = true;
                     return;
                 }
                 
                 const status = JSON.parse(persistentData);
-                const currentRoom = getCurrentRoom();
                 
-                // Vérifier que le statut concerne la salle actuelle
+                // Vérifier que le statut concerne bien la salle actuelle (double vérification)
                 if (status.room !== currentRoom) {
                     console.log(`💾 [StatusPersistence] Statut pour salle différente (${status.room} vs ${currentRoom}) - Nettoyage`);
-                    localStorage.removeItem('vitrine.persistent.status');
+                    localStorage.removeItem(storageKey);
                     statusRestorationDone = true;
                     return;
                 }
@@ -6650,7 +6662,7 @@ window.testF5Detection = function() {
                 
                 if (statusAge > maxAge) {
                     console.log(`💾 [StatusPersistence] Statut trop ancien (${Math.round(statusAge / 1000 / 60)} minutes) - Nettoyage`);
-                    localStorage.removeItem('vitrine.persistent.status');
+                    localStorage.removeItem(storageKey);
                     statusRestorationDone = true;
                     return;
                 }
@@ -6664,7 +6676,9 @@ window.testF5Detection = function() {
                 console.warn('⚠️ [StatusPersistence] Erreur restauration statut persistant:', e);
                 // Nettoyer en cas d'erreur
                 try {
-                    localStorage.removeItem('vitrine.persistent.status');
+                    const currentRoom = getCurrentRoom();
+                    const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                    localStorage.removeItem(storageKey);
                 } catch (cleanupError) {
                     console.warn('⚠️ [StatusPersistence] Erreur nettoyage après erreur:', cleanupError);
                 }
@@ -6710,9 +6724,10 @@ window.testF5Detection = function() {
                             showTicketStatusMessage(statusData.ticket.status_message || 'Ticket résolu', 'resolved');
                         }
                     } else {
-                        // Pas de ticket actif, nettoyer le localStorage
-                        localStorage.removeItem('vitrine.persistent.status');
-                        console.log('🧹 [StatusCheck] Pas de ticket actif - Nettoyage localStorage');
+                        // Pas de ticket actif, nettoyer le localStorage pour cette salle
+                        const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                        localStorage.removeItem(storageKey);
+                        console.log(`🧹 [StatusCheck] Pas de ticket actif - Nettoyage localStorage pour ${currentRoom}`);
                     }
                 } else {
                     console.log('⚠️ [StatusCheck] Erreur vérification statut:', response.status);
