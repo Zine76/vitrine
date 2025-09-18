@@ -1,4 +1,6 @@
         // ===== CONFIGURATION DYNAMIQUE =====
+// VERSION: RESEAU-10.206.173.30-v1.0
+console.log('🔧 [Version] app.js chargé - Réseau 10.206.173.30 v1.0');
         // Récupérer le backend depuis les paramètres URL ou utiliser IP locale par défaut
         const urlParams = new URLSearchParams(window.location.search);
         const customBackend = urlParams.get('backend');
