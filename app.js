@@ -18,8 +18,8 @@
                 const hostname = window.location.hostname;
                 console.log(`🔍 [Config] Détection réseau - hostname: "${hostname}", protocol: "${window.location.protocol}"`);
                 
-                // Si on accède via une IP 132.x.x.x ou un hostname UQAM
-                if (hostname.includes('uqam') || /132\.\d+\.\d+\.\d+/.test(hostname)) {
+                // Si on accède via une IP UQAM (132.x.x.x ou 10.x.x.x) ou un hostname UQAM
+                if (hostname.includes('uqam') || /132\.\d+\.\d+\.\d+/.test(hostname) || /10\.\d+\.\d+\.\d+/.test(hostname)) {
                     console.log('✅ [Config] Réseau UQAM détecté via hostname/IP');
                     return true;
                 }
@@ -30,7 +30,7 @@
                     
                     // Essayer de détecter via d'autres moyens
                     const userAgent = navigator.userAgent.toLowerCase();
-                    if (userAgent.includes('uqam') || userAgent.includes('132.208')) {
+                    if (userAgent.includes('uqam') || userAgent.includes('132.208') || userAgent.includes('10.206')) {
                         console.log('✅ [Config] Réseau UQAM détecté via UserAgent');
                         return true;
                     }
@@ -54,7 +54,7 @@
             // Test rapide pour déterminer le contexte réseau
             const testUrls = [
                 { url: 'http://C46928_DEE.ddns.uqam.ca:7070/api/health', type: 'internal' },
-                { url: 'http://132.208.182.84:7070/api/health', type: 'public' },
+                { url: 'http://10.206.173.30:7070/api/health', type: 'current_network' },
                 { url: 'http://SAV-ATL-POR-8.ddns.uqam.ca:7070/api/health', type: 'dns_uqam' }
             ];
             
@@ -118,10 +118,10 @@
                 }
             } catch(e) { console.warn('[BackendBase] storage read error', e); }
             
-            // ✅ SOLUTION SIMPLE : Toujours utiliser l'IP publique par défaut
-            // Cela fonctionne depuis tous les réseaux (UQAM public, privé, externe)
-            console.log('🌐 [Config] Utilisation de l\'IP publique par défaut (compatible tous réseaux)');
-            return 'http://132.208.182.84:7070';
+            // ✅ SOLUTION SIMPLE : Utiliser l'IP du réseau actuel
+            // Configuration pour le réseau 10.x.x.x (10.206.173.30)
+            console.log('🌐 [Config] Utilisation de l\'IP du réseau 10.x.x.x');
+            return 'http://10.206.173.30:7070';
         })();
         
         // Fallbacks intelligents selon le contexte réseau détecté
@@ -129,7 +129,7 @@
             switch (networkContext) {
                 case 'uqam_public':
                     return [
-                        'http://132.208.182.84:7070',  // IP publique (priorité absolue)
+                        'http://10.206.173.30:7070',  // IP réseau actuel (priorité absolue)
                         'http://SAV-ATL-POR-8.ddns.uqam.ca:7070',  // DNS UQAM principal
                         'http://C46928_DEE.ddns.uqam.ca:7070',  // DNS interne (au cas où)
                     ];
@@ -137,17 +137,17 @@
                     return [
                         'http://C46928_DEE.ddns.uqam.ca:7070',  // DNS interne (priorité)
                         'http://SAV-ATL-POR-8.ddns.uqam.ca:7070',  // DNS UQAM principal
-                        'http://132.208.182.84:7070'  // IP publique (fallback)
+                        'http://10.206.173.30:7070'  // IP réseau actuel (fallback)
                     ];
                 case 'external_vpn':
                     return [
-                        'http://132.208.182.84:7070',  // IP publique (priorité)
+                        'http://10.206.173.30:7070',  // IP réseau actuel (priorité)
                         'http://SAV-ATL-POR-8.ddns.uqam.ca:7070',  // DNS UQAM principal
                         'http://C46928_DEE.ddns.uqam.ca:7070'  // DNS interne
                     ];
                 default:
                     return [
-                        'http://132.208.182.84:7070',  // IP publique (par défaut)
+                        'http://10.206.173.30:7070',  // IP réseau actuel (par défaut)
                         'http://SAV-ATL-POR-8.ddns.uqam.ca:7070',  // DNS UQAM principal
                         'http://C46928_DEE.ddns.uqam.ca:7070'  // DNS interne UQAM
                     ];
@@ -161,8 +161,8 @@
         async function detectBestBackend() {
             console.log('🔍 [Config] Test simple du backend IP publique...');
             
-            // Forcer l'utilisation de l'IP publique
-            API_BASE_URL = 'http://132.208.182.84:7070';
+            // Forcer l'utilisation de l'IP du réseau actuel
+            API_BASE_URL = 'http://10.206.173.30:7070';
             
             try {
                 const testResponse = await fetch(`${API_BASE_URL}/api/health`, { 
@@ -7873,9 +7873,9 @@ console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
                 console.error('❌ [BackendPatch] Erreur lecture localStorage:', e);
             }
             
-            // ✅ PRIORITÉ 5 : Fallback vers IP publique (compatible tous réseaux)
-            console.log('🌐 [BackendPatch] Fallback vers IP publique');
-            return 'http://132.208.182.84:7070';
+            // ✅ PRIORITÉ 5 : Fallback vers IP réseau actuel
+            console.log('🌐 [BackendPatch] Fallback vers IP réseau actuel');
+            return 'http://10.206.173.30:7070';
         }
         
         let configuredUrl = getConfiguredBackendUrl();
