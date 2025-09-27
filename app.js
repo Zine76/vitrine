@@ -1,9 +1,9 @@
         // ===== CONFIGURATION DYNAMIQUE =====
 // 📋 FICHIER LOCAL - TRACE DES MODIFICATIONS
-// VERSION: RESEAU-10.206.173.30-v1.0
+// VERSION: LOCALHOST-v1.0
 // Ce fichier est gardé localement comme trace des modifications
 // La vitrine.html utilise les fichiers GitHub + override local
-console.log('🔧 [Version] app.js LOCAL - Trace modifications réseau 10.206.173.30 v1.0');
+console.log('🔧 [Version] app.js LOCAL - Trace modifications réseau localhost v1.0');
         // Récupérer le backend depuis les paramètres URL ou utiliser IP locale par défaut
         const urlParams = new URLSearchParams(window.location.search);
         const customBackend = urlParams.get('backend');
@@ -56,10 +56,9 @@ console.log('🔧 [Version] app.js LOCAL - Trace modifications réseau 10.206.17
 
         // Détection asynchrone du réseau basée sur la connectivité
         async function detectNetworkContext() {
-            // Test rapide pour déterminer le contexte réseau
+            // Test rapide pour déterminer le contexte réseau (DNS UQAM uniquement)
             const testUrls = [
                 { url: 'http://C46928_DEE.ddns.uqam.ca:7070/api/health', type: 'internal' },
-                { url: 'http://10.206.173.30:7070/api/health', type: 'current_network' },
                 { url: 'http://SAV-ATL-POR-8.ddns.uqam.ca:7070/api/health', type: 'dns_uqam' }
             ];
             
@@ -119,55 +118,40 @@ console.log('🔧 [Version] app.js LOCAL - Trace modifications réseau 10.206.17
                 if (window.BACKEND_BASE) return window.BACKEND_BASE;
                 const storedIp = localStorage.getItem('vitrine.backend.ip');
                 if (storedIp && typeof storedIp === 'string' && storedIp.trim()) {
-                    return /^https?:\/\//i.test(storedIp) ? storedIp : `http://${storedIp.trim()}:7070`;
+                    const backendUrl = /^https?:\/\//i.test(storedIp) ? storedIp : `http://${storedIp.trim()}:7070`;
+                    console.log('🌐 [Config] IP depuis localStorage:', backendUrl);
+                    return backendUrl;
                 }
-            } catch(e) { console.warn('[BackendBase] storage read error', e); }
+            } catch(e) { 
+                console.warn('[BackendBase] storage read error', e); 
+            }
             
-            // ✅ SOLUTION SIMPLE : Utiliser l'IP du réseau actuel
-            // Configuration pour le réseau 10.x.x.x (10.206.173.30)
-            console.log('🌐 [Config] Utilisation de l\'IP du réseau 10.x.x.x');
-            return 'http://10.206.173.30:7070';
+            // Si aucune IP configurée, retourner null pour forcer la configuration
+            console.log('⚠️ [Config] Aucune IP configurée. Utilisez Alt+Ctrl+J pour configurer le backend.');
+            return null;
         })();
         
-        // Fallbacks intelligents selon le contexte réseau détecté
-        function getFallbackUrls(networkContext = 'unknown') {
-            switch (networkContext) {
-                case 'uqam_public':
-                    return [
-                        'http://10.206.173.30:7070',  // IP réseau actuel (priorité absolue)
-                        'http://SAV-ATL-POR-8.ddns.uqam.ca:7070',  // DNS UQAM principal
-                        'http://C46928_DEE.ddns.uqam.ca:7070',  // DNS interne (au cas où)
-                    ];
-                case 'uqam_internal':
-                    return [
-                        'http://C46928_DEE.ddns.uqam.ca:7070',  // DNS interne (priorité)
-                        'http://SAV-ATL-POR-8.ddns.uqam.ca:7070',  // DNS UQAM principal
-                        'http://10.206.173.30:7070'  // IP réseau actuel (fallback)
-                    ];
-                case 'external_vpn':
-                    return [
-                        'http://10.206.173.30:7070',  // IP réseau actuel (priorité)
-                        'http://SAV-ATL-POR-8.ddns.uqam.ca:7070',  // DNS UQAM principal
-                        'http://C46928_DEE.ddns.uqam.ca:7070'  // DNS interne
-                    ];
-                default:
-                    return [
-                        'http://10.206.173.30:7070',  // IP réseau actuel (par défaut)
-                        'http://SAV-ATL-POR-8.ddns.uqam.ca:7070',  // DNS UQAM principal
-                        'http://C46928_DEE.ddns.uqam.ca:7070'  // DNS interne UQAM
-                    ];
-            }
+        // Fallbacks DNS UQAM (uniquement si pas d'IP configurée)
+        function getFallbackUrls() {
+            // Retourner uniquement les DNS UQAM comme fallback
+            return [
+                'http://SAV-ATL-POR-8.ddns.uqam.ca:7070',  // DNS UQAM principal
+                'http://C46928_DEE.ddns.uqam.ca:7070'  // DNS interne UQAM
+            ];
         }
         
         // Fallbacks par défaut (seront mis à jour par detectBestBackend)
         let FALLBACK_URLS = getFallbackUrls();
         
-        // ✅ SOLUTION SIMPLE : Test direct de l'IP publique
+        // ✅ SOLUTION SIMPLE : Test de l'IP configurée
         async function detectBestBackend() {
-            console.log('🔍 [Config] Test simple du backend IP publique...');
+            console.log('🔍 [Config] Test du backend configuré...');
             
-            // Forcer l'utilisation de l'IP du réseau actuel
-            API_BASE_URL = 'http://10.206.173.30:7070';
+            // Utiliser l'IP configurée dans localStorage
+            if (!API_BASE_URL) {
+                console.log('⚠️ [Config] Aucune IP configurée pour le test');
+                return null;
+            }
             
             try {
                 const testResponse = await fetch(`${API_BASE_URL}/api/health`, { 
@@ -175,45 +159,19 @@ console.log('🔧 [Version] app.js LOCAL - Trace modifications réseau 10.206.17
                     signal: AbortSignal.timeout(5000)
                 });
                 if (testResponse.ok) {
-                    console.log(`✅ [Config] Backend IP publique accessible: ${API_BASE_URL}`);
+                    console.log(`✅ [Config] Backend configuré accessible: ${API_BASE_URL}`);
                     currentAPI = API_BASE_URL;
                     window.dispatchEvent(new CustomEvent('backend:updated', { detail: { base: API_BASE_URL } }));
                     return API_BASE_URL;
                 }
             } catch (error) {
-                console.log(`⚠️ [Config] IP publique inaccessible, test DNS interne...`);
+                console.log(`⚠️ [Config] Backend configuré inaccessible: ${API_BASE_URL}`);
             }
             
-            // Fallbacks vers DNS UQAM si IP publique échoue
-            const fallbacks = [
-                'http://SAV-ATL-POR-8.ddns.uqam.ca:7070',
-                'http://C46928_DEE.ddns.uqam.ca:7070'
-            ];
-            
-            for (const fallback of fallbacks) {
-                try {
-                    console.log(`🔄 [Config] Test fallback DNS UQAM: ${fallback}`);
-                    const testResponse = await fetch(`${fallback}/api/health`, { 
-                        method: 'GET', 
-                        signal: AbortSignal.timeout(5000)
-                    });
-                    if (testResponse.ok) {
-                        console.log(`✅ [Config] DNS UQAM accessible: ${fallback}`);
-                        API_BASE_URL = fallback;
-                        currentAPI = fallback;
-                        window.dispatchEvent(new CustomEvent('backend:updated', { detail: { base: fallback } }));
-                        return fallback;
-                    }
-                } catch (error) {
-                    console.log(`❌ [Config] DNS UQAM inaccessible: ${fallback}`);
-                }
-            }
-            
-            console.error('🚨 [Config] Aucun backend accessible trouvé !');
-            console.log('💡 [Config] Suggestion: Utilisez Ctrl+Alt+J pour configurer manuellement le backend');
-            // Retourner l'IP publique par défaut même si elle ne répond pas
-            currentAPI = API_BASE_URL;
-            return API_BASE_URL;
+            console.error('🚨 [Config] Backend configuré inaccessible !');
+            console.log('💡 [Config] Suggestion: Utilisez Alt+Ctrl+J pour reconfigurer le backend');
+            // Retourner null pour indiquer l'échec
+            return null;
         }
         
         // ✅ INITIALISATION SYNCHRONE AVEC FALLBACK
@@ -265,6 +223,25 @@ console.log('🔧 [Version] app.js LOCAL - Trace modifications réseau 10.206.17
         // Fonction d'initialisation avec Promise pour attendre
         const backendInitPromise = (async function initializeBackend() {
             try {
+                // Vérifier si une IP est configurée dans localStorage
+                if (!API_BASE_URL) {
+                    console.log('⚠️ [Config] Aucune IP configurée. Affichage du modal de configuration...');
+                    // Afficher le modal de configuration automatiquement
+                    setTimeout(() => {
+                        if (typeof window.showBackendModal === 'function') {
+                            window.showBackendModal('');
+                        }
+                    }, 1000);
+                    // Pas d'IP par défaut - l'utilisateur doit configurer
+                    API_BASE_URL = null;
+                    currentAPI = null;
+                    backendInitialized = true;
+                    return currentAPI;
+                }
+                
+                currentAPI = API_BASE_URL;
+                window.BACKEND_BASE = API_BASE_URL;
+                
                 const detectedAPI = await detectBestBackend();
                 currentAPI = detectedAPI || API_BASE_URL; // ✅ S'assurer que currentAPI est mis à jour
                 backendInitialized = true;
@@ -273,6 +250,10 @@ console.log('🔧 [Version] app.js LOCAL - Trace modifications réseau 10.206.17
                 return currentAPI;
             } catch (error) {
                 console.error('❌ [Config] Erreur initialisation backend:', error);
+                // Utiliser l'IP configurée ou null si pas configurée
+                currentAPI = API_BASE_URL;
+                API_BASE_URL = currentAPI;
+                window.BACKEND_BASE = currentAPI;
                 backendInitialized = true;
                 return currentAPI;
             }
@@ -8057,7 +8038,7 @@ console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
             
             // ✅ PRIORITÉ 5 : Fallback vers IP réseau actuel
             console.log('🌐 [BackendPatch] Fallback vers IP réseau actuel');
-            return 'http://10.206.173.30:7070';
+            return 'http://localhost:7070';
         }
         
         let configuredUrl = getConfiguredBackendUrl();
