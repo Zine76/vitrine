@@ -1,4266 +1,293 @@
-<!DOCTYPE html>
-
-<html lang="fr">
-<head>
-<!-- VITRINE LOCK EARLY (prevents F5 landing) -->
-<script>
-(function () {
-  var KEY = 'vitrine.room.lock';
-  try {
-    var state = JSON.parse(localStorage.getItem(KEY) || 'null');
-    window.__VITRINE_LOCK__ = {
-      get: function(){ try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ return null; } },
-      set: function(obj){ try { localStorage.setItem(KEY, JSON.stringify(obj)); } catch(e){} },
-      clear: function(){ try { localStorage.removeItem(KEY); } catch(e){} },
-      isLocked: function(){ var s=this.get(); return !!(s && s.locked && s.name); }
-    };
-    if (state && state.locked && state.name) {
-      document.documentElement.classList.add('is-room-locked');
-      window.__LOCKED_ROOM_NAME__ = state.name;
-    }
-  } catch(e){}
-})();
-</script>
-<style>
-/* Masque toute UI d'accueil/landing dès le parse si verrouillé */
-.is-room-locked #landing,
-.is-room-locked .landing,
-.is-room-locked [data-route="landing"],
-.is-room-locked [data-component*="landing"],
-.is-room-locked [class*="landing"],
-.is-room-locked [id*="landing"] { display:none !important; }
-
-/* ===== EXCEPTION CHAT AUTONOME ===== */
-/* La bannière de chat peut s'afficher même quand verrouillé, mais seulement quand activée par JavaScript */
-.is-room-locked #consentBanner[style*="display: block"],
-.is-room-locked .consent-banner[style*="display: block"] {
-  display: block !important;
-  position: fixed !important;
-  z-index: 10002 !important;
-}
-
-.is-room-locked .change-room-btn,
-.is-room-locked [data-action="choose-room"],
-.is-room-locked [data-action="change-room"],
-.is-room-locked [onclick*="changeRoom"],
-.is-room-locked [href*="landing"] {
-  pointer-events:none !important; opacity:.5 !important; filter:grayscale(1);
-}
-</style>
-
-<!-- API BASE PATCH v6: ultra-robuste (file://, '/api', 'api/', URLs file/null, Request & XHR) -->
-<script>
-(function(){
-  // ✅ CONFIGURATION BACKEND FLEXIBLE
-  // Peut être configuré via URL param: ?backend=http://192.168.1.100:7070
-  var urlParams = new URLSearchParams(window.location.search);
-  var customBackend = urlParams.get('backend');
-  // ✅ DÉTECTION AUTOMATIQUE PROTOCOLE pour éviter Mixed Content
-  var isSecurePage = location.protocol === 'https:';
-  var forceHttp = urlParams.get('http') === 'true'; // Paramètre pour forcer HTTP
-  var defaultProtocol = (isSecurePage && !forceHttp) ? 'https' : 'http';
-  // ✅ UTILISER LE BON PORT SELON LE PROTOCOLE
-  var httpsPort = (defaultProtocol === 'https') ? '7443' : '7070';
-  var fallbackHttpsPort = (defaultProtocol === 'https') ? '7443' : '7070';
-  var DEV_BASE  = customBackend || (defaultProtocol + '://C46928_DEE.adm.gst.uqam.ca:' + httpsPort);  // DNS UQAM avec bon protocole/port
-  var FALLBACK_BASE = defaultProtocol + '://localhost:' + fallbackHttpsPort;  // Fallback avec bon protocole/port
-  var PROD_BASE = ''; // même domaine en prod
-  var FORCE     = (location.protocol === 'file:') || customBackend;
-
-  var BASE = FORCE ? DEV_BASE : PROD_BASE;
-
-  function isHttp(u){ return /^https?:\/\//i.test(u); }
-  function join(base, path){ return base.replace(/\/+$/,'') + '/' + String(path||'').replace(/^\/+/, ''); }
-
-  function looksLikeApi(u){
-    if (!u) return false;
-    // enlever file:///C:.../ pour inspecter
-    var raw = String(u).replace(/^file:[^?]*/i, '');
-    // enlever './' '../' et '/' de tête
-    raw = raw.replace(/^[.\/]+/, '');
-    // heuristique large: contient "/api" en début OU après base file
-    return (/^(api|podio|backend)/i.test(raw) || /(^|\/)api(\/|$)/i.test(raw));
-  }
-
-  function absolutize(input, init){
-    try {
-      if (!FORCE) return { input, init };
-      if (typeof input === 'string') {
-        // si déjà http -> untouched
-        if (isHttp(input)) return { input, init };
-        if (looksLikeApi(input)) return { input: join(BASE, input), init };
-        // cas "null/..." construit ailleurs
-        if (/^null\//i.test(input)) return { input: join(BASE, input.replace(/^null\//i,'')), init };
-      }
-      // Request object
-      if (input && input.url) {
-        var url = input.url;
-        if (!isHttp(url)) {
-          if (looksLikeApi(url) || /^file:/i.test(url) || /^null/i.test(url)) {
-            var norm = url.replace(/^file:[^?]*/i,'').replace(/^null\//i,'');
-            var newUrl = join(BASE, norm);
-            // reconstruire en conservant toutes les options
-            var opts = {
-              method: input.method,
-              headers: input.headers,
-              body: input.body,
-              mode: input.mode,
-              credentials: input.credentials,
-              cache: input.cache,
-              redirect: input.redirect,
-              referrer: input.referrer,
-              referrerPolicy: input.referrerPolicy,
-              integrity: input.integrity,
-              keepalive: input.keepalive,
-              signal: input.signal,
-              duplex: input.duplex
-            };
-            input = new Request(newUrl, opts);
-          }
-        }
-      }
-    } catch(e){ console.warn('[API PATCH v6]', e); }
-    return { input, init };
-  }
-
-  // fetch
-  var _fetch = window.fetch;
-  window.fetch = function(input, init){
-    var r = absolutize(input, init);
-    return _fetch(r.input, r.init);
-  };
-
-  // XHR
-  var _open = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function(method, url){
-    try {
-      if (!isHttp(url) && looksLikeApi(url)) url = join(BASE, url);
-      if (/^file:/i.test(url)) url = join(BASE, url.replace(/^file:[^?]*/i,''));
-      if (/^null\//i.test(url)) url = join(BASE, url.replace(/^null\//i,''));
-    } catch(e){}
-    return _open.apply(this, [method, url].concat([].slice.call(arguments, 2)));
-  };
-
-  // Expose pour debug
-  window.__API_BASE__ = BASE;
-  if (FORCE) console.log('[API PATCH v6] BASE =', BASE);
-})();
-</script>
-
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>Vitrine</title>
-<!-- Favicon -->
-<link href="https://raw.githubusercontent.com/Zine76/vitrine/main/assets/Vitrine.png" rel="icon" type="image/png"/>
-<!-- Font Awesome pour les icônes -->
-<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
-<style>
-        /* ===== VARIABLES CSS ===== */
-        :root {
-            /* Couleurs principales */
-            --primary-blue: #3b82f6;
-            --primary-purple: #ffffff;
-            --primary-orange: #f97316;
-            --primary-green: #10b981;
-            
-            /* Couleurs de fond */
-            --bg-gradient-start: #1e293b;
-            --bg-gradient-end: #334155;
-            --card-bg: #ffffff;
-            --card-bg-dark: #1e293b;
-            
-            /* Couleurs de texte */
-            --text-primary: #1f2937;
-            --text-primary-dark: #f8fafc;
-            --text-secondary: #6b7280;
-            --text-secondary-dark: #cbd5e1;
-            
-            /* Ombres et effets */
-            --shadow-light: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            --shadow-medium: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-            --shadow-heavy: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-            
-            /* Transitions */
-            --transition-fast: 0.2s ease;
-            --transition-medium: 0.3s ease;
-            --transition-slow: 0.5s ease;
-            
-            /* Bordures */
-            --border-radius: 16px;
-            --border-radius-small: 8px;
-            
-            /* Bannières et escalade */
-            --escalation-bg: linear-gradient(135deg, #00b4d8 0%, #0077b6 100%);
-            --escalation-btn-bg: rgba(255, 255, 255, 0.1);
-            --escalation-btn-hover: rgba(255, 255, 255, 0.2);
-            --escalation-btn-primary: rgba(255, 255, 255, 0.9);
-            --escalation-btn-primary-text: #667eea;
-            --ticket-bg: #f0f9ff;
-            --ticket-border: #3b82f6;
-            --ticket-card-bg: #ffffff;
-            --ticket-text: #1e40af;
-            --problems-bg: #fef3c7;
-            --problems-border: #fbbf24;
-            --problems-text: #92400e;
-            --auto-result-bg: #f0f9ff;
-            --auto-result-border: #3b82f6;
-            --auto-result-text: #1e40af;
-            --suggestion-bg: #f3f4f6;
-            --suggestion-border: #d1d5db;
-            --suggestion-hover: #e5e7eb;
-            --action-bg: #f3f4f6;
-            --action-border: #d1d5db;
-            --action-hover: #e5e7eb;
-            
-            /* Chat SEA */
-            --chat-bg: #f0f9ff;
-            --chat-border: #3b82f6;
-            --chat-header-bg: #3b82f6;
-            --chat-header-text: #ffffff;
-        }
-
-        /* ===== ANIMATIONS ===== */
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translate(-50%, -60%);
-            }
-            to {
-                opacity: 1;
-                transform: translate(-50%, -50%);
-            }
-        }
-
-        /* ===== CHAT SEA MODAL ===== */
-        .chat-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all var(--transition-medium);
-        }
-
-        .chat-modal.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .chat-container {
-            background: var(--chat-bg);
-            border: 2px solid var(--chat-border);
-            border-radius: var(--border-radius);
-            width: 90%;
-            max-width: 800px;
-            height: 80vh;
-            display: flex;
-            flex-direction: column;
-            transform: scale(0.8);
-            transition: transform var(--transition-medium);
-            overflow: hidden; /* EMPÊCHE DÉBORDEMENT */
-        }
-
-        .chat-modal.active .chat-container {
-            transform: scale(1);
-        }
-
-        .chat-header {
-            background: var(--chat-header-bg);
-            color: var(--chat-header-text);
-            padding: 1rem 1.5rem;
-            border-radius: var(--border-radius) var(--border-radius) 0 0;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            margin: 0; /* RESET MARGINS */
-            flex-shrink: 0; /* EMPÊCHE COMPRESSION */
-        }
-
-        .chat-header h3 {
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-
-        .chat-close {
-            background: none;
-            border: none;
-            color: var(--chat-header-text);
-            font-size: 1.5rem;
-            cursor: pointer;
-            padding: 0.5rem;
-            border-radius: 4px;
-            transition: all var(--transition-fast);
-        }
-
-        .chat-close:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-
-        .chat-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            border-radius: 0 0 var(--border-radius) var(--border-radius);
-            background: var(--chat-bg);
-        }
-
-        .chat-messages {
-            flex: 1;
-            padding: 1rem;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
-
-        .chat-message {
-            max-width: 80%;
-            padding: 0.75rem 1rem;
-            border-radius: 12px;
-            font-size: 0.9rem;
-            line-height: 1.4;
-        }
-
-        .chat-message.sent {
-            align-self: flex-end;
-            background: var(--primary-blue);
-            color: white;
-        }
-
-        .chat-message.received {
-            align-self: flex-start;
-            background: #e5e7eb;
-            color: var(--text-primary);
-        }
-        
-        /* ✅ MESSAGES CHAT MODE NUIT */
-        [data-theme="dark"] .chat-message.received {
-            background: #475569 !important;
-            color: white !important;
-        }
-        
-        [data-theme="dark"] .chat-message.sent {
-            background: #3b82f6 !important;
-            color: white !important;
-        }
-        
-        /* Message système d'accueil */
-        .chat-message.system-message {
-            align-self: center;
-            background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-            color: white;
-            border: 2px solid rgba(59, 130, 246, 0.3);
-            max-width: 90%;
-            text-align: center;
-            padding: 1.5rem;
-        }
-        
-        .system-message-content {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.75rem;
-        }
-        
-        .system-message-content i {
-            font-size: 2rem;
-            color: #93c5fd;
-        }
-        
-        .system-message-text {
-            line-height: 1.6;
-        }
-        
-        .system-message-text strong {
-            color: #dbeafe;
-            font-size: 1.1rem;
-        }
-        
-        .system-message-text em {
-            color: #bfdbfe;
-            font-style: italic;
-        }
-
-        .chat-input-area {
-            display: flex;
-            gap: 0.5rem;
-            padding: 1rem;
-            border-top: 1px solid #e5e7eb;
-            background: white;
-        }
-
-        .chat-input-area input {
-            flex: 1;
-            padding: 0.75rem;
-            border: 1px solid #d1d5db;
-            border-radius: 8px;
-            font-size: 0.9rem;
-            background: white;
-            color: #1f2937;
-        }
-        
-        /* ✅ CHAT INPUT MODE NUIT - FONDS SOMBRES BRUTALE */
-        [data-theme="dark"] .chat-input-area {
-            background: #1e293b !important;
-            border-top-color: #334155 !important;
-        }
-        
-        [data-theme="dark"] .chat-modal input,
-        [data-theme="dark"] .chat-container input,
-        [data-theme="dark"] .chat-input-area input,
-        [data-theme="dark"] input[placeholder*="Tapez"],
-        [data-theme="dark"] input[placeholder*="message"] {
-            background: #334155 !important;
-            background-color: #334155 !important;
-            color: white !important;
-            border: 2px solid #475569 !important;
-            -webkit-text-fill-color: white !important;
-            text-shadow: none !important;
-        }
-        
-        [data-theme="dark"] .chat-modal input::placeholder,
-        [data-theme="dark"] .chat-container input::placeholder,
-        [data-theme="dark"] .chat-input-area input::placeholder {
-            color: #94a3b8 !important;
-            -webkit-text-fill-color: #94a3b8 !important;
-        }
-        
-        [data-theme="dark"] .chat-modal input:focus,
-        [data-theme="dark"] .chat-container input:focus,
-        [data-theme="dark"] .chat-input-area input:focus {
-            border-color: #3b82f6 !important;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
-            color: white !important;
-            -webkit-text-fill-color: white !important;
-        }
-
-        .chat-input-area input:focus {
-            outline: none;
-            border-color: var(--primary-blue);
-        }
-
-        .send-btn {
-            padding: 0.75rem 1rem;
-            background: var(--primary-blue);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .send-btn:hover {
-            background: #1d4ed8;
-        }
-        
-        /* ✅ BOUTONS CHAT MODE NUIT */
-        [data-theme="dark"] .send-btn {
-            background: #3b82f6 !important;
-            color: white !important;
-        }
-        
-        [data-theme="dark"] .send-btn:hover {
-            background: #2563eb !important;
-        }
-
-        /* ===== CONSENT BANNER CENTRÉE AVEC ANIMATION SONNERIE ===== */
-        .consent-banner {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
-            color: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 40px rgba(30, 64, 175, 0.4);
-            z-index: 10002;
-            max-width: 450px;
-            border: 3px solid rgba(59, 130, 246, 0.5);
-            animation: consentSlideIn 0.5s ease-out;
-            text-align: center;
-        }
-        
-        /* Animation d'entrée centrée */
-        @keyframes consentSlideIn {
-            from {
-                opacity: 0;
-                transform: translate(-50%, -50%) scale(0.8);
-            }
-            to {
-                opacity: 1;
-                transform: translate(-50%, -50%) scale(1);
-            }
-        }
-        
-        /* Animation de clignotement notification chat */
-        .consent-banner-phone {
-            animation: chatNotification 1.5s ease-in-out infinite;
-            display: inline-block;
-            margin-bottom: 1rem;
-        }
-        
-        @keyframes chatNotification {
-            0%, 100% {
-                transform: scale(1) rotate(0deg);
-                color: #60a5fa;
-            }
-            25% {
-                transform: scale(1.1) rotate(-2deg);
-                color: #93c5fd;
-            }
-            50% {
-                transform: scale(1.2) rotate(0deg);
-                color: #dbeafe;
-            }
-            75% {
-                transform: scale(1.1) rotate(2deg);
-                color: #93c5fd;
-            }
-        }
-
-        /* ===== CHAT TIMEOUT BANNER ===== */
-        .chat-timeout-banner {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, #f59e0b, #d97706);
-            color: white;
-            padding: 2rem;
-            border-radius: 20px;
-            box-shadow: 0 20px 60px rgba(245, 158, 11, 0.4);
-            z-index: 10002;
-            width: 90%;
-            max-width: 520px;
-            text-align: center;
-            border: 3px solid rgba(255, 255, 255, 0.2);
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-            animation: consentSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-            display: none;
-        }
-
-        .chat-timeout-banner h3 {
-            margin: 0 0 1rem 0;
-            font-size: 1.4rem;
-            font-weight: 700;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        .chat-timeout-banner p {
-            margin: 0 0 1.5rem 0;
-            font-size: 1rem;
-            line-height: 1.5;
-            opacity: 0.95;
-        }
-
-        .chat-timeout-banner .timeout-actions {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .chat-timeout-banner .timeout-btn {
-            padding: 0.8rem 1.5rem;
-            border: none;
-            border-radius: 12px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            min-width: 140px;
-            justify-content: center;
-        }
-
-        .chat-timeout-banner .timeout-btn.initiate {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .chat-timeout-banner .timeout-btn.initiate:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: translateY(-2px);
-        }
-
-        .chat-timeout-banner .timeout-btn.close {
-            background: rgba(239, 68, 68, 0.8);
-            color: white;
-        }
-
-        .chat-timeout-banner .timeout-btn.close:hover {
-            background: rgba(239, 68, 68, 1);
-            transform: translateY(-2px);
-        }
-
-        .consent-content {
-            padding: 1.5rem;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .consent-icon {
-            font-size: 2rem;
-            opacity: 0.9;
-        }
-
-        .consent-text {
-            flex: 1;
-        }
-
-        .consent-text h4 {
-            margin: 0 0 0.5rem 0;
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        .consent-text p {
-            margin: 0;
-            font-size: 0.9rem;
-            opacity: 0.9;
-            line-height: 1.4;
-        }
-
-        .consent-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .consent-btn {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        .consent-btn.accept {
-            background: #10b981;
-            color: white;
-        }
-
-        .consent-btn.accept:hover {
-            background: #059669;
-            transform: translateY(-1px);
-        }
-
-        .consent-btn.decline {
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-        }
-
-        .consent-btn.decline:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-1px);
-        }
-
-        @keyframes slideInRight {
-            from {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateX(0);
-                opacity: 1;
-            }
-        }
-
-        @keyframes slideOutRight {
-            from {
-                transform: translateX(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateX(100%);
-                opacity: 0;
-            }
-        }
-
-        /* ===== MODE NUIT PROFESSIONNEL ===== */
-        [data-theme="dark"] {
-            /* Couleurs de base */
-            --bg-gradient-start: #0f172a;
-            --bg-gradient-end: #1e293b;
-            --card-bg: #1e293b;
-            --card-bg-dark: #334155;
-            
-            /* Texte */
-            --text-primary: #e2e8f0;
-            --text-secondary: #94a3b8;
-            --text-muted: #64748b;
-            
-            /* Couleurs primaires */
-            --primary-blue: #3b82f6;
-            --primary-purple: #ffffff;
-            --primary-orange: #f97316;
-            --primary-green: #059669;
-            
-            /* Interactions */
-            --suggestion-bg: #334155;
-            --suggestion-border: #475569;
-            --suggestion-hover: #475569;
-            --action-bg: #334155;
-            --action-border: #475569;
-            --action-hover: #475569;
-            
-            /* Chat SEA */
-            --chat-bg: #1e293b;
-            --chat-border: #3b82f6;
-            --chat-header-bg: #1e40af;
-            
-            /* Bordures */
-            --border-color: #475569;
-            --border-hover: #64748b;
-            --border-focus: #3b82f6;
-            
-            /* Ombres */
-            --shadow-light: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
-            --shadow-medium: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
-            --shadow-heavy: 0 10px 15px -3px rgba(0, 0, 0, 0.4);
-            
-            /* Bannières et états */
-            --escalation-bg: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
-            --escalation-btn-bg: rgba(255, 255, 255, 0.1);
-            --escalation-btn-hover: rgba(255, 255, 255, 0.2);
-            --escalation-btn-primary: rgba(255, 255, 255, 0.9);
-            --escalation-btn-primary-text: #3b82f6;
-            --ticket-bg: rgba(59, 130, 246, 0.1);
-            --ticket-border: #3b82f6;
-            --ticket-card-bg: #1e293b;
-            --ticket-text: #60a5fa;
-            --problems-bg: rgba(217, 119, 6, 0.1);
-            --problems-border: #d97706;
-            --problems-text: #f59e0b;
-            --auto-result-bg: rgba(59, 130, 246, 0.1);
-            --auto-result-border: #3b82f6;
-            --auto-result-text: #60a5fa;
-        }
-
-        /* ===== STYLES MODE NUIT PROFESSIONNELS ===== */
-        [data-theme="dark"] body {
-            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
-            color: var(--text-primary);
-        }
-
-        [data-theme="dark"] .landing-content h2,
-        [data-theme="dark"] .landing-subtitle,
-        [data-theme="dark"] .room-text {
-            color: var(--text-primary) !important;
-        }
-
-        [data-theme="dark"] .palette h3,
-        [data-theme="dark"] .palette p {
-            color: var(--text-primary) !important;
-        }
-
-        [data-theme="dark"] .message-content,
-        [data-theme="dark"] .message,
-        [data-theme="dark"] .message strong,
-        [data-theme="dark"] .message p,
-        [data-theme="dark"] .message div {
-            color: var(--text-primary) !important;
-        }
-
-        [data-theme="dark"] .auto-result,
-        [data-theme="dark"] .diagnostic-summary,
-        [data-theme="dark"] .diagnostic-summary h3,
-        [data-theme="dark"] .diagnostic-summary p,
-        [data-theme="dark"] .diagnostic-summary .status-item,
-        [data-theme="dark"] .diagnostic-summary .status-item span {
-            color: var(--text-primary) !important;
-        }
-
-        [data-theme="dark"] .diagnostic-card,
-        [data-theme="dark"] .diagnostic-card * {
-            color: var(--text-primary) !important;
-        }
-
-        [data-theme="dark"] .content,
-        [data-theme="dark"] .main-container {
-            color: var(--text-primary) !important;
-        }
-
-        /* Champs de saisie en mode nuit */
-        [data-theme="dark"] input,
-        [data-theme="dark"] textarea,
-        [data-theme="dark"] select {
-            background: var(--card-bg-dark) !important;
-            color: var(--text-primary) !important;
-            border: 2px solid var(--border-color) !important;
-        }
-
-        [data-theme="dark"] input::placeholder,
-        [data-theme="dark"] textarea::placeholder {
-            color: var(--text-muted) !important;
-        }
-
-        [data-theme="dark"] input:focus,
-        [data-theme="dark"] textarea:focus,
-        [data-theme="dark"] select:focus {
-            border-color: var(--border-focus) !important;
-            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
-        }
-
-        [data-theme="dark"] select option {
-            background: var(--card-bg-dark) !important;
-            color: var(--text-primary) !important;
-        }
-
-        /* Cards et conteneurs */
-        [data-theme="dark"] .palette,
-        [data-theme="dark"] .message-bubble,
-        [data-theme="dark"] .auto-result,
-        [data-theme="dark"] .diagnostic-card {
-            background: var(--card-bg) !important;
-            border-color: var(--border-color) !important;
-        }
-
-        [data-theme="dark"] .palette:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-medium);
-            border-color: var(--border-hover) !important;
-        }
-
-        /* Boutons et interactions */
-        [data-theme="dark"] button:not(.palette) {
-            background: var(--action-bg) !important;
-            color: var(--text-primary) !important;
-            border-color: var(--border-color) !important;
-        }
-
-        [data-theme="dark"] button:not(.palette):hover {
-            background: var(--action-hover) !important;
-            border-color: var(--border-hover) !important;
-        }
-
-
-        /* ===== BOUTON TOGGLE MODE NUIT ===== */
-        .theme-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 50px;
-            padding: 0.75rem 1.25rem;
-            color: white;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-            z-index: 9999;
-            box-shadow: var(--shadow-medium);
-        }
-
-        .theme-toggle:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: scale(1.05);
-        }
-
-        .theme-toggle i {
-            font-size: 1.2rem;
-        }
-
-        [data-theme="dark"] .theme-toggle {
-            background: rgba(59, 130, 246, 0.2);
-            color: var(--text-primary);
-        }
-
-        [data-theme="dark"] .theme-toggle:hover {
-            background: rgba(59, 130, 246, 0.3);
-        }
-
-
-
-
-
-        /* ===== RESET ET BASE ===== */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        /* ===== BANNIÈRES ET ESCALADE ===== */
-        .escalation-compact {
-            background: var(--escalation-bg);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            color: black;
-            margin: 0.5rem 0;
-            padding: 0.875rem;
-            transition: all 0.3s ease;
-        }
-
-        .escalation-header {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .escalation-icon {
-            font-size: 1.25rem;
-            width: 32px;
-            height: 32px;
-            background: var(--escalation-btn-bg);
-            border-radius: 6px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        }
-
-        .escalation-text {
-            flex: 1;
-            line-height: 1.3;
-        }
-
-        .escalation-text strong {
-            display: block;
-            font-size: 0.9rem;
-            font-weight: 600;
-            color: black;
-            margin-bottom: 0.125rem;
-        }
-
-        .escalation-subtitle {
-            font-size: 1.5rem;
-            color: black;
-            font-weight: 700;
-            text-shadow: none;
-            text-align: center;
-            display: block;
-            margin-top: 0.5rem;
-            padding: 0.5rem;
-            background: var(--escalation-btn-bg);
-            border-radius: 8px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .escalation-actions {
-            display: flex;
-            gap: 0.5rem;
-            justify-content: flex-end;
-        }
-
-        .escalation-btn {
-            padding: 0.5rem 0.875rem;
-            border-radius: 6px;
-            font-weight: 500;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.375rem;
-            border: 1px solid transparent;
-        }
-
-        .escalation-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .escalation-btn.secondary {
-            background: var(--escalation-btn-bg);
-            color: white;
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-
-        .escalation-btn.secondary:hover:not(:disabled) {
-            background: var(--escalation-btn-hover);
-        }
-
-        .escalation-btn.primary {
-            background: var(--escalation-btn-primary);
-            color: var(--escalation-btn-primary-text);
-            border-color: rgba(255, 255, 255, 0.8);
-            font-weight: 600;
-        }
-
-        .escalation-btn.primary:hover:not(:disabled) {
-            background: white;
-            color: var(--escalation-btn-primary-text);
-        }
-
-        .escalation-btn i {
-            font-size: 0.75rem;
-        }
-
-        .ticket-interface {
-            background: var(--ticket-bg);
-            border: 1px solid var(--ticket-border);
-            border-radius: 12px;
-            padding: 1rem;
-            margin-top: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .ticket-card {
-            background: var(--ticket-card-bg);
-            border-radius: 8px;
-            padding: 1rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            transition: all 0.3s ease;
-        }
-
-        .ticket-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .ticket-icon {
-            font-size: 1.5rem;
-            background: #e0f2fe;
-            border-radius: 8px;
-            padding: 0.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .ticket-info {
-            flex: 1;
-        }
-
-        .ticket-info h4 {
-            color: var(--ticket-text);
-            margin-bottom: 0.25rem;
-            font-size: 1.1rem;
-        }
-
-        .ticket-description {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin: 0;
-        }
-
-        .ticket-priority {
-            padding: 0.25rem 0.5rem;
-            border-radius: 12px;
-            font-size: 0.8rem;
-            font-weight: 600;
-            text-transform: uppercase;
-        }
-
-        .ticket-priority.medium {
-            background: #fef3c7;
-            color: #92400e;
-        }
-
-        .ticket-priority.high {
-            background: #fee2e2;
-            color: #991b1b;
-        }
-
-        .ticket-priority.low {
-            background: #d1fae5;
-            color: #065f46;
-        }
-
-        .ticket-details {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 0.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .ticket-detail-item {
-            font-size: 0.9rem;
-            color: var(--text-primary);
-            padding: 0.25rem 0;
-        }
-
-        .ticket-detail-item strong {
-            color: var(--text-primary);
-        }
-
-        .ticket-actions {
-            display: flex;
-            gap: 0.5rem;
-            margin-top: 0.75rem;
-        }
-
-        .ticket-btn {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .ticket-btn.primary {
-            background: var(--primary-blue);
-            color: white;
-        }
-
-        .ticket-btn.primary:hover {
-            background: #1d4ed8;
-        }
-
-        .ticket-btn.secondary {
-            background: var(--suggestion-bg);
-            color: var(--text-primary);
-            border: 1px solid var(--suggestion-border);
-        }
-
-        .ticket-btn.secondary:hover {
-            background: var(--suggestion-hover);
-        }
-
-        .problems-detected {
-            background: var(--problems-bg);
-            border: 1px solid var(--problems-border);
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 0.5rem 0;
-            color: var(--problems-text);
-        }
-
-        .auto-result {
-            background: var(--auto-result-bg);
-            border: 1px solid var(--auto-result-border);
-            border-radius: 8px;
-            padding: 0.75rem;
-            margin: 0.5rem 0;
-            color: var(--auto-result-text);
-            font-weight: 500;
-        }
-
-        /* Styles pour la bannière de confirmation automatique */
-        .auto-result-banner {
-            animation: fadeIn 0.3s ease-in-out;
-        }
-
-        .auto-result-banner .auto-result-text {
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-        }
-
-        /* Mode nuit - couleurs renforcées pour visibilité */
-        [data-theme="dark"] .auto-result-banner {
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-            border: 2px solid #10b981 !important;
-            color: white !important;
-        }
-
-        [data-theme="dark"] .auto-result-banner strong,
-        [data-theme="dark"] .auto-result-banner span {
-            color: white !important;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-        }
-
-        /* Styles mode nuit pour la nouvelle bannière SEA centrée */
-        [data-theme="dark"] .escalation-compact {
-            background: rgba(30, 41, 59, 0.98) !important;
-            color: white !important;
-        }
-
-        [data-theme="dark"] .escalation-compact strong,
-        [data-theme="dark"] .escalation-compact span,
-        [data-theme="dark"] .escalation-compact p,
-        [data-theme="dark"] .escalation-compact h3,
-        [data-theme="dark"] .escalation-compact div,
-        [data-theme="dark"] .escalation-compact small,
-        [data-theme="dark"] .escalation-compact i {
-            color: white !important;
-            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-        }
-
-        [data-theme="dark"] .escalation-compact textarea {
-            background: rgba(51, 65, 85, 0.9) !important;
-            color: white !important;
-            border: 1px solid #475569 !important;
-        }
-
-        [data-theme="dark"] .escalation-compact textarea::placeholder {
-            color: #94a3b8 !important;
-        }
-
-        .message-actions {
-            margin-top: 0.75rem;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .action-btn {
-            padding: 0.5rem 0.75rem;
-            background: var(--action-bg);
-            border: 1px solid var(--action-border);
-            border-radius: 6px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.25rem;
-        }
-
-        .action-btn:hover {
-            background: var(--action-hover);
-        }
-
-        .action-btn.auto-executed {
-            background: var(--primary-green);
-            color: white;
-            border-color: var(--primary-green);
-            cursor: default;
-        }
-
-        /* ===== IMAGES D'ESCALADE ===== */
-        .sea-escalation-image {
-            width: 75%;
-            height: 120px;
-            border-radius: 6px;
-            margin: 0.5rem auto;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            display: block;
-            object-fit: contain;
-        }
-
-        .sim-redirect-image {
-            max-width: 100px;
-            width: auto;
-            height: auto;
-            max-height: 80px;
-            object-fit: contain;
-            border-radius: 6px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            margin: 0;
-            display: block;
-        }
-
-        .escalation-image-container {
-            text-align: center;
-            margin: 0.3rem 0;
-            padding: 0.3rem;
-            border-radius: 12px;
-            border: 2px solid #4F46E5;
-            overflow: hidden;
-            height: 140px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            /* ARRIÈRE-PLAN OPAQUE POUR CACHER COMPLÈTEMENT */
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s ease;
-        }
-        
-        /* Effet hover simple */
-        .escalation-image-container:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
-        }
-
-        /* Mode sombre pour les images */
-        [data-theme="dark"] .escalation-image-container {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(255, 255, 255, 0.15);
-        }
-
-        /* Responsive pour les images */
-        @media (max-width: 768px) {
-            .sea-escalation-image {
-                max-width: 50%;
-                max-height: 60px;
-            }
-            .sim-redirect-image {
-                max-width: 100%;
-                width: 100%;
-                height: 100%;
-            }
-        }
-
-        /* ===== BANNIÈRES SEA MODE JOUR - BLEU AZURE + TEXTE BLANC ===== */
-        .escalation-compact {
-            background: var(--escalation-bg) !important;
-            color: white !important;
-            border: 2px solid rgba(255, 255, 255, 0.2) !important;
-        }
-        
-        .escalation-compact,
-        .escalation-compact *,
-        .escalation-compact .escalation-text,
-        .escalation-compact .escalation-text *,
-        .escalation-compact .escalation-subtitle,
-        .escalation-compact .escalation-subtitle *,
-        .escalation-compact strong,
-        .escalation-compact span,
-        .escalation-compact div,
-        .escalation-compact p,
-        .escalation-compact h3,
-        .escalation-compact h4,
-        .escalation-compact h5,
-        .escalation-compact h6,
-        .escalation-compact .escalation-text strong,
-        .escalation-compact .escalation-header strong,
-        .escalation-compact .escalation-header .escalation-text strong,
-        .escalation-compact .escalation-header,
-        .escalation-compact .escalation-header *,
-        .escalation-compact .escalation-image-container,
-        .escalation-compact .escalation-image-container *,
-        .escalation-compact .client-description-section,
-        .escalation-compact .client-description-section *,
-        .escalation-compact .description-header,
-        .escalation-compact .description-header *,
-        .escalation-compact .description-help,
-        .escalation-compact .description-help *,
-        .escalation-compact .escalation-actions,
-        .escalation-compact .escalation-actions *,
-        .escalation-compact .sea-fallback-content,
-        .escalation-compact .sea-fallback-content *,
-        .escalation-compact .sea-fallback-content h3,
-        .escalation-compact .sea-fallback-content p,
-        .escalation-compact .sea-fallback-content span,
-        .escalation-compact .sea-fallback-content div {
-            color: white !important;
-        }
-
-        /* Champs de saisie mode jour - BLANC */
-        .escalation-compact input,
-        .escalation-compact textarea {
-            background: white !important;
-            color: #1f2937 !important;
-            border: 2px solid rgba(255, 255, 255, 0.3) !important;
-            border-radius: 8px !important;
-            padding: 0.75rem !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-        }
-
-        .escalation-compact input::placeholder,
-        .escalation-compact textarea::placeholder {
-            color: #6b7280 !important;
-        }
-
-        .escalation-compact input:focus,
-        .escalation-compact textarea:focus {
-            border-color: #0ea5e9 !important;
-            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2) !important;
-            outline: none !important;
-        }
-
-        /* Boutons mode jour - BLANC */
-        .escalation-compact .escalation-btn {
-            background: white !important;
-            color: #0ea5e9 !important;
-            border: 2px solid white !important;
-            border-radius: 8px !important;
-            padding: 0.75rem 1.5rem !important;
-            font-weight: 600 !important;
-            transition: all 0.3s ease !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-        }
-
-        .escalation-compact .escalation-btn:hover {
-            background: #f8fafc !important;
-            border-color: #f8fafc !important;
-            transform: translateY(-1px) !important;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
-        }
-
-        /* ===== OVERRIDE STYLES INLINE MODE JOUR - TOUT EN BLANC ===== */
-        .escalation-compact [style*="color: black"],
-        .escalation-compact strong[style*="color: black"],
-        .escalation-compact span[style*="color: black"],
-        .escalation-compact p[style*="color: black"],
-        .escalation-compact div[style*="color: black"],
-        .escalation-compact h3[style*="color: black"],
-        .escalation-compact label[style*="color: black"],
-        .escalation-compact small[style*="color: black"] {
-            color: white !important;
-        }
-
-        .escalation-compact button[style*="color: black"] {
-            background: white !important;
-            color: #0ea5e9 !important;
-            border: 2px solid white !important;
-            font-weight: 600 !important;
-        }
-
-        .escalation-compact input[style*="color: black"],
-        .escalation-compact textarea[style*="color: black"] {
-            background: white !important;
-            color: #1f2937 !important;
-            border: 2px solid rgba(255, 255, 255, 0.3) !important;
-        }
-
-        /* ===== BANNIÈRES SEA MODE NUIT - BLEU AZURE ===== */
-        [data-theme="dark"] .escalation-compact {
-            background: var(--escalation-bg) !important;
-            border: 2px solid rgba(255, 255, 255, 0.2) !important;
-            box-shadow: var(--shadow-heavy) !important;
-            color: white !important;
-        }
-
-        /* Override pour tous les divs avec arrière-plan blanc dans les bannières */
-        [data-theme="dark"] .escalation-compact [style*="background"],
-        [data-theme="dark"] .escalation-compact [style*="background-color"] {
-            background: transparent !important;
-        }
-
-        /* Texte principal des bannières en mode nuit - TOUT EN BLANC */
-        [data-theme="dark"] .escalation-compact,
-        [data-theme="dark"] .escalation-compact *,
-        [data-theme="dark"] .escalation-compact .escalation-text,
-        [data-theme="dark"] .escalation-compact .escalation-text *,
-        [data-theme="dark"] .escalation-compact .escalation-subtitle,
-        [data-theme="dark"] .escalation-compact .escalation-subtitle *,
-        [data-theme="dark"] .escalation-compact strong,
-        [data-theme="dark"] .escalation-compact span,
-        [data-theme="dark"] .escalation-compact div,
-        [data-theme="dark"] .escalation-compact p,
-        [data-theme="dark"] .escalation-compact h3,
-        [data-theme="dark"] .escalation-compact h4,
-        [data-theme="dark"] .escalation-compact h5,
-        [data-theme="dark"] .escalation-compact h6,
-        [data-theme="dark"] .escalation-compact .escalation-header,
-        [data-theme="dark"] .escalation-compact .escalation-header *,
-        [data-theme="dark"] .escalation-compact .escalation-image-container,
-        [data-theme="dark"] .escalation-compact .escalation-image-container *,
-        [data-theme="dark"] .escalation-compact .client-description-section,
-        [data-theme="dark"] .escalation-compact .client-description-section *,
-        [data-theme="dark"] .escalation-compact .description-header,
-        [data-theme="dark"] .escalation-compact .description-header *,
-        [data-theme="dark"] .escalation-compact .description-help,
-        [data-theme="dark"] .escalation-compact .description-help *,
-        [data-theme="dark"] .escalation-compact .sea-fallback-content,
-        [data-theme="dark"] .escalation-compact .sea-fallback-content *,
-        [data-theme="dark"] .escalation-compact .sea-fallback-content h3,
-        [data-theme="dark"] .escalation-compact .sea-fallback-content p,
-        [data-theme="dark"] .escalation-compact .sea-fallback-content span,
-        [data-theme="dark"] .escalation-compact .sea-fallback-content div {
-            color: white !important;
-        }
-
-        /* Champs de saisie dans les bannières mode nuit - BLANC */
-        [data-theme="dark"] .escalation-compact input,
-        [data-theme="dark"] .escalation-compact textarea {
-            background: white !important;
-            color: #1f2937 !important;
-            border: 2px solid rgba(255, 255, 255, 0.3) !important;
-            border-radius: 8px !important;
-            padding: 0.75rem !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-        }
-
-        [data-theme="dark"] .escalation-compact input::placeholder,
-        [data-theme="dark"] .escalation-compact textarea::placeholder {
-            color: #6b7280 !important;
-        }
-
-        [data-theme="dark"] .escalation-compact input:focus,
-        [data-theme="dark"] .escalation-compact textarea:focus {
-            border-color: #0ea5e9 !important;
-            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2) !important;
-            outline: none !important;
-        }
-
-        /* Boutons dans les bannières mode nuit - BLANC */
-        [data-theme="dark"] .escalation-compact .escalation-btn {
-            background: white !important;
-            color: #0ea5e9 !important;
-            border: 2px solid white !important;
-            border-radius: 8px !important;
-            padding: 0.75rem 1.5rem !important;
-            font-weight: 600 !important;
-            transition: all 0.3s ease !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-        }
-
-        [data-theme="dark"] .escalation-compact .escalation-btn:hover {
-            background: #f8fafc !important;
-            border-color: #f8fafc !important;
-            transform: translateY(-1px) !important;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
-        }
-
-        /* Bouton fermer spécial - Version blanche */
-        [data-theme="dark"] .escalation-compact .escalation-btn:first-child {
-            background: rgba(255, 255, 255, 0.9) !important;
-            color: #6b7280 !important;
-            border: 2px solid rgba(255, 255, 255, 0.9) !important;
-        }
-
-        [data-theme="dark"] .escalation-compact .escalation-btn:first-child:hover {
-            background: rgba(255, 255, 255, 0.8) !important;
-            color: #374151 !important;
-            border-color: rgba(255, 255, 255, 0.8) !important;
-        }
-
-        /* ===== OVERRIDE STYLES INLINE POUR MODE NUIT - TOUT EN BLANC ===== */
-        /* Force tous les éléments avec style="color: black" à être blancs en mode nuit */
-        [data-theme="dark"] .escalation-compact [style*="color: black"] {
-            color: white !important;
-        }
-
-        [data-theme="dark"] .escalation-compact strong[style*="color: black"],
-        [data-theme="dark"] .escalation-compact span[style*="color: black"],
-        [data-theme="dark"] .escalation-compact p[style*="color: black"],
-        [data-theme="dark"] .escalation-compact div[style*="color: black"],
-        [data-theme="dark"] .escalation-compact h3[style*="color: black"],
-        [data-theme="dark"] .escalation-compact label[style*="color: black"],
-        [data-theme="dark"] .escalation-compact small[style*="color: black"] {
-            color: white !important;
-        }
-
-        /* Éléments avec styles inline spéciaux */
-        [data-theme="dark"] .escalation-compact .escalation-subtitle[style*="color: black"] {
-            color: white !important;
-            font-weight: 700 !important;
-        }
-
-        /* Contact info avec couleur spéciale - reste blanc mais en gras */
-        [data-theme="dark"] .escalation-compact strong[style*="color: black"]:contains("SEA"),
-        [data-theme="dark"] .escalation-compact strong[style*="color: black"]:contains("SI"),
-        [data-theme="dark"] .escalation-compact strong[style*="color: black"]:contains("SIM") {
-            color: white !important;
-            font-weight: 800 !important;
-        }
-
-        /* Boutons avec styles inline - BLANC */
-        [data-theme="dark"] .escalation-compact button[style*="color: black"] {
-            background: white !important;
-            color: #0ea5e9 !important;
-            border: 2px solid white !important;
-            font-weight: 600 !important;
-        }
-
-        [data-theme="dark"] .escalation-compact button[style*="color: black"]:hover {
-            background: #f8fafc !important;
-            border-color: #f8fafc !important;
-        }
-
-        /* Override pour les boutons de fermeture - Version blanche */
-        [data-theme="dark"] .escalation-compact button[style*="color: black"]:first-of-type {
-            background: rgba(255, 255, 255, 0.9) !important;
-            color: #6b7280 !important;
-            border: 2px solid rgba(255, 255, 255, 0.9) !important;
-        }
-
-        /* Inputs et textareas avec styles inline en mode nuit - BLANC */
-        [data-theme="dark"] .escalation-compact input[style*="color: black"],
-        [data-theme="dark"] .escalation-compact textarea[style*="color: black"] {
-            background: white !important;
-            color: #1f2937 !important;
-            border: 2px solid rgba(255, 255, 255, 0.3) !important;
-            border-radius: 8px !important;
-        }
-
-        [data-theme="dark"] .escalation-compact input[style*="color: black"]:focus,
-        [data-theme="dark"] .escalation-compact textarea[style*="color: black"]:focus {
-            border-color: #0ea5e9 !important;
-            box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.2) !important;
-        }
-
-        /* ===== BANNIÈRES DE CONFIRMATION MODE NUIT - BLEU AZURE ===== */
-        [data-theme="dark"] .escalation-compact.fade-in {
-            background: var(--escalation-bg) !important;
-            border: 2px solid rgba(255, 255, 255, 0.2) !important;
-        }
-
-        /* Styles pour les divs de confirmation de tickets - Bleu Azure */
-        [data-theme="dark"] div[style*="linear-gradient"][style*="059669"] {
-            background: var(--escalation-bg) !important;
-            color: white !important;
-        }
-
-        [data-theme="dark"] div[style*="linear-gradient"][style*="059669"] * {
-            color: white !important;
-        }
-
-        /* ✅ Forcer en blanc les zones encerclées en mode sombre */
-        [data-theme="dark"] .theme-toggle,
-        [data-theme="dark"] .header h1,
-        [data-theme="dark"] .header p,
-        [data-theme="dark"] .status-indicator span,
-        [data-theme="dark"] .room-header,
-        [data-theme="dark"] .current-room-info,
-        [data-theme="dark"] .current-room-info * ,
-        [data-theme="dark"] .escalation-compact,
-        [data-theme="dark"] .escalation-compact *,
-        [data-theme="dark"] .escalation-subtitle,
-        [data-theme="dark"] .escalation-subtitle *,
-        [data-theme="dark"] .escalation-text,
-        [data-theme="dark"] .escalation-text strong,
-        [data-theme="dark"] .sea-redirect-direct,
-        [data-theme="dark"] .sea-redirect-direct *,
-        [data-theme="dark"] .message.system,
-        [data-theme="dark"] .message.system *,
-        [data-theme="dark"] .message.system strong,
-        [data-theme="dark"] .landing-content,
-        [data-theme="dark"] .landing-content *,
-        [data-theme="dark"] .landing-subtitle,
-        [data-theme="dark"] .banner-header h3,
-        [data-theme="dark"] .banner-content p,
-        [data-theme="dark"] .room-examples p,
-        [data-theme="dark"] .room-examples strong {
-            color: #ffffff !important;
-        }
-        
-        /* ✅ Boutons d'exemples de salles clairs et visibles en mode sombre */
-        [data-theme="dark"] .room-example {
-            background: var(--card-bg-dark) !important;
-            color: var(--text-primary) !important;
-            border: 2px solid var(--border-color) !important;
-            opacity: 1 !important;
-            box-shadow: var(--shadow-light);
-        }
-        [data-theme="dark"] .room-example:hover {
-            background: var(--primary-blue) !important;
-            color: white !important;
-            border: 2px solid var(--primary-blue) !important;
-            transform: translateY(-1px);
-            box-shadow: var(--shadow-medium);
-            opacity: 1 !important;
-        }
-        
-        /* ✅ Placeholders en gris clair, saisie client en noir en mode sombre */
-        [data-theme="dark"] input::placeholder,
-        [data-theme="dark"] .room-input::placeholder,
-        [data-theme="dark"] #roomInput::placeholder {
-            color: #9ca3af !important;
-        }
-        [data-theme="dark"] input,
-        [data-theme="dark"] .room-input,
-        [data-theme="dark"] #roomInput {
-            color: #000000 !important;
-        }
-        
-        /* ===== AFFICHAGE SALLE IDENTIQUE MODE JOUR/NUIT ===== */
-
-        /* ✅ STYLE IDENTIQUE MODE JOUR/NUIT - Pas de modification en mode nuit */
-
-        [data-theme="dark"] .room-icon {
-            color: var(--primary-blue) !important;
-            font-size: 1.5rem !important;
-        }
-
-        [data-theme="dark"] .room-text {
-            font-weight: 600 !important;
-            font-size: 1.1rem !important;
-        }
-
-        [data-theme="dark"] .change-room-btn {
-            background: var(--primary-blue) !important;
-            color: white !important;
-            border: none !important;
-            padding: 0.5rem 1rem !important;
-            border-radius: 8px !important;
-            font-weight: 500 !important;
-            box-shadow: var(--shadow-light) !important;
-        }
-
-        [data-theme="dark"] .change-room-btn:hover {
-            background: #1d4ed8 !important;
-            transform: translateY(-1px) !important;
-            box-shadow: var(--shadow-medium) !important;
-        }
-        
-        /* ✅ FORCER EN BLANC TOUT CE QUI EST ENCERCLÉ */
-        [data-theme="dark"] .theme-toggle,
-        [data-theme="dark"] .room-header,
-        [data-theme="dark"] .return-btn,
-        [data-theme="dark"] .return-btn span,
-        [data-theme="dark"] .palette,
-        [data-theme="dark"] .palette h3,
-        [data-theme="dark"] .palette p,
-        [data-theme="dark"] .palette .palette-icon {
-            color: #ffffff !important;
-        }
-        
-        /* ✅ Bouton Accueil en bleu en mode jour */
-        .return-btn {
-            background: #3b82f6 !important;
-            color: #ffffff !important;
-            border: 1px solid #2563eb !important;
-        }
-        .return-btn:hover {
-            background: #2563eb !important;
-            color: #ffffff !important;
-        }
-
-        /* ===== RÈGLE ULTRA-AGGRESSIVE POUR TOUT LE CONTENU DYNAMIQUE ===== */
-        .escalation-compact,
-        .escalation-compact *,
-        .escalation-compact *::before,
-        .escalation-compact *::after,
-        .escalation-compact strong,
-        .escalation-compact span,
-        .escalation-compact div,
-        .escalation-compact p,
-        .escalation-compact h1,
-        .escalation-compact h2,
-        .escalation-compact h3,
-        .escalation-compact h4,
-        .escalation-compact h5,
-        .escalation-compact h6,
-        .escalation-compact .escalation-text,
-        .escalation-compact .escalation-text *,
-        .escalation-compact .escalation-subtitle,
-        .escalation-compact .escalation-subtitle *,
-        .escalation-compact .escalation-header,
-        .escalation-compact .escalation-header *,
-        .escalation-compact .escalation-image-container,
-        .escalation-compact .escalation-image-container *,
-        .escalation-compact .client-description-section,
-        .escalation-compact .client-description-section *,
-        .escalation-compact .description-header,
-        .escalation-compact .description-header *,
-        .escalation-compact .description-help,
-        .escalation-compact .description-help *,
-        .escalation-compact .escalation-actions,
-        .escalation-compact .escalation-actions *,
-        .escalation-compact .escalation-btn,
-        .escalation-compact .escalation-btn *,
-        .escalation-compact .sea-fallback-content,
-        .escalation-compact .sea-fallback-content *,
-        .escalation-compact .sea-fallback-content h3,
-        .escalation-compact .sea-fallback-content p,
-        .escalation-compact .sea-fallback-content span,
-        .escalation-compact .sea-fallback-content div,
-        .escalation-compact .sea-fallback-content div * {
-            color: black !important;
-        }
-
-
-
-        /* ===== STYLES POUR LE DIAGNOSTIC AVEC LOGO ===== */
-        .diagnostic-with-logo {
-            background: var(--card-bg);
-            border: 1px solid var(--suggestion-border);
-            border-radius: 10px;
-            padding: 1rem;
-            margin: 0.5rem 0;
-        }
-        
-        .diagnostic-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            align-items: stretch;
-        }
-        
-        .diagnostic-points {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            height: 100%;
-        }
-        
-        .diagnostic-point {
-            padding: 0.75rem 1rem;
-            background: rgba(255, 255, 255, 0.08);
-            border-radius: 8px;
-            font-size: 0.95rem;
-            line-height: 1.4;
-            border-left: 3px solid #3b82f6;
-            transition: all 0.2s ease;
-        }
-        
-        .diagnostic-point:hover {
-            background: rgba(255, 255, 255, 0.12);
-            transform: translateX(2px);
-        }
-        
-        .diagnostic-logo {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 1rem;
-            background: rgba(59, 130, 246, 0.1);
-            border-radius: 8px;
-            border: 1px solid rgba(59, 130, 246, 0.2);
-            height: 100%;
-        }
-        
-        .diagnostic-logo .sea-escalation-image {
-            max-width: 100%;
-            width: auto;
-            height: auto;
-            max-height: 150px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            margin: 0;
-            float: none;
-            transition: transform 0.2s ease;
-        }
-        
-        .diagnostic-logo .sea-escalation-image:hover {
-            transform: scale(1.05);
-        }
-        
-        /* Mode sombre pour le diagnostic */
-        [data-theme="dark"] .diagnostic-with-logo {
-            background: var(--card-bg);
-            border-color: var(--suggestion-border);
-        }
-        
-        [data-theme="dark"] .diagnostic-point {
-            background: rgba(255, 255, 255, 0.12);
-            border-left-color: #60a5fa;
-        }
-        
-        [data-theme="dark"] .diagnostic-point:hover {
-            background: rgba(255, 255, 255, 0.16);
-        }
-        
-        [data-theme="dark"] .diagnostic-logo {
-            background: rgba(96, 165, 250, 0.15);
-            border-color: rgba(96, 165, 250, 0.3);
-        }
-        
-        /* Responsive pour le diagnostic */
-        @media (max-width: 768px) {
-            .diagnostic-content {
-                grid-template-columns: 1fr;
-                gap: 1.5rem;
-            }
-            
-            .diagnostic-logo {
-                justify-self: center;
-                padding: 1rem;
-                height: auto;
-            }
-            
-            .diagnostic-logo .sea-escalation-image {
-                max-width: 160px;
-                width: auto;
-            }
-            
-            .diagnostic-points {
-                gap: 0.5rem;
-            }
-            
-            .diagnostic-point {
-                padding: 0.6rem 0.8rem;
-                font-size: 0.9rem;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .diagnostic-with-logo {
-                padding: 1rem;
-            }
-            
-            .diagnostic-content {
-                gap: 1rem;
-            }
-            
-            .diagnostic-logo .sea-escalation-image {
-                max-width: 120px;
-            }
-        }
-
-        /* ===== AMÉLIORATION DU DESIGN ===== */
-        .escalation-compact {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
-            color: white;
-            margin: 1rem 0;
-            padding: 1.5rem;
-            transition: all 0.3s ease;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .escalation-compact::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0%, transparent 50%, rgba(255, 255, 255, 0.05) 100%);
-            pointer-events: none;
-        }
-
-        .escalation-header {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .escalation-icon {
-            font-size: 1.5rem;
-            width: 40px;
-            height: 40px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-        }
-
-        .escalation-text {
-            flex: 1;
-            line-height: 1.4;
-        }
-
-        .escalation-text strong {
-            display: block;
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: white;
-            margin-bottom: 0.25rem;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-        }
-
-        .escalation-subtitle {
-            font-size: 1.2rem;
-            color: rgba(255, 255, 255, 0.95);
-            font-weight: 600;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-            display: block;
-            margin-top: 0.5rem;
-            padding: 0.75rem;
-            background: rgba(255, 255, 255, 0.15);
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-        }
-
-        .escalation-actions {
-            position: relative;
-            z-index: 1;
-            display: flex;
-            gap: 0.75rem;
-            justify-content: flex-end;
-            margin-top: 1rem;
-        }
-
-        .escalation-btn {
-            padding: 0.75rem 1.25rem;
-            border-radius: 10px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            border: 2px solid transparent;
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-        }
-
-        .escalation-btn.secondary {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-            border-color: rgba(255, 255, 255, 0.3);
-        }
-
-        .escalation-btn.secondary:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .escalation-btn.primary {
-            background: rgba(255, 255, 255, 0.95);
-            color: #667eea;
-            border-color: rgba(255, 255, 255, 0.8);
-            font-weight: 700;
-        }
-
-        .escalation-btn.primary:hover {
-            background: white;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
-        }
-
-        /* ===== SECTION DESCRIPTION CLIENT ===== */
-        .client-description-section {
-            margin: 1rem 0;
-            border: 2px solid #dc2626;
-            border-radius: 8px;
-            background: rgba(220, 38, 38, 0.05);
-            padding: 1rem;
-        }
-
-        .description-header {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            margin-bottom: 0.75rem;
-            color: #dc2626;
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-
-        .description-header i {
-            font-size: 1rem;
-        }
-
-        .client-description-input {
-            width: 100%;
-            padding: 0.75rem;
-            border: 1px solid #dc2626;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.9);
-            color: #1f2937;
-            font-size: 0.9rem;
-            resize: vertical;
-            min-height: 80px;
-            font-family: inherit;
-        }
-
-        .client-description-input:focus {
-            outline: none;
-            border-color: #dc2626;
-            box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
-        }
-
-        .description-help {
-            margin-top: 0.5rem;
-            color: rgba(255, 255, 255, 0.8);
-            font-size: 0.8rem;
-        }
-
-        /* Mode sombre pour la description */
-        [data-theme="dark"] .client-description-input {
-            background: rgba(30, 41, 59, 0.9);
-            color: #f8fafc;
-            border-color: #dc2626;
-        }
-
-        [data-theme="dark"] .description-help {
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        /* ===== REDIRECTIONS SIM ET SEA ===== */
-        .sim-redirect-direct, .sea-redirect-direct {
-            background: var(--card-bg);
-            border: 2px solid #3b82f6;
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin: 1rem 0;
-            box-shadow: var(--shadow-medium);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .sim-redirect-direct {
-            border-color: #f59e0b;
-            box-shadow: 0 8px 32px rgba(245, 158, 11, 0.15);
-        }
-
-        .sea-redirect-direct {
-            border-color: #3b82f6;
-            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.15);
-        }
-
-        .sim-redirect-header, .sea-redirect-header {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .sim-redirect-icon, .sea-redirect-icon {
-            font-size: 2rem;
-            width: 50px;
-            height: 50px;
-            background: rgba(59, 130, 246, 0.1);
-            border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .sim-redirect-icon {
-            background: rgba(245, 158, 11, 0.1);
-        }
-
-        .sim-redirect-header strong, .sea-redirect-header strong {
-            color: #1e293b;
-            font-size: 1.2rem;
-            font-weight: 700;
-            margin-bottom: 0.25rem;
-        }
-
-        .sim-redirect-subtitle, .sea-redirect-subtitle {
-            color: #64748b;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
-
-        .sim-redirect-content, .sea-redirect-content {
-            color: #374151;
-            line-height: 1.6;
-        }
-
-        .sim-redirect-content p, .sea-redirect-content p {
-            margin-bottom: 1rem;
-            font-size: 1rem;
-        }
-
-        .sim-contact-info, .sea-contact-info {
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 8px;
-            padding: 1rem;
-            margin: 1rem 0;
-            border: 1px solid rgba(59, 130, 246, 0.2);
-        }
-
-        .sim-contact-primary, .sea-contact-primary {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .sim-contact-secondary {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-        }
-
-        .contact-icon {
-            font-size: 1.2rem;
-            color: #3b82f6;
-        }
-
-        .sim-contact-primary .contact-icon {
-            color: #f59e0b;
-        }
-
-        .sim-contact-primary strong, .sea-contact-primary strong {
-            color: #1e293b;
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        .contact-desc {
-            color: #64748b;
-            font-size: 0.9rem;
-        }
-
-        .web-link {
-            color: #3b82f6;
-            text-decoration: none;
-            font-weight: 600;
-            transition: color 0.2s ease;
-        }
-
-        .web-link:hover {
-            color: #1d4ed8;
-            text-decoration: underline;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            color: var(--text-primary);
-            transition: all var(--transition-medium);
-        }
-
-        /* ===== CONTAINER PRINCIPAL ===== */
-        .main-container {
-            max-width: 1200px;
-            width: 100%;
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            box-shadow: var(--shadow-heavy);
-            overflow: hidden;
-            transition: all var(--transition-medium);
-        }
-
-        /* ===== BANNIÈRE DE SAISIE DE SALLE ===== */
-        .room-input-banner {
-            background: linear-gradient(135deg, #1e40af, #1d4ed8);
-            border-radius: 20px;
-            padding: 2rem;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            color: white;
-            margin: 2rem 0;
-        }
-
-        .banner-header {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .banner-icon {
-            font-size: 2rem;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 0.75rem;
-            border-radius: 50%;
-        }
-
-        .banner-header h3 {
-            font-size: 1.5rem;
-            margin: 0;
-        }
-
-        .banner-content p {
-            font-size: 1.1rem;
-            margin-bottom: 1.5rem;
-            opacity: 0.9;
-        }
-
-        .room-input-container {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            justify-content: center;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .room-input {
-            flex: 1;
-            max-width: 300px;
-            padding: 1rem 1.5rem;
-            font-size: 1.1rem;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .room-input::placeholder {
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        .room-input:focus {
-            outline: none;
-            border-color: rgba(255, 255, 255, 0.6);
-            background: rgba(255, 255, 255, 0.15);
-            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
-        }
-
-        .confirm-room-btn {
-            padding: 1rem 2rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            background: rgba(255, 255, 255, 0.9);
-            color: var(--primary-blue);
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            white-space: nowrap;
-        }
-
-        .confirm-room-btn:hover {
-            background: #ffffff;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .confirm-room-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .room-examples {
-            margin-top: 1.5rem;
-        }
-
-        .room-examples p {
-            font-size: 0.9rem;
-            margin-bottom: 0.75rem;
-            opacity: 0.8;
-        }
-
-        .example-rooms {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-            justify-content: center;
-        }
-
-        .room-example {
-            padding: 0.5rem 1rem;
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 20px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 0.9rem;
-        }
-
-        .room-example:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-1px);
-        }
-
-        /* ===== HEADER ===== */
-        .header {
-            background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-purple) 100%);
-            padding: 2rem;
-            text-align: center;
-            position: relative;
-            box-shadow: 0 4px 20px rgba(30, 64, 175, 0.3);
-        }
-        
-        .header #headerTitle {
-            color: black !important;
-        }
-
-        .header-top {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1rem;
-        }
-
-        /* ✅ NOUVEAU : Bouton Technique */
-        .technical-btn {
-            background: rgba(255, 165, 0, 0.2);
-            border: 1px solid rgba(255, 165, 0, 0.4);
-            color: #ffa500;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .technical-btn:hover {
-            background: rgba(255, 165, 0, 0.3);
-            border-color: rgba(255, 165, 0, 0.6);
-            transform: translateY(-1px);
-        }
-
-        .technical-btn i {
-            font-size: 1rem;
-        }
-
-        /* ✅ NOUVEAU : Modal d'authentification technique */
-        .technical-auth-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 10003;
-            -webkit-backdrop-filter: blur(4px);
-            backdrop-filter: blur(4px);
-        }
-
-        .technical-auth-content {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            max-width: 400px;
-            width: 90%;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            text-align: center;
-        }
-
-        .technical-auth-content h3 {
-            color: #1e293b;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        .technical-auth-content i {
-            color: #ffa500;
-            font-size: 1.2rem;
-        }
-
-        .technical-password-input {
-            width: 100%;
-            padding: 0.8rem;
-            border: 2px solid #e2e8f0;
-            border-radius: 8px;
-            font-size: 1rem;
-            margin-bottom: 1rem;
-            outline: none;
-            transition: border-color 0.3s ease;
-        }
-
-        .technical-password-input:focus {
-            border-color: #ffa500;
-        }
-
-        .technical-auth-buttons {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-        }
-
-        .technical-auth-btn {
-            padding: 0.8rem 1.5rem;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s ease;
-        }
-
-        .technical-auth-submit {
-            background: #ffa500;
-            color: white;
-        }
-
-        .technical-auth-submit:hover {
-            background: #e59400;
-            transform: translateY(-1px);
-        }
-
-        .technical-auth-submit:disabled {
-            background: #cbd5e1;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        .technical-auth-cancel {
-            background: #e2e8f0;
-            color: #64748b;
-        }
-
-        .technical-auth-cancel:hover {
-            background: #cbd5e1;
-        }
-
-        .technical-auth-error {
-            color: #dc2626;
-            font-size: 0.9rem;
-            margin-top: 0.5rem;
-            display: none;
-        }
-
-        /* ✅ NOUVEAU : Page technique */
-        .technical-page {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: #f8fafc;
-            z-index: 10002;
-            overflow-y: auto;
-        }
-
-        .technical-header {
-            background: linear-gradient(135deg, #ffa500 0%, #ff8c00 100%);
-            color: white;
-            padding: 1.5rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .technical-title {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-
-        .technical-title h2 {
-            margin: 0;
-            font-size: 1.8rem;
-            font-weight: 600;
-        }
-
-        .technical-return-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 0.6rem 1.2rem;
-            border-radius: 8px;
-            cursor: pointer;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .technical-return-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-1px);
-        }
-
-        .technical-content {
-            padding: 2rem;
-            max-width: 1200px;
-            margin: 0 auto;
-        }
-
-        .technical-construction-banner {
-            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-            color: white;
-            padding: 2rem;
-            border-radius: 12px;
-            text-align: center;
-            margin-bottom: 2rem;
-            box-shadow: 0 8px 25px rgba(251, 191, 36, 0.3);
-        }
-
-        .technical-construction-banner h3 {
-            margin: 0 0 1rem 0;
-            font-size: 1.5rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.8rem;
-        }
-
-        .technical-construction-banner p {
-            margin: 0;
-            font-size: 1.1rem;
-            opacity: 0.9;
-        }
-
-        /* Mode sombre pour les éléments techniques */
-        [data-theme="dark"] .technical-auth-content {
-            background: #1e293b;
-            color: white;
-        }
-
-        [data-theme="dark"] .technical-auth-content h3 {
-            color: white;
-        }
-
-        [data-theme="dark"] .technical-password-input {
-            background: #334155;
-            border-color: #475569;
-            color: white;
-        }
-
-        [data-theme="dark"] .technical-password-input:focus {
-            border-color: #ffa500;
-        }
-
-        [data-theme="dark"] .technical-page {
-            background: #0f172a;
-        }
-
-        [data-theme="dark"] .technical-content {
-            color: white;
-        }
-
-        /* Animation shake pour erreur de mot de passe */
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
-        }
-
-        /* ✅ NOUVEAU : Overlay de chargement diagnostic */
-        .diagnostic-loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.6);
-            display: none;
-            justify-content: center;
-            align-items: center;
-            z-index: 10005;
-            -webkit-backdrop-filter: blur(8px);
-            backdrop-filter: blur(8px);
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-        .diagnostic-loading-overlay.show {
-            opacity: 1;
-        }
-
-        .diagnostic-loading-content {
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 3rem 2rem;
-            text-align: center;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-            max-width: 400px;
-            width: 90%;
-            border: 2px solid rgba(59, 130, 246, 0.2);
-        }
-
-        .diagnostic-hourglass {
-            font-size: 3rem;
-            color: #3b82f6;
-            margin-bottom: 1.5rem;
-            animation: hourglass-spin 2s linear infinite;
-        }
-
-        .diagnostic-loading-text {
-            color: #1e293b;
-            font-size: 1.2rem;
-            font-weight: 600;
-            margin-bottom: 0.5rem;
-        }
-
-        .diagnostic-loading-subtext {
-            color: #64748b;
-            font-size: 0.95rem;
-            margin: 0;
-        }
-
-        /* Animation sablier */
-        @keyframes hourglass-spin {
-            0% { transform: rotate(0deg); }
-            50% { transform: rotate(180deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        /* Mode sombre pour l'overlay de chargement */
-        [data-theme="dark"] .diagnostic-loading-content {
-            background: rgba(30, 41, 59, 0.95);
-            border-color: rgba(59, 130, 246, 0.3);
-        }
-
-        [data-theme="dark"] .diagnostic-loading-text {
-            color: white;
-        }
-
-        [data-theme="dark"] .diagnostic-loading-subtext {
-            color: #94a3b8;
-        }
-
-        .theme-toggle, .return-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-size: 0.9rem;
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-        }
-
-        .theme-toggle:hover, .return-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .theme-toggle i, .return-btn i {
-            font-size: 1rem;
-        }
-
-        .header h1 {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-            font-weight: 700;
-        }
-
-        .header p {
-            font-size: 1.1rem;
-            opacity: 0.9;
-            margin-bottom: 1rem;
-        }
-
-        .status-indicator {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: rgba(30, 41, 59, 0.9);
-            padding: 0.5rem 1rem;
-            border-radius: 25px;
-            font-size: 0.9rem;
-            color: white;
-            font-weight: 600;
-            border: 2px solid rgba(30, 41, 59, 0.8);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #10b981; /* Vert par défaut */
-            animation: pulse 2s infinite;
-            transition: background-color 0.3s ease;
-        }
-        
-        /* États du point de statut */
-        .status-dot.offline {
-            background: #ef4444; /* Rouge - Hors ligne */
-            animation: pulse-error 2s infinite;
-        }
-        
-        @keyframes pulse-error {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* ===== LANDING PAGE ===== */
-        .landing-page {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 70vh;
-            padding: 2rem;
-        }
-
-        .landing-content {
-            text-align: center;
-            max-width: 800px;
-            width: 100%;
-        }
-
-        .landing-content h2 {
-            font-size: 2.5rem;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .landing-subtitle {
-            font-size: 1.1rem;
-            color: var(--text-secondary);
-            margin-bottom: 3rem;
-        }
-
-        /* Bannière de saisie de salle */
-        .room-input-banner {
-            background: linear-gradient(135deg, #1e40af, #1d4ed8);
-            border-radius: 20px;
-            padding: 2rem;
-            box-shadow: var(--shadow-medium);
-            color: white;
-            margin: 2rem 0;
-        }
-
-        .banner-header {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-        }
-
-        .banner-icon {
-            font-size: 2rem;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 0.75rem;
-            border-radius: 50%;
-        }
-
-        .banner-header h3 {
-            font-size: 1.5rem;
-            margin: 0;
-        }
-
-        .banner-content p {
-            font-size: 1.1rem;
-            margin-bottom: 1.5rem;
-            opacity: 0.9;
-        }
-
-        /* Container de saisie */
-        .room-input-container {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-            justify-content: center;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .room-input {
-            flex: 1;
-            max-width: 300px;
-            padding: 1rem 1.5rem;
-            font-size: 1.1rem;
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.1);
-            color: white;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .room-input::placeholder {
-            color: rgba(255, 255, 255, 0.7);
-        }
-
-        .room-input:focus {
-            outline: none;
-            border-color: rgba(255, 255, 255, 0.6);
-            background: rgba(255, 255, 255, 0.15);
-            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
-        }
-
-        .confirm-room-btn {
-            padding: 1rem 2rem;
-            font-size: 1.1rem;
-            font-weight: 600;
-            background: rgba(255, 255, 255, 0.9);
-            color: var(--primary-blue);
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            white-space: nowrap;
-        }
-
-        .confirm-room-btn:hover {
-            background: #ffffff;
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
-        }
-
-        .confirm-room-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-            transform: none;
-        }
-
-        /* Exemples de salles */
-        .room-examples {
-            margin-top: 1.5rem;
-        }
-
-        .room-examples p {
-            font-size: 0.9rem;
-            margin-bottom: 0.75rem;
-            opacity: 0.8;
-        }
-
-        .example-rooms {
-            display: flex;
-            gap: 0.75rem;
-            justify-content: center;
-            flex-wrap: wrap;
-        }
-
-        .room-example {
-            background: rgba(255, 255, 255, 0.2);
-            padding: 0.5rem 1rem;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
-        }
-
-        .room-example:hover {
-            background: rgba(255, 255, 255, 0.3);
-            transform: translateY(-2px);
-        }
-
-        /* ===== CONTENU PRINCIPAL (ASSISTANT) ===== */
-        .content {
-            padding: 3rem 2rem;
-            min-height: 500px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-        }
-
-        /* Header de salle dans l'assistant */
-        .room-header {
-            background: linear-gradient(135deg, #e0f2fe 0%, #b3e5fc 100%);
-            border: 1px solid #0288d1;
-            border-radius: 12px;
-            padding: 1rem;
-            margin-bottom: 2rem;
-            width: 100%;
-            max-width: 1000px;
-        }
-
-        .current-room-info {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            color: #0277bd;
-        }
-
-        .room-icon {
-            font-size: 1.2rem;
-        }
-
-        .room-text {
-            font-size: 1rem;
-        }
-
-        .change-room-btn {
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
-            border-radius: 6px;
-            padding: 0.5rem;
-            cursor: pointer;
-            color: #0277bd;
-            transition: all 0.3s ease;
-            margin-left: auto;
-        }
-
-        .change-room-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-        
-        /* ===== BOUTON DE THÈME ET MODE HYBRIDE ===== */
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-left: auto;
-        }
-        
-        .theme-toggle-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border: none;
-            border-radius: 8px;
-            padding: 0.75rem 1rem;
-            cursor: pointer;
-            color: white;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-        
-        .theme-toggle-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-        
-        .theme-toggle-btn i {
-            font-size: 1.1rem;
-        }
-        
-        /* ===== MODE HYBRIDE - DÉTECTION AUTOMATIQUE ===== */
-        /* Mode clair (par défaut) */
-        :root {
-            --bg-primary: #ffffff;
-            --bg-secondary: #f8fafc;
-            --text-primary: #1e293b;
-            --text-secondary: #64748b;
-            --card-bg: #ffffff;
-            --card-border: #e2e8f0;
-            --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.1);
-            --shadow-medium: 0 4px 6px rgba(0, 0, 0, 0.1);
-            --shadow-heavy: 0 10px 15px rgba(0, 0, 0, 0.1);
-        }
-        
-        /* Mode sombre */
-        [data-theme="dark"] {
-            --bg-primary: #0f172a;
-            --bg-secondary: #1e293b;
-            --text-primary: #f1f5f9;
-            --text-secondary: #cbd5e1;
-            --card-bg: #1e293b;
-            --card-border: #334155;
-            --shadow-light: 0 1px 3px rgba(0, 0, 0, 0.3);
-            --shadow-medium: 0 4px 6px rgba(0, 0, 0, 0.3);
-            --shadow-heavy: 0 10px 15px rgba(0, 0, 0, 0.3);
-        }
-        
-        /* Mode sombre - Améliorations spécifiques */
-        [data-theme="dark"] .room-header {
-            background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%);
-            border-color: #3b82f6;
-        }
-        
-        [data-theme="dark"] .current-room-info {
-            color: #dbeafe;
-        }
-        
-        [data-theme="dark"] .change-room-btn {
-            background: rgba(59, 130, 246, 0.2);
-            color: #dbeafe;
-        }
-        
-        [data-theme="dark"] .change-room-btn:hover {
-            background: rgba(59, 130, 246, 0.3);
-        }
-
-        /* ✅ CORRECTIONS PALETTES DIAGNOSTIC - Meilleure visibilité */
-        [data-theme="dark"] .palette h3 {
-            color: #f1f5f9 !important;
-            font-weight: 600 !important;
-            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8) !important;
-        }
-
-        [data-theme="dark"] .palette p {
-            color: #cbd5e1 !important;
-            font-weight: 400 !important;
-            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.6) !important;
-        }
-
-        /* ✅ CORRECTION CRITIQUE - Icônes et indicateurs plus visibles */
-        [data-theme="dark"] .palette .fas,
-        [data-theme="dark"] .palette .fa,
-        [data-theme="dark"] .palette i {
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8) !important;
-            filter: brightness(1.2) contrast(1.1) !important;
-        }
-
-        /* ✅ CORRECTION - Bordures palettes plus définies */
-        [data-theme="dark"] .palette {
-            border: 2px solid rgba(71, 85, 105, 0.6) !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3),
-                        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
-        }
-
-        [data-theme="dark"] .palette:hover {
-            border-color: rgba(59, 130, 246, 0.7) !important;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4),
-                        0 0 0 1px rgba(59, 130, 246, 0.3) !important;
-        }
-        
-        [data-theme="dark"] .palette {
-            background: #1e293b;
-            border-color: #334155;
-            color: #f1f5f9;
-        }
-        
-        [data-theme="dark"] .palette:hover {
-            background: #334155;
-            border-color: #3b82f6;
-        }
-        
-        [data-theme="dark"] .palette h3 {
-            color: #f1f5f9;
-        }
-        
-        [data-theme="dark"] .palette p {
-            color: #cbd5e1;
-        }
-        
-        /* Amélioration du contraste pour les icônes */
-        [data-theme="dark"] .palette-icon {
-            filter: brightness(1.2) contrast(1.1);
-        }
-        
-        /* Mode hybride - Détection automatique */
-        @media (prefers-color-scheme: dark) {
-            :root:not([data-theme="light"]) {
-                --bg-primary: #0f172a;
-                --bg-secondary: #1e293b;
-                --text-primary: #f1f5f9;
-                --text-secondary: #cbd5e1;
-                --card-bg: #1e293b;
-                --card-border: #334155;
-            }
-        }
-        
-        @media (prefers-color-scheme: light) {
-            :root:not([data-theme="dark"]) {
-                --bg-primary: #ffffff;
-                --bg-secondary: #f8fafc;
-                --text-primary: #1e293b;
-                --text-secondary: #64748b;
-                --card-bg: #ffffff;
-                --card-border: #e2e8f0;
-            }
-        }
-
-        /* ===== PALETTES DE PROBLÈMES ===== */
-        .problem-palettes {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            width: 100%;
-            max-width: 1000px;
-            margin-bottom: 2rem;
-        }
-
-        /* Force la grille horizontale sur les écrans moyens et grands */
-        @media (min-width: 769px) {
-            .problem-palettes {
-                display: grid !important;
-                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
-                gap: 2rem !important;
-            }
-        }
-
-        .palette {
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            padding: 2rem;
-            text-align: center;
-            cursor: pointer;
-            border: 2px solid #e2e8f0;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            transition: all var(--transition-medium);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .palette::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: var(--palette-color);
-            transform: scaleX(0);
-            transition: transform var(--transition-medium);
-        }
-
-        .palette:hover {
-            transform: translateY(-8px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
-            border-color: #3b82f6;
-        }
-
-        .palette:hover::before {
-            transform: scaleX(1);
-        }
-
-        .palette.audio {
-            --palette-color: var(--primary-blue);
-        }
-
-        .palette.video {
-            --palette-color: #ffffff;
-        }
-
-        .palette.network {
-            --palette-color: var(--primary-orange);
-        }
-
-        .palette.other {
-            --palette-color: var(--primary-green);
-        }
-
-        .palette-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            transition: transform var(--transition-fast);
-        }
-
-        .palette:hover .palette-icon {
-            transform: scale(1.1);
-        }
-
-        .palette h3 {
-            font-size: 1.5rem;
-            margin-bottom: 0.5rem;
-            color: var(--text-primary);
-        }
-
-        .palette p {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            line-height: 1.4;
-        }
-
-        /* ===== MODALE DE RÉSULTAT ===== */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.5);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 1000;
-            opacity: 0;
-            visibility: hidden;
-            transition: all var(--transition-medium);
-        }
-
-        .modal-overlay.active {
-            opacity: 1;
-            visibility: visible;
-        }
-
-        .modal {
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            padding: 2rem;
-            max-width: 500px;
-            width: 90%;
-            text-align: center;
-            transform: scale(0.8);
-            transition: transform var(--transition-medium);
-            box-shadow: var(--shadow-heavy);
-            color: var(--text-primary);
-        }
-        
-        /* ✅ MODALES MODE NUIT */
-        [data-theme="dark"] .modal {
-            background: #1e293b !important;
-            color: white !important;
-            border: 2px solid #334155 !important;
-        }
-        
-        [data-theme="dark"] .modal h2,
-        [data-theme="dark"] .modal h3,
-        [data-theme="dark"] .modal p,
-        [data-theme="dark"] .modal span,
-        [data-theme="dark"] .modal div {
-            color: white !important;
-        }
-
-        .modal-overlay.active .modal {
-            transform: scale(1);
-        }
-
-        .modal-icon {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-        }
-
-        .modal h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: var(--text-primary);
-        }
-
-        .modal p {
-            color: var(--text-secondary);
-            line-height: 1.6;
-            margin-bottom: 1.5rem;
-        }
-
-        .modal-btn {
-            background: var(--primary-blue);
-            color: white;
-            border: none;
-            padding: 0.75rem 2rem;
-            border-radius: var(--border-radius-small);
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-        }
-
-        .modal-btn:hover {
-            background: #2563eb;
-            transform: translateY(-2px);
-        }
-
-
-
-        .escalation-subtitle {
-            color: #a16207;
-            font-size: 0.9rem;
-        }
-
-        .escalation-actions {
-            display: flex;
-            gap: 0.75rem;
-            justify-content: flex-end;
-        }
-
-        .escalation-btn {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 8px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .escalation-btn.secondary {
-            background: rgba(255, 255, 255, 0.8);
-            color: #92400e;
-        }
-
-        .escalation-btn.secondary:hover {
-            background: rgba(255, 255, 255, 1);
-            transform: translateY(-2px);
-        }
-
-        .escalation-btn.primary {
-            background: #d97706;
-            color: white;
-        }
-
-        .escalation-btn.primary:hover {
-            background: #b45309;
-            transform: translateY(-2px);
-        }
-
-        /* ===== MESSAGES ET ACTIONS ===== */
-        .message {
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            padding: 1.5rem;
-            margin: 1rem 0;
-            box-shadow: var(--shadow-medium);
-            border-left: 4px solid var(--primary-blue);
-        }
-
-        .message.user {
-            border-left-color: var(--primary-green);
-            background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
-        }
-
-        .message.bot {
-            border-left-color: var(--primary-blue);
-            background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-        }
-
-        .message.system {
-            border-left-color: var(--primary-orange);
-            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
-        }
-
-        .message-content {
-            line-height: 1.6;
-        }
-
-        .message-actions {
-            margin-top: 1rem;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
-
-        .action-btn {
-            padding: 0.5rem 1rem;
-            border: none;
-            border-radius: 6px;
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            background: var(--primary-blue);
-            color: white;
-        }
-
-        .action-btn:hover {
-            background: #2563eb;
-            transform: translateY(-1px);
-        }
-
-        .action-btn.auto-executed {
-            background: var(--primary-green);
-            cursor: default;
-        }
-
-        .auto-result {
-            margin-top: 1rem;
-            padding: 0.75rem;
-            background: rgba(34, 197, 94, 0.1);
-            border: 1px solid rgba(34, 197, 94, 0.3);
-            border-radius: 6px;
-            color: #166534;
-            font-weight: 500;
-        }
-
-        /* ===== BANNIÈRE SIM ===== */
-        .sim-banner {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
-            border-radius: var(--border-radius);
-            padding: 2rem;
-            margin: 1rem 0;
-            text-align: center;
-            box-shadow: var(--shadow-medium);
-        }
-
-        .sim-banner h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-        }
-
-        .sim-contact {
-            display: flex;
-            justify-content: center;
-            gap: 2rem;
-            margin-top: 1rem;
-            flex-wrap: wrap;
-        }
-
-        .contact-item {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 0.5rem 1rem;
-            border-radius: var(--border-radius-small);
-        }
-
-        /* ===== MESSAGES DE RÉSULTAT ===== */
-        .result-message {
-            background: var(--card-bg);
-            border-radius: var(--border-radius);
-            padding: 2rem;
-            text-align: center;
-            margin: 1rem 0;
-            box-shadow: var(--shadow-medium);
-            animation: slideIn var(--transition-medium);
-        }
-
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .result-success {
-            border-left: 4px solid var(--primary-green);
-        }
-
-        .result-warning {
-            border-left: 4px solid var(--primary-orange);
-        }
-
-        .result-info {
-            border-left: 4px solid var(--primary-blue);
-        }
-
-        /* ===== BOUTON RETOUR ===== */
-        .back-btn {
-            background: var(--primary-blue);
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: var(--border-radius-small);
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            margin-top: 1rem;
-        }
-
-        .back-btn:hover {
-            background: #2563eb;
-            transform: translateY(-2px);
-        }
-
-        /* ===== SUGGESTIONS ===== */
-        .suggestions {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-top: 2rem;
-            width: 100%;
-            max-width: 1000px;
-        }
-
-        .suggestion-btn {
-            background: var(--card-bg);
-            border: 2px solid var(--primary-blue);
-            color: var(--primary-blue);
-            padding: 0.75rem 1.5rem;
-            border-radius: var(--border-radius-small);
-            font-size: 0.9rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all var(--transition-fast);
-            white-space: nowrap;
-        }
-
-        .suggestion-btn:hover {
-            background: var(--primary-blue);
-            color: white;
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-medium);
-        }
-
-        /* ===== RESPONSIVE ===== */
-        @media (max-width: 768px) and (orientation: portrait) {
-            .header h1 {
-                font-size: 2rem;
-            }
-
-            .content {
-                padding: 2rem 1rem;
-            }
-
-            .problem-palettes {
-                grid-template-columns: 1fr !important;
-                gap: 1rem !important;
-            }
-
-            .palette {
-                padding: 1.5rem;
-            }
-
-            .palette-icon {
-                font-size: 2.5rem;
-            }
-
-            .modal {
-                padding: 1.5rem;
-                margin: 1rem;
-            }
-
-            .sim-contact {
-                flex-direction: column;
-                gap: 1rem;
-            }
-
-            .room-input-container {
-                flex-direction: column;
-                align-items: stretch;
-            }
-
-            .room-input {
-                max-width: 100%;
-            }
-
-            .example-rooms {
-                gap: 0.5rem;
-            }
-
-            .room-example {
-                padding: 0.4rem 0.8rem;
-                font-size: 0.9rem;
-            }
-
-            .suggestions {
-                gap: 0.5rem;
-            }
-
-            .suggestion-btn {
-                padding: 0.6rem 1rem;
-                font-size: 0.8rem;
-            }
-        }
-
-        @media (max-width: 480px) {
-            body {
-                padding: 10px;
-            }
-
-            .header {
-                padding: 1.5rem;
-            }
-
-            .header h1 {
-                font-size: 1.8rem;
-            }
-
-            .content {
-                padding: 1.5rem 1rem;
-            }
-        }
-
-        /* ===== ANIMATIONS SUPPLÉMENTAIRES ===== */
-        .fade-in {
-            animation: fadeIn var(--transition-medium);
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-
-        .bounce-in {
-            animation: bounceIn var(--transition-medium);
-        }
-
-        @keyframes bounceIn {
-            0% {
-                opacity: 0;
-                transform: scale(0.3);
-            }
-            50% {
-                opacity: 1;
-                transform: scale(1.05);
-            }
-            70% {
-                transform: scale(0.9);
-            }
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-        }
-
-        /* ===== BANNIÈRE D'ALLUMAGE PROJECTEUR (inspirée modale PJLink) ===== */
-        .projector-powering-banner {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            opacity: 0;
-            transition: all 0.3s ease;
-        }
-
-        .projector-powering-banner.show {
-            opacity: 1;
-        }
-
-        .powering-content {
-            background: linear-gradient(135deg, #4CAF50, #45a049);
-            color: white;
-            padding: 30px;
-            border-radius: 15px;
-            text-align: center;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-            max-width: 500px;
-            width: 90%;
-        }
-
-        .powering-icon {
-            margin-bottom: 20px;
-        }
-
-        .powering-icon i {
-            font-size: 3rem;
-            color: #fff;
-        }
-
-        .warming-rotation {
-            animation: warmingRotate 2s linear infinite;
-        }
-
-        .av-mute-pulse {
-            animation: avMutePulse 1.5s ease-in-out infinite;
-        }
-
-        .powering-text h3 {
-            margin: 0 0 10px 0;
-            font-size: 1.4rem;
-            font-weight: bold;
-        }
-
-        .powering-text p {
-            margin: 0 0 20px 0;
-            opacity: 0.9;
-            font-size: 1rem;
-        }
-
-        .power-progress {
-            width: 100%;
-            margin-top: 15px;
-        }
-
-        .progress-bar {
-            width: 100%;
-            height: 8px;
-            background: rgba(255, 255, 255, 0.3);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            border-radius: 4px;
-            animation: progressAnimation 2s ease-in-out infinite;
-        }
-
-        .warming-fill {
-            background: linear-gradient(90deg, #FFC107, #FF9800);
-        }
-
-        .success-fill {
-            background: linear-gradient(90deg, #4CAF50, #2196F3);
-            animation: successProgress 1s ease-out forwards;
-        }
-
-        @keyframes warmingRotate {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @keyframes avMutePulse {
-            0%, 100% { 
-                transform: scale(1);
-                opacity: 1;
-            }
-            50% { 
-                transform: scale(1.1);
-                opacity: 0.8;
-            }
-        }
-
-        @keyframes progressAnimation {
-            0% { width: 0%; }
-            50% { width: 70%; }
-            100% { width: 100%; }
-        }
-
-        @keyframes successProgress {
-            0% { width: 0%; }
-            100% { width: 100%; }
-        }
-
-        /* ===== BANNIERE D'ATTENTE ORANGE ===== */
-        .waiting-banner-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            background: rgba(0, 0, 0, 0.8);
-            -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease-in-out;
-        }
-
-        .waiting-banner-overlay.visible {
-            opacity: 1;
-        }
-
-        .waiting-banner-overlay.fade-out {
-            opacity: 0;
-        }
-
-        .waiting-banner-content {
-            background: linear-gradient(135deg, #f97316, #ea580c);
-            border-radius: 20px;
-            padding: 40px;
-            text-align: center;
-            color: white;
-            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
-            min-width: 400px;
-            max-width: 500px;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .waiting-banner-content::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            animation: shimmer 2s infinite;
-        }
-
-        .waiting-banner-icon {
-            margin-bottom: 20px;
-        }
-
-        .waiting-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top: 4px solid white;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-
-        .waiting-banner-title {
-            font-size: 24px;
-            font-weight: bold;
-            margin: 20px 0 10px 0;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-
-        .waiting-banner-subtitle {
-            font-size: 16px;
-            margin-bottom: 25px;
-            opacity: 0.9;
-        }
-
-        .waiting-progress-bar {
-            width: 100%;
-            height: 6px;
-            background: rgba(255,255,255,0.3);
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 20px;
-        }
-
-        .waiting-progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, rgba(255,255,255,0.8), white);
-            border-radius: 3px;
-            animation: progressWaiting 2s ease-in-out infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @keyframes shimmer {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-
-        @keyframes progressWaiting {
-            0% { width: 20%; transform: translateX(-100%); }
-            50% { width: 60%; transform: translateX(50%); }
-            100% { width: 20%; transform: translateX(400%); }
-        }
-        
-        /* ===== CHAT ANIMATIONS ===== */
-        @keyframes slideInRight {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        
-        @keyframes slideOutRight {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
-        }
-        
-        /* ===== STYLES POUR MESSAGES DE STATUT TICKETS ===== */
-        .ticket-status-container {
-            position: fixed;
-            top: 80px;
-            right: 20px;
-            z-index: 1000;
-            max-width: 400px;
-        }
-        
-        .ticket-status-message {
-            background: linear-gradient(135deg, #3b82f6 0%, #1e40af 100%);
-            color: white;
-            padding: 1rem 1.25rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3);
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-weight: 500;
-            animation: slideInRight 0.5s ease-out;
-        }
-        
-        .ticket-status-message i {
-            font-size: 1.2rem;
-            color: #93c5fd;
-        }
-        
-        .status-close-btn {
-            background: none;
-            border: none;
-            color: white;
-            cursor: pointer;
-            padding: 0.25rem;
-            border-radius: 4px;
-            margin-left: auto;
-            transition: background-color 0.2s ease;
-        }
-        
-        .status-close-btn:hover {
-            background-color: rgba(255, 255, 255, 0.2);
-        }
-        
-        /* ===== STYLES SPÉCIFIQUES POUR BANNIÈRES PERSISTANTES ===== */
-        .ticket-status-message.persistent-status {
-            border-left: 4px solid #fff;
-            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.15);
-            animation: slideInRight 0.5s ease-out, pulseGlow 2s ease-in-out infinite;
-        }
-        
-        .ticket-status-message.temporary-status {
-            opacity: 0.95;
-            animation: slideInRight 0.5s ease-out, fadeOut 5s ease-in-out;
-        }
-        
-        @keyframes pulseGlow {
-            0%, 100% { box-shadow: 0 4px 25px rgba(0, 0, 0, 0.15); }
-            50% { box-shadow: 0 4px 30px rgba(255, 255, 255, 0.3); }
-        }
-        
-        @keyframes fadeOut {
-            0%, 80% { opacity: 0.95; }
-            100% { opacity: 0; }
-        }
-    </style></head>
-<body>
-<!-- Container principal -->
-<div class="main-container">
-<!-- Header -->
-<div class="header">
-<div class="header-top">
-<button class="technical-btn" onclick="openTechnicalMode()">
-<i class="fas fa-cog"></i>
-<span>Technique</span>
-</button>
-<button aria-label="Basculer le mode sombre" class="theme-toggle" onclick="toggleTheme()">
-<i class="fas fa-moon" id="themeIcon"></i>
-<span id="themeText">Mode nuit</span>
-</button>
-</div>
-<div class="title-section" style="display: flex; align-items: center; justify-content: flex-start; gap: 2rem;">
-<img alt="Vitrine" src="https://raw.githubusercontent.com/Zine76/vitrine/main/assets/Vitrine.png" style="height: 80px; max-width: 300px; object-fit: contain;"/>
-<p id="headerTitle" style="margin: 0; font-size: 1.1rem; font-weight: 600; color: black !important; -webkit-text-fill-color: black !important;">Diagnostic interactif et assistance audiovisuelle</p>
-</div>
-<div class="status-indicator">
-<div class="status-dot"></div>
-<span>Système opérationnel</span>
-</div>
-</div>
-<!-- Landing Page - Saisie de salle obligatoire -->
-<div class="landing-page" id="landingPage">
-<div class="landing-content">
-<div class="room-input-banner">
-<div class="banner-header">
-<span class="banner-icon">📍</span>
-<h3>Quelle salle avez-vous besoin d'aide ?</h3>
-</div>
-<div class="banner-content">
-<p>Entrez le numéro de votre salle pour accéder à l'assistant personnalisé</p>
-<div class="room-input-container">
-<input class="room-input" id="roomInput" onkeypress="handleRoomKeyPress(event)" placeholder="Ex: A-1750, B-2500, SH-R200..." type="text"/>
-<button class="confirm-room-btn" id="confirmRoomBtn" onclick="confirmRoom()">
-                                ✅ Confirmer
-                            </button>
-</div>
-<div class="room-examples">
-<p><strong>Exemples de formats acceptés :</strong></p>
-<div class="example-rooms">
-<span class="room-example" onclick="setRoomExample('A-1750')">A-1750</span>
-<span class="room-example" onclick="setRoomExample('B-2500')">B-2500</span>
-<span class="room-example" onclick="setRoomExample('J-2430')">J-2430</span>
-<span class="room-example" onclick="setRoomExample('SH-R200')">SH-R200</span>
-<span class="room-example" onclick="setRoomExample('DS-4000')">DS-4000</span>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-<!-- Assistant Page - Affiché après validation de la salle -->
-<div class="content" id="assistantPage" style="display: none;">
-<!-- Header de salle -->
-<div class="room-header" id="roomHeader">
-<div class="current-room-info">
-<span class="room-icon">📍</span>
-<span class="room-text">Salle : <strong id="currentRoomDisplay">-</strong></span>
-<button class="change-room-btn" onclick="changeRoom()" title="Changer de salle">
-<i class="fas fa-edit"></i>
-</button>
-</div>
-<!-- ✅ SUPPRIMÉ : Boutons inutiles Mode nuit et Accueil dans la zone de salle -->
-</div>
-<!-- Champ de saisie caché pour les messages -->
-<input id="problemInput" style="display: none;" type="text"/>
-<!-- Section des palettes de problèmes -->
-<div class="problem-palettes" id="problemPalettes">
-<!-- Palette Audio -->
-<div class="palette audio" onclick="sendExampleMessage('Pas de son')">
-<div class="palette-icon">🔵</div>
-<h3>Problème Audio</h3>
-<p>Microphones, haut-parleurs, volume, qualité sonore</p>
-</div>
-<!-- Palette Vidéo -->
-<div class="palette video" onclick="sendExampleMessage('Écran noir projecteur')">
-<div class="palette-icon">🟣</div>
-<h3>Problème Vidéo</h3>
-<p>Projecteurs, écrans, qualité d'image, connectivité</p>
-</div>
-<!-- Palette Réseau -->
-<div class="palette network" onclick="sendExampleMessage('Problème de réseau')">
-<div class="palette-icon">🟠</div>
-<h3>Problème Réseau</h3>
-<p>Connexion internet, Wi-Fi, connectivité réseau</p>
-</div>
-<!-- Palette Autres -->
-<div class="palette other" onclick="sendExampleMessage('Système qui ne répond plus')">
-<div class="palette-icon">🟢</div>
-<h3>Autres Problèmes</h3>
-<p>Équipements, infrastructure, maintenance générale</p>
-</div>
-</div>
-<!-- Section des suggestions -->
-<div class="suggestions" id="suggestions"></div>
-</div>
-</div>
-<!-- Modale de résultat -->
-<div class="modal-overlay" id="modalOverlay">
-<div class="modal" id="modal">
-<div class="modal-icon" id="modalIcon">✅</div>
-<h3 id="modalTitle">Problème résolu</h3>
-<p id="modalMessage">Le problème a été corrigé automatiquement.</p>
-<button class="modal-btn" onclick="closeModal()">Retour à l'accueil</button>
-</div>
-</div>
-
-<!-- Chat SEA Modal -->
-<div class="chat-modal" id="chatModal">
-<div class="chat-container">
-<div class="chat-header">
-<h3>💬 Chat SEA - Assistance en direct</h3>
-<button class="chat-close" onclick="closeChat()">
-<i class="fas fa-times"></i>
-</button>
-</div>
-<div class="chat-content" id="chatContent">
-<div class="chat-messages" id="chatMessages"></div>
-<div class="chat-input-area">
-<input type="text" id="chatInput" placeholder="Tapez votre message..." onkeypress="handleChatKeyPress(event)">
-<button onclick="sendChatMessage()" class="send-btn">
-<i class="fas fa-paper-plane"></i>
-</button>
-</div>
-</div>
-</div>
-</div>
-
-<!-- Consent Banner Centrée avec Animation Sonnerie -->
-<div class="consent-banner" id="consentBanner" style="display: none;">
-    <div class="consent-content">
-        <!-- Icône chat qui clignote comme une notification -->
-        <div class="consent-banner-phone">
-            <i class="fas fa-comments fa-3x"></i>
-        </div>
-        
-        <div class="consent-text">
-            <h4>💬 Demande de chat SEA</h4>
-            <p>Le service SEA souhaite établir un chat pour assister avec le ticket <strong id="consentTicketNumber">-</strong></p>
-            <p><em>Demande de chat pour salle <span id="consentRoomName">-</span></em></p>
-        </div>
-        
-        <div class="consent-actions">
-            <button class="consent-btn accept" onclick="acceptChat()">
-                <i class="fas fa-check"></i>
-                Accepter
-            </button>
-            <button class="consent-btn decline" onclick="declineChat()">
-                <i class="fas fa-times"></i>
-                Refuser
-            </button>
-        </div>
-    </div>
-</div>
-
-<!-- Chat Timeout Banner -->
-<div class="chat-timeout-banner" id="chatTimeoutBanner" style="display: none;">
-    <h3>
-        <i class="fas fa-clock"></i>
-        Demande de chat expirée
-    </h3>
-    <p>Le technicien SEA était disponible pour discuter de votre problème, mais le délai de réponse a expiré.</p>
-    <p><strong>Souhaitez-vous initier une conversation avec le technicien ?</strong></p>
-    
-    <div class="timeout-actions">
-        <button class="timeout-btn initiate" onclick="initiateClientChat()">
-            <i class="fas fa-comments"></i>
-            Contacter le SEA
-        </button>
-        <button class="timeout-btn close" onclick="closeTimeoutBanner()">
-            <i class="fas fa-times"></i>
-            Fermer
-        </button>
-    </div>
-</div>
-
-<script>
-        // ===== CONFIGURATION DYNAMIQUE =====
+﻿        // ===== CONFIGURATION DYNAMIQUE =====
+// 📋 FICHIER LOCAL - TRACE DES MODIFICATIONS
+// VERSION: LOCALHOST-v1.0
+// Ce fichier est gardé localement comme trace des modifications
+// La vitrine.html utilise les fichiers GitHub + override local
+console.log('🔧 [Version] app.js LOCAL - Trace modifications réseau localhost v1.0');
         // Récupérer le backend depuis les paramètres URL ou utiliser IP locale par défaut
         const urlParams = new URLSearchParams(window.location.search);
         const customBackend = urlParams.get('backend');
         
         // ✅ DÉTECTION AUTOMATIQUE PROTOCOLE (HTTPS si page HTTPS)
         const isSecurePage = location.protocol === 'https:';
-        const forceHttp = urlParams.get('http') === 'true'; // Paramètre pour forcer HTTP
-        const defaultProtocol = (isSecurePage && !forceHttp) ? 'https' : 'http';
-        // ✅ UTILISER LE BON PORT SELON LE PROTOCOLE
-        const httpsPort = defaultProtocol === 'https' ? '7443' : '7070';
-        const fallbackHttpsPort = defaultProtocol === 'https' ? '7443' : '7070';
-        const API_BASE_URL = customBackend || `${defaultProtocol}://C46928_DEE.adm.gst.uqam.ca:${httpsPort}`;
-        const FALLBACK_API_URL = `${defaultProtocol}://localhost:${fallbackHttpsPort}`;
-        
-        // ✅ CONFIGURATION IMAGES GITHUB
-        const GITHUB_ASSETS_BASE = 'https://raw.githubusercontent.com/Zine76/vitrine/main/assets';
-        
-        console.log(`🌐 [Config] Backend utilisé: ${API_BASE_URL}`);
-        console.log(`🖼️ [Config] Images depuis: ${GITHUB_ASSETS_BASE}`);
-        
-        // ✅ GUIDE POUR IP DYNAMIQUE
-        if (API_BASE_URL.includes('C46928_DEE.adm.gst.uqam.ca')) {
-            console.log(`💡 [IPDynamique] Si DNS UQAM inaccessible, utilisez:`);
-            console.log(`💡 [IPDynamique] ?backend=https://NOUVELLE_IP:7443`);
-            console.log(`💡 [IPDynamique] Exemple: ?backend=https://132.208.182.100:7443`);
-        }
-        
-        // ✅ AVERTISSEMENT MIXED CONTENT
-        if (isSecurePage && API_BASE_URL.startsWith('https:') && !customBackend) {
-            console.warn(`⚠️  [Security] Page HTTPS détectée - backend configuré en HTTPS`);
-            console.warn(`⚠️  [Security] Si erreurs SSL, configurez le backend avec certificat HTTPS`);
-            console.warn(`💡 [Solution] Ou utilisez: ?http=true pour forcer HTTP (non sécurisé)`);
-        }
-        
-        if (isSecurePage && forceHttp) {
-            console.warn(`🔓 [Security] Mode HTTP forcé depuis page HTTPS - Mixed Content possible`);
-            console.warn(`🔓 [Security] Le navigateur peut bloquer les requêtes HTTP`);
-        }
-        
-        // Afficher un message informatif sur la configuration
-        if (customBackend) {
-            console.log(`✅ [Config] Backend personnalisé détecté via URL: ${customBackend}`);
-        } else {
-            console.log(`ℹ️  [Config] Backend par défaut: ${API_BASE_URL} (fallback: ${FALLBACK_API_URL})`);
-            if (isSecurePage) {
-                console.log(`ℹ️  [Config] Pour HTTP forcé: ?http=true`);
-                console.log(`ℹ️  [Config] Pour autre PC: ?backend=https://IP:7070 OU ?backend=http://IP:7070&http=true`);
-            } else {
-                console.log(`ℹ️  [Config] Pour utiliser un autre PC: ?backend=http://IP:7070`);
+        // ✅ CONFIGURATION INTELLIGENTE - Détection automatique du réseau
+        // Détection du réseau UQAM public (132.x.x.x)
+        function isUQAMPublicNetwork() {
+            try {
+                // Mode debug: forcer la détection UQAM public si paramètre URL présent
+                if (window.location.search.includes('debug_uqam_public=1')) {
+                    console.log('🧪 [Config] Mode debug: Forçage détection réseau UQAM public');
+                    return true;
+                }
+                
+                const hostname = window.location.hostname;
+                console.log(`🔍 [Config] Détection réseau - hostname: "${hostname}", protocol: "${window.location.protocol}"`);
+                
+                // Si on accède via une IP UQAM (132.x.x.x ou 10.x.x.x) ou un hostname UQAM
+                if (hostname.includes('uqam') || /132\.\d+\.\d+\.\d+/.test(hostname) || /10\.\d+\.\d+\.\d+/.test(hostname)) {
+                    console.log('✅ [Config] Réseau UQAM détecté via hostname/IP');
+                    return true;
+                }
+                
+                // Vérifier si on est dans le contexte d'un fichier local ouvert sur un PC UQAM
+                if (hostname === '' || hostname === 'localhost' || /^file:/.test(window.location.protocol)) {
+                    console.log('🔍 [Config] Contexte fichier local détecté, vérification heuristiques...');
+                    
+                    // Essayer de détecter via d'autres moyens
+                    const userAgent = navigator.userAgent.toLowerCase();
+                    if (userAgent.includes('uqam') || userAgent.includes('132.208') || userAgent.includes('10.206')) {
+                        console.log('✅ [Config] Réseau UQAM détecté via UserAgent');
+                        return true;
+                    }
+                    
+                    // Pour le réseau public UQAM (132.x.x.x), on ne peut généralement pas résoudre
+                    // les noms Tailscale, donc si on est en local et qu'on ne peut pas résoudre Tailscale,
+                    // c'est probablement le réseau public UQAM
+                    console.log('🔍 [Config] Heuristique: fichier local sans indicateurs spécifiques');
+                }
+                
+                console.log('❌ [Config] Réseau UQAM non détecté par les méthodes basiques');
+                return false;
+            } catch(e) {
+                console.warn('[Config] Erreur détection réseau:', e);
+                return false;
             }
         }
+
+        // Détection asynchrone du réseau basée sur la connectivité
+        async function detectNetworkContext() {
+            // Test rapide pour déterminer le contexte réseau (DNS UQAM uniquement)
+            const testUrls = [
+                { url: 'http://C46928_DEE.ddns.uqam.ca:7070/api/health', type: 'internal' },
+                { url: 'http://SAV-ATL-POR-8.ddns.uqam.ca:7070/api/health', type: 'dns_uqam' }
+            ];
+            
+            const results = await Promise.allSettled(
+                testUrls.map(async ({ url, type }) => {
+                    try {
+                        const response = await fetch(url, { 
+                            method: 'GET', 
+                            signal: AbortSignal.timeout(2000) 
+                        });
+                        return { type, accessible: response.ok, url };
+                    } catch (error) {
+                        return { type, accessible: false, url };
+                    }
+                })
+            );
+            
+            const accessible = results
+                .filter(result => result.status === 'fulfilled')
+                .map(result => result.value)
+                .filter(result => result.accessible);
+            
+            console.log('🌐 [Config] Résultats test connectivité:', accessible);
+            
+            // Si seule l'IP publique est accessible, on est sur le réseau public UQAM
+            if (accessible.length === 1 && accessible[0].type === 'public') {
+                return 'uqam_public';
+            }
+            // Si l'IP publique est accessible (même avec d'autres), probablement réseau UQAM public
+            if (accessible.some(r => r.type === 'public') && !accessible.some(r => r.type === 'internal')) {
+                return 'uqam_public';
+            }
+            // Si le DNS interne est accessible, on est sur le réseau privé
+            if (accessible.some(r => r.type === 'internal')) {
+                return 'uqam_internal';
+            }
+            // Si seul Tailscale est accessible, on est sur un réseau externe avec VPN
+            if (accessible.length === 1 && accessible[0].type === 'tailscale') {
+                return 'external_vpn';
+            }
+            
+            // Si aucun backend n'est accessible, essayer de déduire du contexte
+            if (accessible.length === 0) {
+                // Utiliser la détection basique du réseau
+                if (isUQAMPublicNetwork()) {
+                    console.log('🌐 [Config] Aucun backend accessible, mais détection basique indique réseau UQAM public');
+                    return 'uqam_public';
+                }
+            }
+            
+            return 'unknown';
+        }
+
+        // Configuration des backends selon le contexte
+        let API_BASE_URL = (function(){
+            try {
+                if (window.BACKEND_BASE) return window.BACKEND_BASE;
+                const storedIp = localStorage.getItem('vitrine.backend.ip');
+                if (storedIp && typeof storedIp === 'string' && storedIp.trim()) {
+                    const backendUrl = /^https?:\/\//i.test(storedIp) ? storedIp : `http://${storedIp.trim()}:7070`;
+                    console.log('🌐 [Config] IP depuis localStorage:', backendUrl);
+                    return backendUrl;
+                }
+            } catch(e) { 
+                console.warn('[BackendBase] storage read error', e); 
+            }
+            
+            // Si aucune IP configurée, retourner null pour forcer la configuration
+            console.log('⚠️ [Config] Aucune IP configurée. Utilisez Alt+Ctrl+J pour configurer le backend.');
+            return null;
+        })();
         
-        // ===== FONCTION DE TEST CONNECTIVITÉ AVEC FALLBACK =====
-        let currentAPI = API_BASE_URL;
-        let hasTestedFallback = false;
-        let hybridCheckInterval = null;
+        // Fallbacks DNS UQAM (uniquement si pas d'IP configurée)
+        function getFallbackUrls() {
+            // Retourner uniquement les DNS UQAM comme fallback
+            return [
+                'http://SAV-ATL-POR-8.ddns.uqam.ca:7070',  // DNS UQAM principal
+                'http://C46928_DEE.ddns.uqam.ca:7070'  // DNS interne UQAM
+            ];
+        }
+        
+        // Fallbacks par défaut (seront mis à jour par detectBestBackend)
+        let FALLBACK_URLS = getFallbackUrls();
+        
+        // ✅ SOLUTION SIMPLE : Test de l'IP configurée
+        async function detectBestBackend() {
+            console.log('🔍 [Config] Test du backend configuré...');
+            
+            // Utiliser l'IP configurée dans localStorage
+            if (!API_BASE_URL) {
+                console.log('⚠️ [Config] Aucune IP configurée pour le test');
+                return null;
+            }
+            
+            try {
+                const testResponse = await fetch(`${API_BASE_URL}/api/health`, { 
+                    method: 'GET', 
+                    signal: AbortSignal.timeout(5000)
+                });
+                if (testResponse.ok) {
+                    console.log(`✅ [Config] Backend configuré accessible: ${API_BASE_URL}`);
+                    currentAPI = API_BASE_URL;
+                    window.dispatchEvent(new CustomEvent('backend:updated', { detail: { base: API_BASE_URL } }));
+                    return API_BASE_URL;
+                }
+            } catch (error) {
+                console.log(`⚠️ [Config] Backend configuré inaccessible: ${API_BASE_URL}`);
+            }
+            
+            console.error('🚨 [Config] Backend configuré inaccessible !');
+            console.log('💡 [Config] Suggestion: Utilisez Alt+Ctrl+J pour reconfigurer le backend');
+            // Retourner null pour indiquer l'échec
+            return null;
+        }
+        
+        // ✅ INITIALISATION SYNCHRONE AVEC FALLBACK
+        let currentAPI = API_BASE_URL; // Par défaut
+
+        // Écoute les changements dynamiques de backend (ex: saisi par l'utilisateur)
+        window.addEventListener('backend:updated', function(evt){
+            try {
+                const base = (evt && evt.detail && evt.detail.base) ? evt.detail.base : null;
+                if (base) {
+                    API_BASE_URL = base;
+                    currentAPI = base;
+                    console.log('[BackendBase] Mis à jour →', base);
+                }
+            } catch(e){ console.warn('[BackendBase] update error', e); }
+        });
+
+        // Surveillance simple de santé backend pour redemander l'IP en cas de déconnexion
+        (function setupBackendHealthWatch(){
+            async function pingOnce(signal){
+                try {
+                    const resp = await fetch(`${API_BASE_URL}/api/health`, { method: 'GET', signal, cache: 'no-store' });
+                    if (!resp.ok) throw new Error('bad status ' + resp.status);
+                    // Indication visuelle simple si éléments présents
+                    const dot = document.getElementById('connection-indicator') || document.querySelector('.status-dot');
+                    const txt = document.getElementById('connection-text') || document.querySelector('.status-indicator span');
+                    if (dot) { dot.style.background = '#22c55e'; }
+                    if (txt) { txt.textContent = 'Système opérationnel'; }
+                    return true;
+                } catch(err) {
+                    const dot = document.getElementById('connection-indicator') || document.querySelector('.status-dot');
+                    const txt = document.getElementById('connection-text') || document.querySelector('.status-indicator span');
+                    if (dot) { dot.style.background = '#ef4444'; }
+                    if (txt) { txt.textContent = 'Hors ligne - Configurer le backend'; }
+                    // Ne plus afficher la modale automatiquement en cas d'échec.
+                    // L'utilisateur utilisera Alt+Ctrl+J pour rouvrir et changer l'IP.
+                    return false;
+                }
+            }
+            // Premier ping rapide après chargement
+            document.addEventListener('DOMContentLoaded', () => {
+                pingOnce();
+                // Pings périodiques
+                setInterval(() => pingOnce(), 20000);
+            });
+        })();
+        let backendInitialized = false;
+        
+        // Fonction d'initialisation avec Promise pour attendre
+        const backendInitPromise = (async function initializeBackend() {
+            try {
+                // Vérifier si une IP est configurée dans localStorage
+                if (!API_BASE_URL) {
+                    console.log('⚠️ [Config] Aucune IP configurée. Affichage du modal de configuration...');
+                    // Afficher le modal de configuration automatiquement
+                    setTimeout(() => {
+                        if (typeof window.showBackendModal === 'function') {
+                            window.showBackendModal('');
+                        }
+                    }, 1000);
+                    // Pas d'IP par défaut - l'utilisateur doit configurer
+                    API_BASE_URL = null;
+                    currentAPI = null;
+                    backendInitialized = true;
+                    return currentAPI;
+                }
+                
+                currentAPI = API_BASE_URL;
+                window.BACKEND_BASE = API_BASE_URL;
+                
+                const detectedAPI = await detectBestBackend();
+                currentAPI = detectedAPI || API_BASE_URL; // ✅ S'assurer que currentAPI est mis à jour
+                backendInitialized = true;
+                console.log(`🌐 [Config] Backend utilisé: ${currentAPI}`);
+                console.log(`🖼️ [Config] Images depuis: ${ASSETS_BASE}`);
+                return currentAPI;
+            } catch (error) {
+                console.error('❌ [Config] Erreur initialisation backend:', error);
+                // Utiliser l'IP configurée ou null si pas configurée
+                currentAPI = API_BASE_URL;
+                API_BASE_URL = currentAPI;
+                window.BACKEND_BASE = currentAPI;
+                backendInitialized = true;
+                return currentAPI;
+            }
+        })();
+        
+        // Fonction helper pour obtenir l'API courante
+        async function getCurrentAPI() {
+            if (!backendInitialized) {
+                await backendInitPromise;
+            }
+            return currentAPI;
+        }
+        
+        // ✅ CONFIGURATION IMAGES DEPUIS GITHUB
+        // Utiliser directement GitHub Pages pour les images
+        const ASSETS_BASE = window.ASSETS_BASE || 'https://zine76.github.io/vitrine/assets';
         
         // ✅ NOUVEAU: Redémarrer toutes les connexions SSE après changement d'API
         function restartSSEConnections() {
             console.log(`🔄 [SSERestart] Redémarrage connexions SSE vers: ${currentAPI}`);
             
-            // Redémarrer Chat SSE
+            // ✅ CORRECTION : Ne pas redémarrer automatiquement les SSE
             if (getCurrentRoom()) {
-                setTimeout(() => {
-                    startChatRequestListener();
-                }, 100);
+                console.log('🔄 [SSERestart] Connexions SSE préservées - Pas de redémarrage automatique');
+                // Les connexions existantes continuent de fonctionner
             }
             
-            // Redémarrer Status Events SSE
-            if (statusEventSource) {
-                statusEventSource.close();
-                statusEventSource = null;
-            }
-            if (getCurrentRoom()) {
-                setTimeout(() => {
-                    startStatusEventSource();
-                }, 200);
-            }
+            // ✅ CORRECTION : Ne pas redémarrer automatiquement les Status Events
+            console.log('🔄 [SSERestart] Status Events SSE préservés - Pas de redémarrage automatique');
         }
         
-        // ✅ NOUVEAU: Surveillance hybride intelligente
-        function startHybridMonitoring() {
-            // Vérifier toutes les 10 secondes si on peut améliorer la connexion
-            hybridCheckInterval = setInterval(async () => {
-                const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost';
-                
-                if (isLocal && !customBackend) {
-                    const localhostURL = `${defaultProtocol}://localhost:${httpsPort}`;
-                    const dnsURL = API_BASE_URL;
-                    
-                    // Si on utilise DNS mais localhost est disponible, basculer
-                    if (currentAPI !== localhostURL && await testBackendConnectivity(localhostURL)) {
-                        console.log(`🔄 [HybridMonitor] Bascule vers localhost optimal`);
-                        const oldAPI = currentAPI;
-                        currentAPI = localhostURL;
-                        restartSSEConnections();
-                    }
-                    // Si on utilise localhost mais DNS redevient disponible, proposer le choix
-                    else if (currentAPI === localhostURL && await testBackendConnectivity(dnsURL)) {
-                        console.log(`💡 [HybridMonitor] DNS UQAM redevenu disponible (reste sur localhost)`);
-                    }
-                }
-            }, 10000);
-        }
+        // ✅ MONITORING SIMPLIFIÉ - BACKEND UNIQUE
         
-        // ✅ NOUVEAU: Fonction pour découvrir l'IP dynamique
-        async function discoverDynamicIP() {
-            try {
-                // Essayer plusieurs services de découverte d'IP
-                const ipServices = [
-                    'https://api.ipify.org?format=json',
-                    'https://ipapi.co/json/',
-                    'https://jsonip.com'
-                ];
-                
-                for (const service of ipServices) {
-                    try {
-                        const response = await fetch(service, { signal: AbortSignal.timeout(3000) });
-                        const data = await response.json();
-                        const ip = data.ip || data.query || data.IPv4;
-                        
-                        if (ip && ip.match(/^\d+\.\d+\.\d+\.\d+$/)) {
-                            console.log(`🔍 [IPDiscovery] IP découverte: ${ip} via ${service}`);
-                            return ip;
-                        }
-                    } catch (error) {
-                        console.log(`⚠️ [IPDiscovery] Service ${service} indisponible`);
-                    }
-                }
-                
-                console.log(`❌ [IPDiscovery] Aucun service de découverte IP disponible`);
-                return null;
-            } catch (error) {
-                console.log(`❌ [IPDiscovery] Erreur découverte IP:`, error);
-                return null;
-            }
-        }
+        // ✅ CONFIGURATION TERMINÉE
         
         async function testBackendConnectivity(url) {
             try {
@@ -4275,115 +302,24 @@
             }
         }
         
+        // ✅ FONCTION SIMPLIFIÉE - BACKEND UNIQUE
         async function ensureBackendConnection() {
-            // ✅ NOUVEAU: Mode hybride intelligent - priorité selon contexte
-            const isLocal = window.location.protocol === 'file:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-            
-            if (isLocal && !customBackend) {
-                console.log(`🏠 [HybridMode] Accès local détecté - test localhost en priorité`);
-                
-                // Test localhost en PREMIER pour accès local
-                const localhostURL = `${defaultProtocol}://localhost:${httpsPort}`;
-                const dnsURL = currentAPI;
-                
-                // Test SIMULTANÉ avec Promise.race pour le plus rapide
-                try {
-                    const winner = await Promise.race([
-                        testBackendConnectivity(localhostURL).then(ok => ({ url: localhostURL, success: ok, type: 'localhost' })),
-                        testBackendConnectivity(dnsURL).then(ok => ({ url: dnsURL, success: ok, type: 'dns' }))
-                    ]);
-                    
-                    if (winner.success) {
-                        console.log(`✅ [HybridMode] ${winner.type.toUpperCase()} gagne: ${winner.url}`);
-                        const oldAPI = currentAPI;
-                        currentAPI = winner.url;
-                        
-                        // ✅ NOUVEAU: Redémarrer SSE si l'API a changé
-                        if (oldAPI !== currentAPI) {
-                            restartSSEConnections();
-                        }
-                        
-                        return currentAPI;
-                    }
-                } catch (error) {
-                    console.log(`⚠️ [HybridMode] Tests parallèles échoués`);
-                }
+            const api = await getCurrentAPI();
+            // ✅ OPTIMISATION : Log seulement si debug activé pour éviter le spam
+            if (window.DEBUG_BACKEND) {
+                console.log(`✅ [Config] Utilisation backend unique: ${api}`);
             }
-            
-            // Test du backend principal (DNS) pour accès externe
-            if (await testBackendConnectivity(currentAPI)) {
-                console.log(`✅ [Connectivity] Backend ${currentAPI} disponible`);
-                return currentAPI;
-            }
-            
-            // ✅ NOUVEAU: Fallback vers IP si DNS échoue (réseau externe)
-            if (!customBackend && currentAPI.includes('C46928_DEE.adm.gst.uqam.ca')) {
-                console.log(`🔄 [Connectivity] DNS UQAM inaccessible, découverte IP dynamique...`);
-                
-                // Essayer l'IP statique d'abord
-                const staticIPFallback = currentAPI.replace('C46928_DEE.adm.gst.uqam.ca', '132.208.182.75');
-                if (await testBackendConnectivity(staticIPFallback)) {
-                    console.log(`✅ [Connectivity] IP statique ${staticIPFallback} disponible`);
-                    currentAPI = staticIPFallback;
-                    return currentAPI;
-                }
-                
-                // Si IP statique échoue, essayer découverte dynamique
-                const discoveredIP = await discoverDynamicIP();
-                if (discoveredIP) {
-                    const dynamicFallback = currentAPI.replace('C46928_DEE.adm.gst.uqam.ca', discoveredIP);
-                    console.log(`🔄 [Connectivity] Test IP découverte: ${dynamicFallback}`);
-                    
-                    if (await testBackendConnectivity(dynamicFallback)) {
-                        console.log(`✅ [Connectivity] IP dynamique ${dynamicFallback} disponible`);
-                        currentAPI = dynamicFallback;
-                        return currentAPI;
-                    }
-                }
-            }
-            
-            // Si pas de backend personnalisé et que le principal échoue, essayer localhost
-            if (!customBackend && !hasTestedFallback) {
-                console.log(`🔄 [Connectivity] Tentative fallback vers ${FALLBACK_API_URL}`);
-                hasTestedFallback = true;
-                
-                if (await testBackendConnectivity(FALLBACK_API_URL)) {
-                    console.log(`✅ [Connectivity] Fallback ${FALLBACK_API_URL} disponible`);
-                    currentAPI = FALLBACK_API_URL;
-                    return currentAPI;
-                }
-            }
-            
-            console.log(`❌ [Connectivity] Aucun backend disponible`);
-            return currentAPI; // Garder l'original même si indisponible
+            return api;
         }
         
-        // ===== FONCTION HELPER POUR APPELS API AVEC FALLBACK =====
-        async function apiCall(endpoint, options = {}) {
-            // S'assurer qu'on utilise le bon backend
-            const activeAPI = currentAPI || API_BASE_URL;
-            const url = `${activeAPI}${endpoint}`;
-            
-            try {
-                return await fetch(url, options);
-            } catch (error) {
-                // En cas d'erreur, essayer de reconnecter
-                if (!hasTestedFallback && !customBackend) {
-                    console.log(`🔄 [API] Tentative reconnexion...`);
-                    currentAPI = await ensureBackendConnection();
-                    const fallbackUrl = `${currentAPI}${endpoint}`;
-                    return await fetch(fallbackUrl, options);
-                }
-                throw error;
-            }
-        }
+        // ✅ FONCTION SIMPLIFIÉE - APPELS DIRECTS
         let isLoading = false;
         let messageCount = 0;
         let messagesContainer;
         let suggestionsContainer;
         let latestRAGContext = null;
         let isConnected = false;
-        const problemInput = document.getElementById('problemInput');
+        let problemInput = null;
         
         // ===== CHAT SEA VARIABLES =====
         let currentChatId = null;
@@ -4392,35 +328,36 @@
         let kioskID = null;
         
         // ===== IMAGE SEA2 =====
-        function updateSEALogo(imgElement) {
-            if (imgElement) {
-                console.log('🖼️ [UpdateSEALogo] Tentative de chargement image SEA pour:', imgElement.id || 'sans ID');
-                
-                // ✅ ESSAYER D'ABORD GITHUB
-                imgElement.src = `${GITHUB_ASSETS_BASE}/SEA2.png`;
-                
-                imgElement.onerror = function() {
-                    console.log('❌ [UpdateSEALogo] Échec GitHub, fallback local');
-                    this.src = 'assets/SEA2.png';
-                    
-                    this.onerror = function() {
-                        console.log('❌ [UpdateSEALogo] Échec serveur distant, utilisation fallback');
-                        // Fallback vers image directement dans le dossier Annexe
-                        this.src = './SEA2.png';
-                        
-                        this.onerror = function() {
-                            console.log('❌ [UpdateSEALogo] Tous les chemins échoués, image vide');
-                        };
-                    };
-                };
-                
-                imgElement.onload = function() {
-                    console.log('✅ [UpdateSEALogo] Image SEA chargée avec succès depuis:', this.src);
-                };
-            } else {
-                console.log('❌ [UpdateSEALogo] Élément image non trouvé');
-            }
-        }
+        
+function updateSEALogo(imgElement) {
+  if (!imgElement) return;
+  const base = (typeof ASSETS_BASE !== 'undefined' && ASSETS_BASE) ||
+               (typeof window !== 'undefined' && window.ASSETS_BASE) ||
+               'https://zine76.github.io/vitrine/assets';
+  const primary  = base.replace(/\/$/, '') + '/SEA2.png?v=' + Date.now();
+  const fallback = base.replace(/\/$/, '') + '/SI.png';
+  console.log('[UpdateSEALogo] base=', base);
+  console.log('[UpdateSEALogo] primary=', primary);
+
+  // Remove any HTML-level onerror side-effects if present
+  try { imgElement.removeAttribute('onerror'); } catch (e) {}
+
+  imgElement.onerror = function(){
+    console.warn('[UpdateSEALogo] SEA2.png failed → optional fallback to SI.png + reveal text');
+    if (this.nextElementSibling && this.nextElementSibling.classList && this.nextElementSibling.classList.contains('sea-fallback-content')) {
+      this.nextElementSibling.style.display = 'block';
+      this.style.display = 'none';
+    }
+    this.src = fallback;
+    this.setAttribute('src', fallback);
+    this.onerror = null;
+  };
+
+  imgElement.style.display = '';
+  imgElement.src = primary;
+  imgElement.setAttribute('src', primary);
+}
+
         
         // ✅ NOUVEAU : Gestion des tickets de session
         let sessionTickets = [];
@@ -4434,11 +371,7 @@
         };
 
         // ===== DOM ELEMENTS =====
-        const landingPage = document.getElementById('landingPage');
-        const assistantPage = document.getElementById('assistantPage');
-        const roomInput = document.getElementById('roomInput');
-        const confirmRoomBtn = document.getElementById('confirmRoomBtn');
-        const currentRoomDisplay = document.getElementById('currentRoomDisplay');
+        // Les �l�ments seront r�cup�r�s dynamiquement car ils n'existent pas encore
 
         // ===== FONCTIONS DE GESTION DE LA SALLE =====
 
@@ -4456,15 +389,19 @@
          * Définir un exemple de salle
          */
         function setRoomExample(roomName) {
-            roomInput.value = roomName;
-            roomInput.focus();
+            const roomInput = document.getElementById('roomInput');
+            if (roomInput) {
+                roomInput.value = roomName;
+                roomInput.focus();
+            }
         }
 
         /**
          * Confirmer la salle et passer à l'assistant
          */
         function confirmRoom() {
-            const roomName = roomInput.value.trim();
+            const roomInput = document.getElementById('roomInput');
+            const roomName = roomInput ? roomInput.value.trim() : '';
             
             if (!roomName) {
                 showRoomError('⚠️ Veuillez entrer un numéro de salle');
@@ -4597,8 +534,8 @@
                 currentRoomDisplay.innerHTML = `
                     <strong style="color: ${textColor}; font-weight: 700;">${roomName}</strong>
                     <small style="display: block; color: ${textColor}; font-size: 0.9rem; margin-top: 0.5rem; line-height: 1.4; font-weight: 600; text-shadow: ${isDarkMode ? '0 2px 4px rgba(0,0,0,0.8)' : 'none'};">
-                        📍 ${podioInfo.pavillon} - ${podioInfo.bassin}<br>
-                        🏛️ ${podioInfo.type} | <span style="color: ${textColor} !important; font-weight: 800; font-size: 1.1rem; text-shadow: ${isDarkMode ? '0 2px 6px rgba(0,0,0,0.9)' : 'none'};"><i class="fas fa-users" style="color: ${isDarkMode ? 'white' : '#3b82f6'} !important; -webkit-text-fill-color: ${isDarkMode ? 'white' : '#3b82f6'} !important;"></i> <span style="color: ${textColor} !important;">${podioInfo.capacite}</span></span>
+                        &#128205; ${podioInfo.pavillon} - ${podioInfo.bassin}<br>
+                        &#127979; ${podioInfo.type} | <span style="color: ${textColor} !important; font-weight: 800; font-size: 1.1rem; text-shadow: ${isDarkMode ? '0 2px 6px rgba(0,0,0,0.9)' : 'none'};"><i class="fas fa-users" style="color: ${isDarkMode ? 'white' : '#3b82f6'} !important; -webkit-text-fill-color: ${isDarkMode ? 'white' : '#3b82f6'} !important;"></i> <span style="color: ${textColor} !important;">${podioInfo.capacite}</span></span>
                     </small>
                 `;
                 console.log(`🎨 [RoomDisplay] Affichage enrichi pour ${roomName}`);
@@ -4618,11 +555,29 @@
                 return;
             }
 
+            // Récupérer/assurer la présence des éléments dynamiquement
+            let landingPage = document.getElementById('landingPage');
+            let assistantPage = document.getElementById('assistantPage');
+            if (!landingPage || !assistantPage) {
+                if (typeof createVitrine === 'function') {
+                    try {
+                        createVitrine();
+                        console.log('[showAssistant] Interface (re)créée avant affichage');
+                    } catch (e) {
+                        console.error('[showAssistant] échec de création de l\'interface:', e);
+                        return;
+                    }
+                    // Rechercher à nouveau
+                    landingPage = document.getElementById('landingPage');
+                    assistantPage = document.getElementById('assistantPage');
+                }
+            }
+
             // Masquer la landing page
-            landingPage.style.display = 'none';
+            if (landingPage) landingPage.style.display = 'none';
             
             // Afficher l'assistant
-            assistantPage.style.display = 'block';
+            if (assistantPage) assistantPage.style.display = 'block';
             
             // Mettre à jour les affichages de salle avec infos Podio si disponibles
             updateRoomDisplayWithPodio(window.roomCache.room, window.roomCache.podioInfo);
@@ -4638,6 +593,8 @@
             setInterval(async () => {
                 await checkConnection();
             }, 10000);
+            
+            // ✅ SUPPRIMÉ : Restauration déplacée vers DOMContentLoaded pour éviter les doublons
             
             // Focus sur l'input principal
             setTimeout(() => {
@@ -4656,8 +613,12 @@
             // Réinitialiser le cache
             window.roomCache.isSet = false;
             
+            // ✅ NOUVEAU : Réinitialiser le flag de restauration pour la nouvelle salle
+            statusRestorationDone = false;
+            
             // Nettoyer les inputs
-            roomInput.value = '';
+            const roomInput = document.getElementById('roomInput');
+            if (roomInput) roomInput.value = '';
             
             // 🔔 Fermer l'EventSource de statut
             if (statusEventSource) {
@@ -4666,16 +627,24 @@
                 console.log('🔔 [StatusEvents] EventSource de statut fermé');
             }
             
-            // 🔔 Masquer le message de statut
-            hideTicketStatusMessage();
+            // 🔔 Masquer le message de statut SANS nettoyer localStorage (pour garder le statut de cette salle)
+            const statusContainer = document.getElementById('ticketStatusContainer');
+            if (statusContainer) {
+                statusContainer.style.display = 'none';
+                removePageBlurEffect();
+                console.log('🔔 [ChangeRoom] Bannière masquée SANS nettoyage localStorage');
+            }
             
-            // Retour à la landing page
-            assistantPage.style.display = 'none';
-            landingPage.style.display = 'flex';
+            // Retour �  la landing page
+            const assistantPage = document.getElementById('assistantPage');
+            const landingPage = document.getElementById('landingPage');
+            if (assistantPage) assistantPage.style.display = 'none';
+            if (landingPage) landingPage.style.display = 'flex';
             
             // Focus sur l'input de salle
             setTimeout(() => {
-                roomInput.focus();
+                const roomInput = document.getElementById('roomInput');
+                if (roomInput) roomInput.focus();
             }, 300);
             
             console.log('🏠 Retour à la landing page (changer de salle)');
@@ -4693,6 +662,7 @@
             if (body.getAttribute('data-theme') === 'dark') {
                 // Passer au mode clair
                 body.removeAttribute('data-theme');
+                body.classList.remove('dark'); // Pour Tailwind CSS
                 themeIcon.className = 'fas fa-moon';
                 themeText.textContent = 'Mode nuit';
                 localStorage.setItem('vitrine-theme', 'light');
@@ -4702,6 +672,7 @@
             } else {
                 // Passer au mode sombre
                 body.setAttribute('data-theme', 'dark');
+                body.classList.add('dark'); // Pour Tailwind CSS
                 themeIcon.className = 'fas fa-sun';
                 themeText.textContent = 'Mode jour';
                 localStorage.setItem('vitrine-theme', 'dark');
@@ -4721,6 +692,7 @@
             // Priorité : 1) Sauvegarde utilisateur, 2) Préférence système, 3) Mode clair par défaut
             if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
                 document.body.setAttribute('data-theme', 'dark');
+                document.body.classList.add('dark'); // Pour Tailwind CSS
                 const themeIcon = document.getElementById('themeIcon');
                 const themeText = document.getElementById('themeText');
                 if (themeIcon && themeText) {
@@ -4730,6 +702,7 @@
                 console.log('🌙 Mode sombre initialisé (préférence système ou sauvegarde)');
             } else {
                 document.body.removeAttribute('data-theme');
+                document.body.classList.remove('dark'); // Pour Tailwind CSS
                 console.log('🌞 Mode clair initialisé');
             }
         }
@@ -4836,6 +809,60 @@
             }
         }
 
+        // ======= MOJIBAKE SANITIZER =======
+        function normalizeMojibake(text) {
+            if (!text) return text;
+            const replacements = [
+                [/Syst�me/g, 'Système'], [/op�rationnel/g, 'opérationnel'], [/pr�t/g, 'prêt'],
+                [/D�/g, 'Dé'], [/d�/g, 'dé'],
+                [/�/g, ''],
+                [/\?\?\?/g, ''], [/\?\?/g, ''], [/\?/g, '']
+            ];
+            let out = text;
+            for (const [pattern, repl] of replacements) out = out.replace(pattern, repl);
+            return out;
+        }
+
+        function sanitizeTextNodes(root) {
+            const walker = document.createTreeWalker(root || document.body, NodeFilter.SHOW_TEXT, null);
+            const nodes = [];
+            while (walker.nextNode()) nodes.push(walker.currentNode);
+            for (const node of nodes) {
+                const fixed = normalizeMojibake(node.nodeValue);
+                if (fixed !== node.nodeValue) node.nodeValue = fixed;
+            }
+        }
+
+        function startMojibakeObserver() {
+            if (!document || !document.body) return;
+            sanitizeTextNodes(document.body);
+            const observer = new MutationObserver(muts => {
+                for (const m of muts) {
+                    if (m.type === 'childList') {
+                        m.addedNodes && m.addedNodes.forEach(n => {
+                            if (n.nodeType === Node.TEXT_NODE) {
+                                const fixed = normalizeMojibake(n.nodeValue);
+                                if (fixed !== n.nodeValue) n.nodeValue = fixed;
+                            } else if (n.nodeType === Node.ELEMENT_NODE) {
+                                sanitizeTextNodes(n);
+                            }
+                        });
+                    } else if (m.type === 'characterData' && m.target && m.target.nodeType === Node.TEXT_NODE) {
+                        const tn = m.target;
+                        const fixed = normalizeMojibake(tn.nodeValue);
+                        if (fixed !== tn.nodeValue) tn.nodeValue = fixed;
+                    }
+                }
+            });
+            observer.observe(document.body, { childList: true, characterData: true, subtree: true });
+        }
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', startMojibakeObserver);
+        } else {
+            startMojibakeObserver();
+        }
+
         // ✅ NOUVEAU : Fonction pour détecter les salles mentionnées dans les messages
         function detectRoomInMessage(message) {
             // Pattern pour détecter les salles (ex: A-1750, B-2500, J-2430)
@@ -4887,7 +914,8 @@
         // ===== FONCTIONS PRINCIPALES RÉELLES =====
 
         function clearInput() {
-            problemInput.value = '';
+            if (!problemInput) problemInput = document.getElementById('problemInput');
+            if (problemInput) problemInput.value = '';
             
             // ✅ NOUVEAU: Afficher à nouveau les palettes de problèmes
             const problemPalettes = document.getElementById('problemPalettes');
@@ -4941,9 +969,9 @@
          */
         async function checkConnection() {
             try {
-                // ✅ UTILISER LE SYSTÈME DE FALLBACK
-                currentAPI = await ensureBackendConnection();
-                const response = await fetch(`${currentAPI}/api/health`);
+                // ✅ BACKEND UNIQUE - PAS BESOIN DE MODIFICATION
+                const apiUrl = await ensureBackendConnection();
+                const response = await fetch(`${apiUrl}/api/health`);
                 const wasConnected = isConnected;
                 isConnected = response.ok;
                 
@@ -4989,7 +1017,6 @@
             // Mettre à jour l'état du bouton d'envoi
             updateSendButton(false);
         }
-
         /**
          * Envoie un message d'exemple (comme dans l'original)
          */
@@ -4997,7 +1024,8 @@
             // Gérer les suggestions spéciales
             if (message === 'Nouveau problème AV' || message === 'Nouveau problème') {
                 clearInput();
-                problemInput.focus();
+                if (!problemInput) problemInput = document.getElementById('problemInput');
+                if (problemInput) problemInput.focus();
                 return;
             }
             
@@ -5006,7 +1034,8 @@
                 addMessage('system', '🔊 Décrivez votre problème audio :', {
                     suggestions: ['Pas de son', 'Microphone en sourdine', 'Bruit parasite', 'Volume trop bas']
                 });
-                problemInput.focus();
+                if (!problemInput) problemInput = document.getElementById('problemInput');
+                if (problemInput) problemInput.focus();
                 return;
             }
             
@@ -5015,13 +1044,15 @@
                 addMessage('system', '📽️ Décrivez votre problème vidéo :', {
                     suggestions: ['Écran noir', 'Pas d\'image', 'Qualité dégradée', 'Projecteur ne s\'allume pas']
                 });
-                problemInput.focus();
+                if (!problemInput) problemInput = document.getElementById('problemInput');
+                if (problemInput) problemInput.focus();
                 return;
             }
             
             if (message === 'Vider la barre') {
                 clearInput();
-                problemInput.focus();
+                if (!problemInput) problemInput = document.getElementById('problemInput');
+                if (problemInput) problemInput.focus();
                 return;
             }
             
@@ -5100,8 +1131,11 @@
                     startEscalationTimeout(problemType, currentRoom);
                 }
                 
-                problemInput.value = message;
-                sendProblemReport();
+                if (!problemInput) problemInput = document.getElementById('problemInput');
+                if (problemInput) {
+                    problemInput.value = message;
+                    sendProblemReport();
+                }
             } else {
                 addMessage('system', '⚠️ Système en cours d\'initialisation. Veuillez patienter.', {
                     suggestions: ['Patienter', 'Recharger la page']
@@ -5115,7 +1149,8 @@
 
         // Fonction principale pour envoyer le problème au backend
         async function sendProblemReport() {
-            const message = problemInput.value.trim();
+            if (!problemInput) problemInput = document.getElementById('problemInput');
+            const message = problemInput ? problemInput.value.trim() : '';
             
             if (!message) {
                 addMessage('system', '❌ Veuillez décrire votre problème.', {
@@ -5244,7 +1279,10 @@
                 // 🔍 DEBUG : Afficher le message exact envoyé au backend
                 console.log(`🎯 [DEBUG] Message envoyé au RAG backend: "${fullMessage}"`);
                 
-                const response = await fetch(`${API_BASE_URL}/api/copilot/vitrine`, {
+                // ✅ S'assurer d'utiliser le bon backend
+                await ensureBackendConnection();
+                
+                const response = await fetch(`${currentAPI}/api/copilot/vitrine`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -5277,7 +1315,8 @@
                     processResponse(data);
                     
                     // ✅ CORRECTION UI : Vider l'input seulement après succès
-                    problemInput.value = '';
+                    if (!problemInput) problemInput = document.getElementById('problemInput');
+                    if (problemInput) problemInput.value = '';
                 } else {
                     throw new Error(data.message || 'Erreur lors du traitement');
                 }
@@ -5713,7 +1752,6 @@
                 return null;
             }
         }
-        
         /**
          * ✅ FONCTION MANQUANTE CRITIQUE : Analyse spécifique des problèmes vidéo
          * Copiée depuis assistant-salle-av-copie.html
@@ -5912,7 +1950,10 @@
             console.log(`🌐 [VitrineCall] Envoi vers /api/copilot/vitrine: "${message}"`);
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/copilot/vitrine`, {
+                // ✅ S'assurer d'utiliser le bon backend
+                await ensureBackendConnection();
+                
+                const response = await fetch(`${currentAPI}/api/copilot/vitrine`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -6203,7 +2244,7 @@
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="si-logo" src="https://raw.githubusercontent.com/Zine76/vitrine/main/assets/SI.png" alt="Services Informatiques UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                        <img id="si-logo" src="${ASSETS_BASE}/SI.png" alt="Services Informatiques UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
                     </div>
                     <div class="escalation-text">
                         <strong style="color: black !important; font-weight: 600; font-size: 1.4rem; display: block; margin-bottom: 0.5rem;">Services Informatiques UQAM</strong>
@@ -6356,7 +2397,7 @@
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="sim-logo" src="https://raw.githubusercontent.com/Zine76/vitrine/main/assets/SIM.png" alt="Service des Immeubles UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                        <img id="sim-logo" src="${ASSETS_BASE}/SIM.png" alt="Service des Immeubles UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
                     </div>
                     <div class="escalation-text">
                         <strong style="color: black !important; font-weight: 600; font-size: 1.4rem; display: block; margin-bottom: 0.5rem;">Service des Immeubles UQAM</strong>
@@ -6490,7 +2531,6 @@
                 console.log('⏰ [EscalationTimeout] Timer d\'escalade annulé');
             }
         }
-
         // ===== BANNIÈRE D'ALLUMAGE PROJECTEUR (inspirée modale PJLink) =====
         
         function showProjectorPoweringBanner(roomName) {
@@ -7149,7 +3189,6 @@
                 }, 4000);
             }
         }
-
         /**
          * ✅ NOUVELLE FONCTION : Bannière interactive de correction avec question OUI/NON
          */
@@ -7255,7 +3294,9 @@
             document.body.appendChild(bannerDiv);
             
             // ✅ GESTION CLIC BOUTON OUI
-            document.getElementById(`btn-oui-${bannerId}`).addEventListener('click', () => {
+            const btnOui = document.getElementById(`btn-oui-${bannerId}`);
+            if (btnOui) {
+                btnOui.addEventListener('click', () => {
                 console.log('✅ [InteractiveCorrection] Utilisateur confirme - Problème résolu');
                 
                 // Masquer la bannière avec animation
@@ -7271,10 +3312,13 @@
                 setTimeout(() => {
                     returnToHome();
                 }, 500);
-            });
+                });
+            }
             
             // ✅ GESTION CLIC BOUTON NON
-            document.getElementById(`btn-non-${bannerId}`).addEventListener('click', () => {
+            const btnNon = document.getElementById(`btn-non-${bannerId}`);
+            if (btnNon) {
+                btnNon.addEventListener('click', () => {
                 console.log('❌ [InteractiveCorrection] Utilisateur confirme - Problème persiste');
                 
                 // Masquer la bannière interactive
@@ -7297,7 +3341,8 @@
                         escalation_reason: `Problème persiste après correction automatique - Intervention technique requise`
                     });
                 }, 500);
-            });
+                });
+            }
             
             // ✅ GESTION CLIC OVERLAY (fermeture)
             overlayDiv.addEventListener('click', (e) => {
@@ -7804,7 +3849,6 @@
                 overlay.remove();
             }
         }
-        
         /**
          * ✅ NOUVEAU: Séquence d'allumage avec surveillance temps réel
          */
@@ -7949,7 +3993,7 @@
                                                     // ✅ NOUVELLE LOGIQUE : Au lieu de considérer le problème résolu, escalader si problème persiste
                                                     setTimeout(() => {
                                                         closeSequentialBanner(bannerId);
-                                                        // Déclencher l'escalade car équipement fonctionne mais problème persiste
+                                                        // Déclencher l'escalade car équipement fonctionne mais problème vidéo persiste
                                                         setTimeout(() => {
                                                             console.log('🎯 [PowerOnSequence] Escalade - Équipement fonctionnel mais problème vidéo persiste');
                                                             showSEAEscalationBanner({
@@ -8037,8 +4081,11 @@
                 // ✅ MÉTHODE 1: Tenter diagnostic direct en interrogeant le problème vidéo
                 console.log(`🔇 [AVMuteAnalysis] Tentative diagnostic AV Mute via problème vidéo`);
                 
+                // ✅ S'assurer d'utiliser le bon backend
+                await ensureBackendConnection();
+                
                 const currentRoom = getCurrentRoom();
-                const response = await fetch(`${API_BASE_URL}/api/copilot/chat`, {
+                const response = await fetch(`${currentAPI}/api/copilot/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -8197,8 +4244,11 @@
             
             // Ré-envoyer automatiquement la demande de problème vidéo pour vérification
             try {
+                // ✅ S'assurer d'utiliser le bon backend
+                await ensureBackendConnection();
+                
                 const currentRoom = getCurrentRoom();
-                const response = await fetch(`${API_BASE_URL}/api/copilot/chat`, {
+                const response = await fetch(`${currentAPI}/api/copilot/chat`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -8379,6 +4429,12 @@
          * Affiche la bannière SEA centrée avec overlay (comme les autres bannières)
          */
         function showSEAEscalationBanner(data) {
+
+// Guard: if a SEA banner is already present, do NOT recreate (prevents refresh while typing)
+if (document.querySelector('[id^="escalation_sea_"]') || document.querySelector('[id^="overlay_escalation_sea_"]')) {
+    console.log('🛑 [SEA Banner] Already open — skip re-render');
+    return;
+}
             // ✅ CORRECTION: Fermer toutes les bannières SEA existantes AVANT d'en créer une nouvelle
             const existingSeaBanners = document.querySelectorAll('[id^="escalation_sea_"]');
             const existingSeaOverlays = document.querySelectorAll('[id^="overlay_escalation_sea_"]');
@@ -8436,8 +4492,8 @@
             escalationDiv.innerHTML = `
                 <div class="escalation-header" style="margin-bottom: 1.5rem;">
                     <div class="escalation-image-container" style="text-align: center; margin-bottom: 1rem;">
-                        <img id="sea-logo-${escalationId}" src="assets/SEA2.png" alt="Service Expert Audiovisuel UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                        <div class="sea-fallback-content" style="display: none; color: black !important; text-align: center; padding: 1rem;">
+                        <img id="sea-logo-${escalationId}" alt="Service Expert Audiovisuel UQAM" style="max-width: 200px; height: auto; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.2);">
+                        <div class="sea-fallback-content" style="display:none; display: none; color: black !important; text-align: center; padding: 1rem;">
                             <h3 style="margin: 0 0 0.5rem 0; font-size: 1.2rem; color: black !important;">ASSISTANCE TECHNIQUE</h3>
                             <p style="margin: 0 0 0.5rem 0; font-size: 1rem; color: black !important;">COMPOSER LE POSTE</p>
                             <p style="margin: 0; font-size: 3rem; font-weight: bold; color: black !important;">6135</p>
@@ -8534,7 +4590,14 @@
             // Ajouter l'overlay et la bannière au body
             document.body.appendChild(overlayDiv);
             overlayDiv.appendChild(escalationDiv);
-        }
+        
+    window.__SEA_BANNER_OPEN__ = true;
+    // After render, hydrate SEA logo images
+    try {
+        document.querySelectorAll('[id^="sea-logo-"]').forEach(el => updateSEALogo(el));
+    } catch(e) { console.warn('SEA logo hydration error', e); }
+}
+
 
         /**
          * Ferme la bannière SEA
@@ -8559,7 +4622,6 @@
             // ✅ CORRECTION: Créer le ticket AVANT de fermer la bannière
             createTicket(escalationId, escalationActions, description);
         }
-
         /**
          * Affiche la modale pour la description détaillée du ticket
          */
@@ -8950,8 +5012,11 @@
                     hasPodioData: !!podioInfo
                 });
 
+                // ✅ S'assurer d'utiliser le bon backend
+                await ensureBackendConnection();
+                
                 // Appeler l'API pour créer le ticket
-                const response = await fetch(`${API_BASE_URL}/api/copilot/vitrine-create-ticket`, {
+                const response = await fetch(`${currentAPI}/api/copilot/vitrine-create-ticket`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -9142,8 +5207,9 @@
         }
         
         function getClientIP() {
-            // Simulation - en réalité, le serveur détecte l'IP
-            return '192.168.1.100';
+            // Retourne l'IP du backend configuré ou localhost par défaut
+            const backendIp = localStorage.getItem('vitrine.backend.ip');
+            return backendIp || 'localhost';
         }
         
         // ===== CHAT SEA FUNCTIONS =====
@@ -9157,12 +5223,18 @@
         
         async function closeChat() {
             try {
+                // ✅ NOUVEAU : Marquer comme fermeture normale
+                isNormalClosure = true;
+                
                 // ✅ NOUVEAU : S'assurer de la connexion backend avant fermeture
                 await ensureBackendConnection();
                 
                 // ✅ NOUVEAU : Informer le backend que Vitrine ferme le chat
                 if (currentChatId) {
                     console.log('🔚 [Vitrine] Fermeture du chat par l\'utilisateur');
+                    
+                    // ✅ NOUVEAU : Marquer comme fermeture volontaire pour éviter les reconnexions
+                    window.chatClosedVoluntarily = true;
                     
                     const response = await fetch(`${currentAPI}/api/tickets/chat/end`, {
                         method: 'POST',
@@ -9172,7 +5244,8 @@
                         body: JSON.stringify({
                             channel_id: currentChatId,
                             room_id: getCurrentRoom(),
-                            ended_by: "vitrine" // ✅ Indiquer que c'est Vitrine qui ferme
+                            ended_by: "vitrine", // ✅ Indiquer que c'est Vitrine qui ferme
+                            ticket_id: window.lastTicketNumber || ''
                         })
                     });
                     
@@ -9248,11 +5321,118 @@
                     banner.classList.add('show');
                 }, 10);
             }
+            
+            // ✅ NOUVEAU : Notifier le backend que la vitrine est passée en mode rappel
+            notifyBackendRecallMode();
         }
         
-        function closeTimeoutBanner() {
-            console.log('❌ [ChatTimeout] Fermeture bannière de timeout');
+        async function notifyBackendRecallMode() {
+            try {
+                const currentRoom = getCurrentRoom();
+                const chatId = currentChatId; // Utiliser la variable de chat actuelle
+                console.log(`🔍 [RecallMode] Debug - currentRoom: ${currentRoom}, currentChatId: ${chatId}`);
+                
+                if (!currentRoom || !chatId) {
+                    console.log('⚠️ [RecallMode] Pas de salle ou chatId actuel, skip notification');
+                    return;
+                }
+                
+                console.log(`📡 [RecallMode] Notification backend: salle ${currentRoom} en mode rappel`);
+                
+                // S'assurer d'utiliser le bon backend
+                await ensureBackendConnection();
+                
+                // ⚡ CRITICAL: Notifier le backend que le client est passé en mode rappel
+                // Cela doit fermer le chat côté SEA et afficher une bannière spéciale
+                const response = await fetch(`${currentAPI}/api/tickets/chat/recall-mode`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        room: currentRoom,
+                        room_id: currentRoom, // Ajout pour compatibilité
+                        channel_id: chatId,
+                        chat_id: chatId,
+                        status: 'recall_mode',
+                        action: 'timeout_to_recall', // Action spécifique
+                        message: 'Client n\'a pas répondu - Mode rappel activé'
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ [RecallMode] Backend notifié - Chat fermé côté SEA, mode rappel activé');
+                    
+                    // Fermer aussi le chat côté client pour nettoyer
+                    if (typeof window.endCurrentChat === 'function') {
+                        window.endCurrentChat('recall_mode');
+                    }
+                } else {
+                    console.warn('⚠️ [RecallMode] Erreur notification backend:', response.status);
+                }
+            } catch (error) {
+                console.error('❌ [RecallMode] Erreur notification backend:', error);
+            }
+        }
+        
+        async function closeTimeoutBanner() {
+            console.log('❌ [ChatTimeout] Fermeture bannière de timeout normale');
             
+            try {
+                // ✅ NOUVEAU : Notifier le backend que le client a fermé la bannière de rappel
+                await notifyBackendClientClosedRecall();
+                
+                const banner = document.getElementById('chatTimeoutBanner');
+                if (banner) {
+                    banner.style.display = 'none';
+                    banner.classList.remove('show');
+                }
+                
+                // Restaurer les bannières de statut
+                restoreStatusBannersAfterChat();
+                
+            } catch (error) {
+                console.error('❌ [ChatTimeout] Erreur lors de la fermeture:', error);
+                
+                // Fermer quand même l'interface même en cas d'erreur
+                const banner = document.getElementById('chatTimeoutBanner');
+                if (banner) {
+                    banner.style.display = 'none';
+                    banner.classList.remove('show');
+                }
+                restoreStatusBannersAfterChat();
+            }
+        }
+        
+        // ✅ NOUVELLE FONCTION : Fermer la bannière avec envoi de refus
+        async function closeTimeoutBannerWithDecline() {
+            console.log('❌ [ChatTimeout] Fermeture bannière de timeout avec refus');
+            
+            try {
+                // Envoyer un refus au backend (comme pour un chat normal)
+                const response = await fetch(`${currentAPI}/api/tickets/chat/consent`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        room_id: getCurrentRoom(),
+                        action: 'decline',
+                        channel_id: currentChatId,
+                        type: 'recall' // Indiquer que c'est un refus de rappel
+                    })
+                });
+                
+                if (response.ok) {
+                    console.log('✅ [ChatTimeout] Refus de rappel envoyé au serveur');
+                    // Afficher le toast de refus comme pour un chat normal
+                    showNotification('Chat refusé');
+                }
+            } catch (error) {
+                console.error('❌ [ChatTimeout] Erreur lors de l\'envoi du refus:', error);
+            }
+            
+            // Fermer la bannière dans tous les cas
             const banner = document.getElementById('chatTimeoutBanner');
             if (banner) {
                 banner.style.display = 'none';
@@ -9263,11 +5443,84 @@
             restoreStatusBannersAfterChat();
         }
         
+        // ✅ NOUVELLE FONCTION : Initier une demande de rappel client
+        async function initiateRecallRequest() {
+            console.log('💬 [Recall] Client demande un rappel');
+            
+            try {
+                // S'assurer d'utiliser le bon backend
+                await ensureBackendConnection();
+                
+                const currentRoom = getCurrentRoom();
+                const ticketNumber = window.lastTicketNumber || '';
+                
+                if (!currentRoom) {
+                    console.error('[Recall] Pas de salle définie');
+                    return;
+                }
+                
+                console.log('✅ [Recall] Salle trouvée:', currentRoom);
+                
+                // Données de rappel
+                const recallData = {
+                    room: currentRoom,
+                    ticket_number: ticketNumber,
+                    requested_at: new Date().toISOString(),
+                    status: 'pending',
+                    type: 'client_recall_request'
+                };
+                
+                // Envoyer la demande de rappel au backend
+                const response = await fetch(`${currentAPI}/api/tickets/chat/client-recall`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(recallData)
+                });
+                
+                if (response.ok) {
+                    // Afficher la bannière de confirmation
+                    const banner = document.getElementById('chatTimeoutBanner');
+                    if (banner) {
+                        banner.innerHTML = `
+                            <h3>
+                                <i class="fas fa-check-circle" style="color: #10b981;"></i>
+                                Demande de rappel envoyée
+                            </h3>
+                            <p>Le technicien SEA a été notifié et reviendra vers vous dès que possible.</p>
+                            <p><strong>Salle : ${currentRoom}</strong></p>
+                            <div class="timeout-actions">
+                                <button class="timeout-btn close" onclick="closeTimeoutBanner()">
+                                    <i class="fas fa-check"></i>
+                                    OK
+                                </button>
+                            </div>
+                        `;
+                        
+                        // Fermer automatiquement après 5 secondes
+                        setTimeout(closeTimeoutBanner, 5000);
+                    }
+                    
+                    console.log('✅ [Recall] Demande de rappel envoyée:', recallData);
+                } else {
+                    console.error('[Recall] Erreur lors de l\'envoi du rappel');
+                    showNotification('Erreur lors de l\'envoi de la demande de rappel');
+                }
+            } catch (error) {
+                console.error('[Recall] Erreur:', error);
+                showNotification('Erreur de connexion');
+            }
+        }
+        
         async function initiateClientChat() {
             console.log('💬 [ChatTimeout] Client initie la conversation avec SEA');
             
             try {
-                const response = await fetch(`${API_BASE_URL}/api/tickets/chat/client-initiate`, {
+                // ✅ S'assurer d'utiliser le bon backend (localhost vs UQAM)
+                await ensureBackendConnection();
+                
+                const response = await fetch(`${currentAPI}/api/tickets/chat/client-initiate`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
@@ -9330,7 +5583,6 @@
                 banner.style.animation = '';
             }, 500);
         }
-        
         async function acceptChat() {
             try {
                 // ✅ NOUVEAU : S'assurer de la connexion backend avant acceptation
@@ -9405,32 +5657,58 @@
             
             document.getElementById('chatModal').classList.add('active');
             
+            // ✅ NOUVEAU : Démarrer le heartbeat pour détecter les déconnexions
+            startHeartbeat();
+            
             // Ajouter le message d'accueil automatique
             const messagesContainer = document.getElementById('chatMessages');
             if (messagesContainer && messagesContainer.children.length === 0) {
-                const welcomeMessage = document.createElement('div');
-                welcomeMessage.className = 'chat-message system-message';
-                welcomeMessage.innerHTML = `
-                    <div class="system-message-content">
+                // Message d'accueil moderne et compact
+            const welcomeMessage = document.createElement('div');
+            welcomeMessage.className = 'welcome-message-modern';
+            welcomeMessage.innerHTML = `
+                <div class="welcome-card">
+                    <div class="welcome-icon-modern">
                         <i class="fas fa-headset"></i>
-                        <div class="system-message-text">
-                            <strong>Bonjour ! 👋</strong><br>
-                            Je suis le technicien audiovisuel du SEA (Service Expert Audiovisuel).<br>
-                            <em>Comment puis-je vous aider aujourd'hui ?</em>
+                    </div>
+                    <div class="welcome-text-modern">
+                        <div class="welcome-title">Chat SEA</div>
+                        <div class="welcome-subtitle">Service Expert Audiovisuel</div>
+                        <div class="welcome-status-modern">
+                            <span class="status-dot"></span>
+                            Technicien disponible
                         </div>
                     </div>
-                `;
-                messagesContainer.appendChild(welcomeMessage);
+                </div>
+            `;
+            messagesContainer.appendChild(welcomeMessage);
             }
             
             document.getElementById('chatInput').focus();
+            
+            // Restaurer la taille de police sauvegardée
+            restoreVitrineFontSize();
         }
         
         function closeChatInterface() {
             document.getElementById('chatModal').classList.remove('active');
             document.getElementById('chatMessages').innerHTML = '';
             document.getElementById('chatInput').value = '';
+            
+            // ✅ NOUVEAU : Arrêter le heartbeat
+            if (heartbeatInterval) {
+                clearInterval(heartbeatInterval);
+                heartbeatInterval = null;
+                console.log('💓 [Heartbeat] Arrêté lors de la fermeture du chat');
+            }
+            
             currentChatId = null;
+            
+            // ✅ CORRECTION : Réinitialiser le flag avec délai pour éviter les faux positifs
+            setTimeout(() => {
+                isNormalClosure = false;
+                console.log('🔄 [Disconnect] Flag isNormalClosure réinitialisé après fermeture normale');
+            }, 1000); // Attendre 1 seconde après fermeture
             
             // ✅ NOUVEAU : Restaurer les bannières de statut après fermeture du chat
             restoreStatusBannersAfterChat();
@@ -9441,9 +5719,105 @@
             }
         }
         
+        // ✅ FONCTION : Auto-resize pour les textareas
+        window.autoResizeTextarea = function(textarea) {
+            // Réinitialiser la hauteur pour calculer la nouvelle hauteur
+            textarea.style.height = 'auto';
+            
+            // Calculer la nouvelle hauteur basée sur le scrollHeight
+            const newHeight = Math.min(textarea.scrollHeight, 150); // Max 150px pour Vitrine
+            textarea.style.height = newHeight + 'px';
+            
+            // Si on a du scroll, on se positionne en bas
+            if (textarea.scrollHeight > 150) {
+                textarea.scrollTop = textarea.scrollHeight;
+            }
+        };
+
+        // ✅ NOUVEAU : Variables pour la détection de frappe
+        let isTypingVitrine = false;
+        let typingTimeoutVitrine = null;
+        let lastTypingEventVitrine = 0;
+        const TYPING_INTERVAL_VITRINE = 2000; // 2 secondes
+        
+        // 🔐 IDENTIFIANT UNIQUE pour ce client Vitrine
+        const currentRoom = getCurrentRoom() || 'unknown';
+        const VITRINE_CLIENT_ID = `vitrine-${currentRoom}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        console.log(`🔐 [TypingVitrine] ID client Vitrine généré: ${VITRINE_CLIENT_ID}`);
+        
         function handleChatKeyPress(event) {
             if (event.key === 'Enter') {
                 sendChatMessage();
+            } else {
+                // ✅ NOUVEAU : Détecter la frappe comme Tickets SEA
+                handleTypingVitrine(event);
+            }
+        }
+        
+        // ✅ NOUVEAU : Fonction de détection de frappe pour Vitrine
+        function handleTypingVitrine(event) {
+            if (!currentChatId) return;
+            
+            // ✅ OPTIMISATION : Log seulement si debug activé pour éviter le spam
+            if (window.DEBUG_TYPING) {
+                console.log(`✅ [TypingVitrine] Chat actif trouvé, chatId: ${currentChatId}`);
+            }
+            
+            const now = Date.now();
+            
+            // ✅ OPTIMISATION : Éviter les appels trop fréquents (debounce)
+            if (window.lastTypingCall && (now - window.lastTypingCall) < 100) {
+                return; // Ignorer si appelé il y a moins de 100ms
+            }
+            window.lastTypingCall = now;
+            
+            // Éviter d'envoyer trop d'événements de frappe
+            if (!isTypingVitrine) {
+                isTypingVitrine = true;
+                sendTypingStatusVitrine(currentChatId, true);
+                lastTypingEventVitrine = now;
+            } else if (now - lastTypingEventVitrine > TYPING_INTERVAL_VITRINE) {
+                // Renvoyer l'état de frappe toutes les X secondes pour maintenir l'état
+                sendTypingStatusVitrine(currentChatId, true);
+                lastTypingEventVitrine = now;
+            }
+            
+            // Réinitialiser le timeout
+            clearTimeout(typingTimeoutVitrine);
+            typingTimeoutVitrine = setTimeout(() => {
+                isTypingVitrine = false;
+                sendTypingStatusVitrine(currentChatId, false);
+            }, 1000); // Arrêt après 1 seconde d'inactivité
+        }
+        
+        // ✅ NOUVEAU : Fonction d'envoi d'état de frappe pour Vitrine
+        async function sendTypingStatusVitrine(channelId, isTyping) {
+            try {
+                console.log(`⌨️ [TypingVitrine] Envoi état frappe: ${isTyping ? 'en train d\'écrire' : 'arrêté d\'écrire'}`);
+                
+                await ensureBackendConnection();
+                
+                const response = await fetch(`${currentAPI}/api/tickets/chat/typing`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        channel_id: channelId,
+                        room_id: getCurrentRoom(),
+                        is_typing: isTyping,
+                        client_id: VITRINE_CLIENT_ID,
+                        sender: 'vitrine'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                console.log(`✅ [TypingVitrine] État frappe envoyé: ${isTyping}`);
+            } catch (error) {
+                console.error(`❌ [TypingVitrine] Erreur d'envoi d'état de frappe:`, error);
             }
         }
         
@@ -9454,34 +5828,184 @@
             if (!message || !currentChatId) return;
             
             try {
-                // ✅ NOUVEAU : S'assurer de la connexion backend avant envoi
-                await ensureBackendConnection();
-                
-                console.log(`🔍 [DEBUG-VITRINE] Envoi message avec channel_id: "${currentChatId}"`);
-                console.warn(`🚨 [DEBUG-VISIBLE] VITRINE ENVOIE AVEC CHANNEL_ID: "${currentChatId}"`);
-                
-                const response = await fetch(`${currentAPI}/api/tickets/chat/message`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        channel_id: currentChatId,
-                        room_id: getCurrentRoom(),
-                        message: message,
-                        sender: 'vitrine'
-                    })
-                });
-                
-                if (response.ok) {
-                    addChatMessage(message, 'sent');
-                    input.value = '';
+                // 🚀 NOUVEAU : Utiliser le gestionnaire unifié si disponible
+                if (typeof window.unifiedChat !== 'undefined') {
+                    console.log(`🔗 [Vitrine] Envoi via gestionnaire unifié`);
+                    
+                    // Trouver le ticket ID correspondant
+                    const ticketId = findTicketIdFromChatId(currentChatId);
+                    if (ticketId) {
+                        const result = await window.unifiedChat.sendMessage(ticketId, message, 'vitrine');
+                        if (result.success) {
+                            addChatMessage(message, 'sent');
+                            input.value = '';
+                            input.style.height = '44px'; // Reset à la taille originale
+                            return;
+                        } else {
+                            console.warn(`⚠️ [Vitrine] Fallback vers envoi legacy:`, result.error);
+                        }
+                    }
                 }
+                
+                // Fallback vers l'ancien système
+                await sendChatMessageLegacy(message);
                 
             } catch (error) {
                 console.error('❌ [Chat] Erreur envoi message:', error);
             }
         }
+        
+        // 🔄 Ancien système d'envoi en fallback
+        async function sendChatMessageLegacy(message) {
+            const input = document.getElementById('chatInput');
+            
+            // ✅ NOUVEAU : S'assurer de la connexion backend avant envoi
+            await ensureBackendConnection();
+            
+            console.log(`🔍 [DEBUG-VITRINE] Envoi message legacy avec channel_id: "${currentChatId}"`);
+            console.warn(`🚨 [DEBUG-VISIBLE] VITRINE ENVOIE LEGACY AVEC CHANNEL_ID: "${currentChatId}"`);
+            
+            const response = await fetch(`${currentAPI}/api/tickets/chat/message`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    channel_id: currentChatId,
+                    room_id: getCurrentRoom(),
+                    message: message,
+                    sender: 'vitrine'
+                })
+            });
+            
+            if (response.ok) {
+                addChatMessage(message, 'sent');
+                input.value = '';
+                input.style.height = '44px'; // Reset à la taille originale
+            }
+        }
+        
+        // 🛠️ Fonction utilitaire pour trouver le ticket ID depuis chat ID
+        function findTicketIdFromChatId(chatId) {
+            // Essayer de parser le chat ID pour extraire le ticket ID
+            const match = chatId.match(/chat_(\d+)_/);
+            if (match) {
+                return match[1];
+            }
+            
+            // Fallback : utiliser le chat ID comme ticket ID si format simple
+            if (/^\d+$/.test(chatId)) {
+                return chatId;
+            }
+            
+            return null;
+        }
+        
+        // ===== CONTRÔLE DE TAILLE DE POLICE VITRINE =====
+        let vitrineFontSize = 150; // Défaut 150% (affiché comme 0%)
+        
+        function adjustVitrineFont(action) {
+            // Ajuster selon l'action (plage 150-300%)
+            if (action === 'increase' && vitrineFontSize < 300) {
+                vitrineFontSize += 10;
+            } else if (action === 'decrease' && vitrineFontSize > 150) {
+                vitrineFontSize -= 10;
+            }
+            
+            // Appliquer la nouvelle taille
+            const chatMessages = document.getElementById('chatMessages');
+            const chatInput = document.getElementById('chatInput');
+            const fontIndicator = document.getElementById('vitrineFontIndicator');
+            
+            if (chatMessages) {
+                chatMessages.style.fontSize = `${vitrineFontSize}%`;
+                chatMessages.setAttribute('data-font-size', vitrineFontSize);
+                
+                // Forcer l'application aux messages existants (sauf system-message)
+                const messageElements = chatMessages.querySelectorAll('.chat-message:not(.system-message), .message:not(.system-message)');
+                messageElements.forEach(msg => {
+                    msg.style.fontSize = 'inherit';
+                });
+            }
+            
+            if (chatInput) {
+                chatInput.style.fontSize = `${vitrineFontSize}%`;
+            }
+            
+            if (fontIndicator) {
+                // Convertir 150-300% en 0-100% pour l'affichage
+                const displayPercentage = Math.round(((vitrineFontSize - 150) / 150) * 100);
+                fontIndicator.textContent = `${displayPercentage}%`;
+            }
+            
+            // Sauvegarder la préférence
+            localStorage.setItem('vitrineChatFontSize', vitrineFontSize);
+            
+            console.log(`🔤 [VitrineFont] Taille ajustée: ${vitrineFontSize}% (affiché: ${Math.round(((vitrineFontSize - 150) / 150) * 100)}%)`);
+        }
+        
+        // Restaurer la taille sauvegardée au démarrage
+        function restoreVitrineFontSize() {
+            const savedSize = localStorage.getItem('vitrineChatFontSize');
+            if (savedSize) {
+                let restoredSize = parseInt(savedSize);
+                
+                // Migration des anciennes valeurs si nécessaire
+                if (restoredSize < 150) {
+                    const normalizedOld = Math.max(0, restoredSize - 70) / 80;
+                    restoredSize = Math.round(normalizedOld * 150 + 150);
+                    localStorage.setItem('vitrineChatFontSize', restoredSize);
+                    console.log(`🔄 [VitrineFont] Migration ${savedSize}% → ${restoredSize}%`);
+                }
+                
+                vitrineFontSize = restoredSize;
+            }
+            
+            // Appliquer la taille
+            setTimeout(() => {
+                const chatMessages = document.getElementById('chatMessages');
+                const chatInput = document.getElementById('chatInput');
+                const fontIndicator = document.getElementById('vitrineFontIndicator');
+                
+                if (chatMessages) {
+                    chatMessages.style.fontSize = `${vitrineFontSize}%`;
+                    
+                    // Forcer l'application aux messages existants (sauf system-message)
+                    const messageElements = chatMessages.querySelectorAll('.chat-message:not(.system-message), .message:not(.system-message)');
+                    messageElements.forEach(msg => {
+                        msg.style.fontSize = 'inherit';
+                    });
+                }
+                
+                if (chatInput) {
+                    chatInput.style.fontSize = `${vitrineFontSize}%`;
+                }
+                
+                if (fontIndicator) {
+                    const displayPercentage = Math.round(((vitrineFontSize - 150) / 150) * 100);
+                    fontIndicator.textContent = `${displayPercentage}%`;
+                }
+            }, 100);
+        }
+        
+// Exposer la fonction globalement
+window.adjustVitrineFont = adjustVitrineFont;
+
+// ✅ FONCTION DE TEST : Simuler un F5 pour tester la bannière
+window.testF5Detection = function() {
+    console.log('🧪 [TEST F5] Simulation d\'un F5 pour tester la bannière...');
+    
+    if (currentChatId) {
+        console.log('🧪 [TEST F5] Chat actif détecté:', currentChatId);
+        console.log('🧪 [TEST F5] Salle:', getCurrentRoom());
+        
+        // Simuler la notification F5
+        notifyUnexpectedDisconnection();
+        console.log('✅ [TEST F5] Notification F5 envoyée - Vérifiez Tickets SEA pour la bannière');
+    } else {
+        console.log('❌ [TEST F5] Aucun chat actif - Démarrez un chat d\'abord');
+    }
+};
         
         function addChatMessage(message, type) {
             const messagesContainer = document.getElementById('chatMessages');
@@ -9498,8 +6022,20 @@
             const messageElement = document.createElement('div');
             messageElement.className = `chat-message ${type}`;
             messageElement.textContent = message;
+            
+            // Hériter de la taille du parent seulement si ce n'est pas un message système
+            if (type !== 'system') {
+                messageElement.style.fontSize = 'inherit';
+            }
+            
             messagesContainer.appendChild(messageElement);
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            
+            // Scroll vers le bas (doux si supporté)
+            if (typeof messagesContainer.scrollTo === 'function') {
+                messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: 'smooth' });
+            } else {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
             
             console.log(`✅ [Chat] Message ajouté: ${type} - ${message}`);
         }
@@ -9512,16 +6048,38 @@
             if (!getCurrentRoom()) return;
             
             const roomId = getCurrentRoom();
+            
+            // ✅ NOUVEAU : Protection contre les reconnexions multiples
+            if (window.sseReconnectionInProgress) {
+                console.log('🚫 [SSE] Reconnexion déjà en cours, annulation');
+                return;
+            }
+            
+            // ✅ PROTECTION MAXIMALE : Vérifier si une connexion active existe déjà
+            if (window.vitrineChatEventSource && window.vitrineChatEventSource.readyState === EventSource.OPEN) {
+                console.log('✅ [SSE] Connexion SSE déjà active et fonctionnelle - ARRÊT');
+                return; // Ne pas créer une nouvelle connexion
+            }
+            
+            // ✅ NOUVEAU : Protection contre les appels multiples rapides
+            const now = Date.now();
+            if (window.lastSSEAttempt && (now - window.lastSSEAttempt) < 2000) {
+                console.log('🚫 [SSE] Appel trop rapide ignoré - Protection anti-spam (2s)');
+                return;
+            }
+            window.lastSSEAttempt = now;
+            
             console.log(`💬 [Chat] Démarrage écoute SSE RÉELLE pour salle ${roomId}`);
             
-                // ✅ CORRIGÉ : Utiliser currentAPI dynamique au lieu de localhost hardcodé
-            const sseUrl = `${currentAPI}/api/tickets/chat/stream?room_id=${roomId}`;
-            
-            // ⚠️ DEBUG : Vérifier qu'on n'a pas déjà une connexion active
+            // ⚠️ Fermer toute connexion existante (fermée ou en erreur)
             if (window.vitrineChatEventSource) {
-                console.log('⚠️ [SSE] Fermeture connexion existante pour éviter duplication');
+                console.log('🔒 [SSE] Fermeture connexion existante (fermée/erreur) pour éviter duplication');
                 window.vitrineChatEventSource.close();
+                window.vitrineChatEventSource = null;
             }
+            
+            // ✅ CORRIGÉ : Utiliser currentAPI maintenant que l'initialisation est terminée
+            const sseUrl = `${currentAPI}/api/tickets/chat/stream?room_id=${roomId}`;
             
             const eventSource = new EventSource(sseUrl);
             window.vitrineChatEventSource = eventSource; // Stocker pour éviter duplicata
@@ -9541,6 +6099,10 @@
                             // Une demande de chat RÉELLE est arrivée depuis Tickets SEA
                             console.log('💬 [SSE] Demande de chat RÉELLE reçue:', data.data);
                             currentChatId = data.data.channel_id;
+                            
+                            // ✅ NOUVEAU : Réinitialiser le flag de fermeture volontaire pour nouveau chat
+                            window.chatClosedVoluntarily = false;
+                            
                             showConsentBanner(`Demande de chat pour salle ${roomId}`, roomId);
                             break;
                             
@@ -9582,6 +6144,9 @@
                             if (data.data && data.data.channel_id) {
                                 currentChatId = data.data.channel_id;
                                 console.log('✅ [SSE] currentChatId mis à jour:', currentChatId);
+                                
+                                // ✅ NOUVEAU : Réinitialiser le flag de fermeture volontaire pour nouveau chat
+                                window.chatClosedVoluntarily = false;
                             }
                             hideConsentBanner();
                             openChatInterface();
@@ -9598,6 +6163,32 @@
                                 addChatMessage(data.data.message, 'received');
                             }
                             break;
+
+                        case 'client_typing':
+                        case 'vitrine_typing':
+                            console.log('🔍 [SSE-Vitrine] Événement typing reçu:', data);
+                            
+                            // 🚫 BLACKLIST : Ne pas afficher si c'est ce client Vitrine qui tape
+                            const eventClientId = data.data?.client_id;
+                            const eventSender = data.data?.sender || 'sea';
+                            
+                            if (eventClientId && eventClientId === VITRINE_CLIENT_ID) {
+                                console.log(`🚫 [TypingVitrine] BLACKLIST - Événement typing ignoré car c'est ce client Vitrine qui tape (${eventClientId})`);
+                                break;
+                            }
+                            
+                            if (data.data && data.data.is_typing) {
+                                console.log(`💬 [SSE-Vitrine] ${eventSender.toUpperCase()} en train d'écrire... (client: ${eventClientId})`);
+                                if (typeof showTypingIndicator === 'function') {
+                                    showTypingIndicator(eventSender);
+                                }
+                            } else {
+                                console.log(`💬 [SSE-Vitrine] ${eventSender.toUpperCase()} a arrêté d'écrire`);
+                                if (typeof hideTypingIndicator === 'function') {
+                                    hideTypingIndicator();
+                                }
+                            }
+                            break;
                             
                         default:
                             console.log('📡 [SSE] Événement non géré:', data.type);
@@ -9609,17 +6200,70 @@
             
             eventSource.onerror = function(error) {
                 console.error('❌ [SSE] Erreur de connexion SSE RÉELLE:', error);
-                // Reconnexion automatique avec backoff exponentiel
-                setTimeout(() => {
-                    if (getCurrentRoom()) {
-                        console.log('🔄 [SSE] Tentative de reconnexion...');
-                        startChatRequestListener();
-                    }
-                }, 5000);
+                console.log(`🔍 [SSE] Détails erreur SSE:`, {
+                    readyState: eventSource?.readyState,
+                    url: eventSource?.url,
+                    error: error
+                });
+                
+                // ✅ NOUVEAU : Protection contre les reconnexions multiples
+                if (window.sseReconnectionInProgress) {
+                    console.log('🚫 [SSE] Reconnexion déjà en cours, annulation');
+                    return;
+                }
+                
+                // ✅ CORRECTION : Fermer complètement la connexion pour éviter les reconnexions automatiques
+                if (eventSource.readyState !== EventSource.CLOSED) {
+                    console.log('🔒 [SSE] Fermeture forcée de la connexion SSE pour éviter les boucles');
+                    eventSource.close();
+                    window.vitrineChatEventSource = null; // Nettoyer la référence
+                }
+                
+                // ✅ NOUVEAU : Protection contre les timers multiples
+                if (window.sseReconnectionTimer) {
+                    console.log('🚫 [SSE] Timer de reconnexion déjà actif, annulation');
+                    return;
+                }
+                
+                // ✅ NOUVEAU : Ne pas se reconnecter si le chat a été fermé volontairement
+                if (window.chatClosedVoluntarily) {
+                    console.log('🚫 [SSE] Chat fermé volontairement - Pas de reconnexion');
+                    return;
+                }
+                
+                // ✅ NOUVELLE LOGIQUE : Reconnexion automatique avec backoff et protection
+                const reconnectDelay = Math.min((window.sseReconnectAttempts || 0) * 2000 + 5000, 30000); // Max 30s
+                window.sseReconnectAttempts = (window.sseReconnectAttempts || 0) + 1;
+                
+                window.sseReconnectionInProgress = true;
+                window.sseReconnectionTimer = setTimeout(() => {
+                    console.log(`🔄 [SSE] Tentative de reconnexion automatique (${window.sseReconnectAttempts})...`);
+                    window.sseReconnectionInProgress = false;
+                    window.sseReconnectionTimer = null;
+                    startChatRequestListener(); // Relancer la connexion
+                }, reconnectDelay);
             };
             
             eventSource.onopen = function() {
                 console.log('✅ [SSE] Connexion SSE RÉELLE établie pour salle ' + roomId);
+                
+                // ✅ Réinitialiser le compteur de reconnexions après succès
+                window.sseReconnectAttempts = 0;
+                
+                // ✅ NOUVEAU : Nettoyer les flags de reconnexion après succès
+                if (window.sseReconnectionTimer) {
+                    clearTimeout(window.sseReconnectionTimer);
+                    window.sseReconnectionTimer = null;
+                }
+                window.sseReconnectionInProgress = false;
+                
+                // 🔄 Démarrer le heartbeat pour cette connexion
+                startHeartbeat();
+                
+                // 🔄 Enregistrer le client dans le système SSE
+                if (clientId) {
+                    console.log('📡 [SSE] Client enregistré pour heartbeat:', clientId);
+                }
             };
         }
         
@@ -9633,8 +6277,29 @@
                 return;
             }
 
-            // Fermer l'EventSource existant s'il y en a un
+            // ✅ NOUVEAU : Protection contre les reconnexions multiples
+            if (window.statusReconnectionInProgress) {
+                console.log('🚫 [StatusEvents] Reconnexion déjà en cours, annulation');
+                return;
+            }
+
+            // ✅ PROTECTION MAXIMALE : Vérifier si une connexion active existe déjà
+            if (statusEventSource && statusEventSource.readyState === EventSource.OPEN) {
+                console.log('✅ [StatusEvents] Connexion SSE déjà active et fonctionnelle - ARRÊT');
+                return; // Ne pas créer une nouvelle connexion
+            }
+            
+            // ✅ NOUVEAU : Protection contre les appels multiples rapides
+            const now = Date.now();
+            if (window.lastStatusSSEAttempt && (now - window.lastStatusSSEAttempt) < 2000) {
+                console.log('🚫 [StatusEvents] Appel trop rapide ignoré - Protection anti-spam (2s)');
+                return;
+            }
+            window.lastStatusSSEAttempt = now;
+            
+            // ⚠️ Fermer toute connexion existante (fermée ou en erreur)
             if (statusEventSource) {
+                console.log('🔒 [StatusEvents] Fermeture connexion existante (fermée/erreur) pour éviter duplication');
                 statusEventSource.close();
                 statusEventSource = null;
             }
@@ -9642,12 +6307,23 @@
             // ✅ RÉACTIVÉ : EventSource pour les changements de statuts des tickets
             console.log('🔔 [StatusEvents] Démarrage EventSource pour changements de statuts');
             
-            // Créer un nouvel EventSource pour les changements de statut - ✅ UTILISER currentAPI
+            // ✅ CORRIGÉ : Utiliser currentAPI maintenant que l'initialisation est terminée
             const sseUrl = `${currentAPI}/api/tickets/chat/events/vitrine?room_id=${currentRoom}`;
             statusEventSource = new EventSource(sseUrl);
 
             statusEventSource.onopen = function() {
                 console.log('🔔 [StatusEvents] EventSource ouvert pour les changements de statut de la salle ' + currentRoom);
+                console.log('🔔 [StatusEvents] Connexion SSE établie pour salle:', currentRoom);
+                
+                // ✅ Réinitialiser le compteur de reconnexions après succès
+                window.statusReconnectAttempts = 0;
+                
+                // ✅ NOUVEAU : Nettoyer les flags de reconnexion après succès
+                if (window.statusReconnectionTimer) {
+                    clearTimeout(window.statusReconnectionTimer);
+                    window.statusReconnectionTimer = null;
+                }
+                window.statusReconnectionInProgress = false;
             };
 
             statusEventSource.onmessage = function(event) {
@@ -9673,26 +6349,155 @@
                         }
                     } else if (data.type === 'connection_established') {
                         console.log('🔔 [StatusEvents] Connexion SSE établie pour salle:', data.data.room_id);
+                    } else if (data.type === 'client_typing' || data.type === 'vitrine_typing') {
+                        console.log('🔍 [StatusEvents] Événement typing reçu:', data);
+                        
+                        // 🚫 BLACKLIST : Ne pas afficher si c'est ce client Vitrine qui tape
+                        const eventClientId = data.data?.client_id;
+                        const eventSender = data.data?.sender || 'sea';
+                        
+                        if (eventClientId && eventClientId === VITRINE_CLIENT_ID) {
+                            console.log(`🚫 [StatusEvents] BLACKLIST - Événement typing ignoré car c'est ce client Vitrine qui tape (${eventClientId})`);
+                            return;
+                        }
+                        
+                        if (data.data && data.data.is_typing) {
+                            console.log(`💬 [StatusEvents] ${eventSender.toUpperCase()} en train d'écrire... (client: ${eventClientId})`);
+                            showTypingIndicator(eventSender);
+                        } else {
+                            console.log(`💬 [StatusEvents] ${eventSender.toUpperCase()} a arrêté d'écrire`);
+                            hideTypingIndicator();
+                        }
                     }
                 } catch (error) {
                     console.error('🔔 [StatusEvents] Erreur parsing événement:', error);
                 }
             };
+            
+            // Fonctions pour les indicateurs de typing
+            window.showTypingIndicator = function(sender = 'sea') {
+                console.log(`🎯 [DEBUG] showTypingIndicator() appelée pour ${sender}`);
+                const chatContainer = document.querySelector('#chatMessages');
+                if (!chatContainer) {
+                    console.log('❌ [DEBUG] Pas de container #chatMessages trouvé');
+                    return;
+                }
+                console.log('✅ [DEBUG] Container chat trouvé:', chatContainer);
+                
+                // Supprimer indicateur existant
+                const existing = document.getElementById('typing-indicator-vitrine');
+                if (existing) existing.remove();
+                
+                // 🎨 Design professionnel moderne style WhatsApp/Slack
+                const senderText = sender === 'sea' ? 'Technicien' : 'Client';
+                const senderInitials = sender === 'sea' ? 'SEA' : 'C';
+                const avatarColor = sender === 'sea' ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'linear-gradient(135deg, #10b981, #059669)';
+                
+                // Créer nouvel indicateur PROFESSIONNEL
+                const indicator = document.createElement('div');
+                indicator.id = 'typing-indicator-vitrine';
+                indicator.innerHTML = `
+                    <div style="display: inline-flex; align-items: center; gap: 8px; background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 18px; padding: 8px 12px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); transition: all 0.3s ease; margin: 8px 0;">
+                        <div style="width: 28px; height: 28px; border-radius: 50%; background: ${avatarColor}; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: 600; flex-shrink: 0;">${senderInitials}</div>
+                        <div style="font-weight: 600; font-size: 14px; color: #1f2937; line-height: 1.2;">${senderText}</div>
+                        <div style="display: inline-flex; gap: 3px; align-items: center;">
+                            <span style="width: 6px; height: 6px; background: #9ca3af; border-radius: 50%; display: inline-block; animation: typingBounce 1.4s ease-in-out infinite;"></span>
+                            <span style="width: 6px; height: 6px; background: #9ca3af; border-radius: 50%; display: inline-block; animation: typingBounce 1.4s ease-in-out infinite; animation-delay: 0.2s;"></span>
+                            <span style="width: 6px; height: 6px; background: #9ca3af; border-radius: 50%; display: inline-block; animation: typingBounce 1.4s ease-in-out infinite; animation-delay: 0.4s;"></span>
+                        </div>
+                    </div>
+                `;
+                
+                // Animation supprimée pour éviter la bande qui bouge
+                
+                chatContainer.appendChild(indicator);
+                console.log('✅ [StatusEvents] Indicateur typing affiché dans Vitrine');
+            };
+            
+            window.hideTypingIndicator = function() {
+                const indicator = document.getElementById('typing-indicator-vitrine');
+                if (indicator) {
+                    indicator.remove();
+                    console.log('✅ [StatusEvents] Indicateur typing supprimé de Vitrine');
+                }
+            };
 
             statusEventSource.onerror = function(error) {
                 console.error('🔔 [StatusEvents] Erreur EventSource:', error);
-                // Tentative de reconnexion après 5 secondes
-                setTimeout(() => {
-                    if (statusEventSource && statusEventSource.readyState === EventSource.CLOSED) {
-                        console.log('🔔 [StatusEvents] Tentative de reconnexion EventSource...');
-                        startStatusEventSource();
-                    }
-                }, 5000);
+                console.log(`🔍 [StatusEvents] Détails erreur SSE status:`, {
+                    readyState: statusEventSource?.readyState,
+                    url: statusEventSource?.url,
+                    error: error
+                });
+                
+                // ✅ NOUVEAU : Protection contre les reconnexions multiples
+                if (window.statusReconnectionInProgress) {
+                    console.log('🚫 [StatusEvents] Reconnexion déjà en cours, annulation');
+                    return;
+                }
+                
+                // ✅ CORRECTION : Fermer complètement la connexion pour éviter les reconnexions automatiques
+                if (statusEventSource.readyState !== EventSource.CLOSED) {
+                    console.log('🔒 [StatusEvents] Fermeture forcée de la connexion SSE pour éviter les boucles');
+                    statusEventSource.close();
+                    statusEventSource = null; // Nettoyer la référence locale
+                }
+                
+                // ✅ NOUVEAU : Protection contre les timers multiples
+                if (window.statusReconnectionTimer) {
+                    console.log('🚫 [StatusEvents] Timer de reconnexion status déjà actif, annulation');
+                    return;
+                }
+                
+                // ✅ NOUVEAU : Ne pas se reconnecter si le chat a été fermé volontairement
+                if (window.chatClosedVoluntarily) {
+                    console.log('🚫 [StatusEvents] Chat fermé volontairement - Pas de reconnexion status');
+                    return;
+                }
+                
+                // ✅ NOUVELLE LOGIQUE : Reconnexion automatique avec backoff et protection
+                const reconnectDelay = Math.min((window.statusReconnectAttempts || 0) * 2000 + 7000, 30000); // Max 30s
+                window.statusReconnectAttempts = (window.statusReconnectAttempts || 0) + 1;
+                
+                window.statusReconnectionInProgress = true;
+                window.statusReconnectionTimer = setTimeout(() => {
+                    console.log(`🔄 [StatusEvents] Tentative de reconnexion automatique (${window.statusReconnectAttempts})...`);
+                    window.statusReconnectionInProgress = false;
+                    window.statusReconnectionTimer = null;
+                    startStatusEventSource(); // Relancer la connexion
+                }, reconnectDelay);
             };
         }
         
         function showTicketStatusMessage(message, statusType) {
             const statusContainer = document.getElementById('ticketStatusContainer') || createTicketStatusContainer();
+            
+            // ✅ PROTECTION : Éviter les doublons si bannière déjà affichée avec le même contenu
+            const existingMessage = statusContainer.querySelector('.ticket-status-message');
+            if (existingMessage && existingMessage.textContent.includes(message.replace(/🔧\s*/, ''))) {
+                console.log('🚫 [StatusPersistence] Bannière identique déjà affichée, ignoré');
+                return;
+            }
+            
+            // ✅ NOUVEAU : Sauvegarder les bannières persistantes par salle dans localStorage
+            const currentRoom = getCurrentRoom();
+            if (statusType === 'in_progress' || statusType === 'resolved') {
+                const persistentStatus = {
+                    message: message,
+                    statusType: statusType,
+                    room: currentRoom,
+                    timestamp: new Date().toISOString(),
+                    active: true
+                };
+                try {
+                    // ✅ CORRECTION : Stocker par salle pour éviter les conflits
+                    const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                    localStorage.setItem(storageKey, JSON.stringify(persistentStatus));
+                    console.log(`💾 [StatusPersistence] Statut persistant sauvegardé pour ${currentRoom}:`, persistentStatus);
+                } catch (e) {
+                    console.warn('⚠️ [StatusPersistence] Erreur sauvegarde:', e);
+                }
+            }
             
             // ✅ NOUVEAU : Déterminer le style basé sur le type de statut
             let iconClass, bgColor;
@@ -9762,6 +6567,17 @@
                 addPageBlurEffect();
             }
             
+            // ✅ NOUVEAU : Nettoyer le statut persistant si ce n'est plus un statut persistant
+            if (!isPersistent) {
+                try {
+                    const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                    localStorage.removeItem(storageKey);
+                    console.log(`🧹 [StatusPersistence] Statut non-persistant - Nettoyage localStorage pour ${currentRoom}`);
+                } catch (e) {
+                    console.warn('⚠️ [StatusPersistence] Erreur nettoyage:', e);
+                }
+            }
+            
             // ✅ NOUVEAU : Les statuts temporaires disparaissent après 5 secondes, les persistants restent
             if (!isPersistent) {
                 setTimeout(() => {
@@ -9778,6 +6594,128 @@
                 statusContainer.style.display = 'none';
                 // ✅ NOUVEAU : Retirer l'effet blur quand on ferme la bannière
                 removePageBlurEffect();
+                
+                // ✅ NOUVEAU : Nettoyer le statut persistant de la salle actuelle quand fermé manuellement
+                try {
+                    const currentRoom = getCurrentRoom();
+                    const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                    localStorage.removeItem(storageKey);
+                    console.log(`🧹 [StatusPersistence] Statut persistant nettoyé pour ${currentRoom} suite à fermeture manuelle`);
+                } catch (e) {
+                    console.warn('⚠️ [StatusPersistence] Erreur nettoyage fermeture:', e);
+                }
+            }
+        }
+        
+        // ✅ NOUVEAU : Fonction pour restaurer le statut persistant au démarrage
+        let statusRestorationDone = false; // Protection contre les appels multiples
+        
+        function restorePersistentStatus() {
+            // ✅ PROTECTION : Éviter les appels multiples
+            if (statusRestorationDone) {
+                console.log('🚫 [StatusPersistence] Restauration déjà effectuée, ignoré');
+                return;
+            }
+            
+            try {
+                const currentRoom = getCurrentRoom();
+                const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                const persistentData = localStorage.getItem(storageKey);
+                
+                if (!persistentData) {
+                    console.log(`💾 [StatusPersistence] Aucun statut persistant à restaurer pour ${currentRoom}`);
+                    statusRestorationDone = true;
+                    return;
+                }
+                
+                const status = JSON.parse(persistentData);
+                
+                // Vérifier que le statut concerne bien la salle actuelle (double vérification)
+                if (status.room !== currentRoom) {
+                    console.log(`💾 [StatusPersistence] Statut pour salle différente (${status.room} vs ${currentRoom}) - Nettoyage`);
+                    localStorage.removeItem(storageKey);
+                    statusRestorationDone = true;
+                    return;
+                }
+                
+                // Vérifier que le statut est encore valide (pas trop ancien)
+                const statusAge = Date.now() - new Date(status.timestamp).getTime();
+                const maxAge = 24 * 60 * 60 * 1000; // 24 heures
+                
+                if (statusAge > maxAge) {
+                    console.log(`💾 [StatusPersistence] Statut trop ancien (${Math.round(statusAge / 1000 / 60)} minutes) - Nettoyage`);
+                    localStorage.removeItem(storageKey);
+                    statusRestorationDone = true;
+                    return;
+                }
+                
+                // Restaurer la bannière de statut
+                console.log('🔄 [StatusPersistence] Restauration du statut persistant:', status);
+                showTicketStatusMessage(status.message, status.statusType);
+                statusRestorationDone = true;
+                
+            } catch (e) {
+                console.warn('⚠️ [StatusPersistence] Erreur restauration statut persistant:', e);
+                // Nettoyer en cas d'erreur
+                try {
+                    const currentRoom = getCurrentRoom();
+                    const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                    localStorage.removeItem(storageKey);
+                } catch (cleanupError) {
+                    console.warn('⚠️ [StatusPersistence] Erreur nettoyage après erreur:', cleanupError);
+                }
+                statusRestorationDone = true;
+            }
+        }
+        
+        // ✅ NOUVEAU : Fonction pour vérifier le statut actuel côté serveur
+        async function checkCurrentTicketStatus() {
+            const currentRoom = getCurrentRoom();
+            if (!currentRoom) return;
+            
+            // ✅ PROTECTION : Ne pas vérifier si la restauration locale a déjà trouvé un statut
+            if (statusRestorationDone && document.getElementById('ticketStatusContainer')?.style.display !== 'none') {
+                console.log('🚫 [StatusCheck] Bannière déjà restaurée localement, skip vérification serveur');
+                return;
+            }
+            
+            try {
+                console.log('🔍 [StatusCheck] Vérification statut ticket actuel pour salle:', currentRoom);
+                
+                await ensureBackendConnection();
+                const response = await fetch(`${currentAPI}/api/tickets/status/current?room=${encodeURIComponent(currentRoom)}`, {
+                    method: 'GET',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                if (response.ok) {
+                    const statusData = await response.json();
+                    console.log('✅ [StatusCheck] Statut actuel reçu:', statusData);
+                    
+                    // Si un ticket est en cours, afficher la bannière (seulement si pas déjà affichée)
+                    if (statusData.success && statusData.ticket && statusData.ticket.status === 'in_progress') {
+                        console.log('🎫 [StatusCheck] Ticket en cours détecté - Vérification si bannière nécessaire');
+                        const existingBanner = document.getElementById('ticketStatusContainer');
+                        if (!existingBanner || existingBanner.style.display === 'none') {
+                            showTicketStatusMessage(statusData.ticket.status_message || 'Ticket en cours de traitement', 'in_progress');
+                        }
+                    } else if (statusData.success && statusData.ticket && statusData.ticket.status === 'resolved') {
+                        console.log('🎫 [StatusCheck] Ticket résolu détecté - Vérification si bannière nécessaire');
+                        const existingBanner = document.getElementById('ticketStatusContainer');
+                        if (!existingBanner || existingBanner.style.display === 'none') {
+                            showTicketStatusMessage(statusData.ticket.status_message || 'Ticket résolu', 'resolved');
+                        }
+                    } else {
+                        // Pas de ticket actif, nettoyer le localStorage pour cette salle
+                        const storageKey = `vitrine.persistent.status.${currentRoom}`;
+                        localStorage.removeItem(storageKey);
+                        console.log(`🧹 [StatusCheck] Pas de ticket actif - Nettoyage localStorage pour ${currentRoom}`);
+                    }
+                } else {
+                    console.log('⚠️ [StatusCheck] Erreur vérification statut:', response.status);
+                }
+            } catch (error) {
+                console.warn('❌ [StatusCheck] Erreur vérification statut ticket:', error);
             }
         }
         
@@ -9804,7 +6742,12 @@
                     cursor: default;
                 `;
                 
-                // ✅ NOUVEAU : Bloquer tous les clics sur l'overlay
+                document.body.appendChild(blurOverlay);
+            }
+            
+            // ? CORRECTION : Vérifier que blurOverlay existe avant d'ajouter les événements
+            if (blurOverlay) {
+                // ? NOUVEAU : Bloquer tous les clics sur l'overlay
                 blurOverlay.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -9817,8 +6760,6 @@
                     e.stopPropagation();
                     return false;
                 });
-                
-                document.body.appendChild(blurOverlay);
             }
             
             // ✅ NOUVEAU : Bloquer le scroll sur le body
@@ -9964,7 +6905,8 @@
         /**
          * Ferme la modale
          */
-        function closeModal() {
+        function closeModal() {try{ window.__SEA_BANNER_OPEN__ = false; }catch(e){}
+
             const modalOverlay = document.getElementById('modalOverlay');
             modalOverlay.classList.remove('active');
             
@@ -9979,11 +6921,14 @@
         // ===== GESTIONNAIRES D'ÉVÉNEMENTS =====
 
         // Fermer la modale en cliquant sur l'overlay
-        document.getElementById('modalOverlay').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeModal();
-            }
-        });
+        const modalOverlay = document.getElementById('modalOverlay');
+        if (modalOverlay) {
+            modalOverlay.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    closeModal();
+                }
+            });
+        }
 
         // Fermer la modale avec la touche Escape
         document.addEventListener('keydown', function(e) {
@@ -10107,22 +7052,17 @@
             assistantPage.appendChild(messageDiv);
             
             // Charger l'image SEA2 pour les bannières d'escalade
-            setTimeout(async () => {
-                const escalationImgs = messageDiv.querySelectorAll('.sea-escalation-image');
-                for (const img of escalationImgs) {
-                    if (img && img.id && img.id.includes('sea-logo-escalation')) {
-                        await updateSEALogo(img);
-                    }
-                }
-            }, 100);
+            // Tenter immédiatement puis après un court délai pour couvrir les transitions
+            const escalationImgsNow = messageDiv.querySelectorAll('img[id^="sea-logo-"]');
+            escalationImgsNow.forEach(img => updateSEALogo(img));
+            setTimeout(() => {
+                const escalationImgsLater = messageDiv.querySelectorAll('img[id^="sea-logo-"]');
+                escalationImgsLater.forEach(img => updateSEALogo(img));
+            }, 50);
 
             return messageId;
         }
-
-
-
         // ===== CACHE PODIO SESSION POUR INFOS SALLES =====
-        
         /**
          * Cache session pour les informations Podio des salles
          * Garde les données jusqu'au F5 de la page
@@ -10146,13 +7086,13 @@
                 
                 try {
                     // ✅ NOUVEAU : S'assurer de la connexion backend avant appel Podio
-                    await ensureBackendConnection();
+                    const apiUrl = await ensureBackendConnection();
                     
                     console.log(`🌐 [PodioCache] API call pour salle: ${roomName}`);
                     
-                    // 🐍 Appel API Podio PRIORITAIRE avec fallback NeonDB si échec - ✅ UTILISER currentAPI
+                    // 🐍 Appel API Podio PRIORITAIRE avec fallback NeonDB si échec - ✅ UTILISER apiUrl
                     const response = await fetch(
-                        `${currentAPI}/api/podio/public-room-info?room=${encodeURIComponent(roomName)}`,
+                        `${apiUrl}/api/podio/public-room-info?room=${encodeURIComponent(roomName)}`,
                         {
                             method: 'GET',
                             headers: {
@@ -10201,7 +7141,7 @@
                         console.log(`🔄 [PodioCache] Tentative fallback NeonDB pour salle: ${roomName}`);
                         
                         const neonResponse = await fetch(
-                            `${currentAPI}/api/room/equipment?room=${encodeURIComponent(roomName)}`,
+                            `${apiUrl}/api/room/equipment?room=${encodeURIComponent(roomName)}`,
                             {
                                 method: 'GET',
                                 headers: { 'Content-Type': 'application/json' },
@@ -10322,11 +7262,13 @@
             
             if (body.getAttribute('data-theme') === 'dark') {
                 body.removeAttribute('data-theme');
+                body.classList.remove('dark'); // Pour Tailwind CSS
                 themeIcon.className = 'fas fa-moon';
                 themeText.textContent = 'Mode nuit';
                 localStorage.removeItem('theme');
                 } else {
                 body.setAttribute('data-theme', 'dark');
+                body.classList.add('dark'); // Pour Tailwind CSS
                 themeIcon.className = 'fas fa-sun';
                 themeText.textContent = 'Mode jour';
                 localStorage.setItem('theme', 'dark');
@@ -10447,6 +7389,14 @@
                 technicalRoomSpan.textContent = currentRoom || 'Non définie';
             }
             
+            // ✅ NOUVEAU : Gérer l'affichage du plan unifilaire
+            if (window.RoomPlansConfig) {
+                console.log('🔧 [Technical] Mise à jour des plans pour:', currentRoom);
+                window.RoomPlansConfig.updatePlanSection(currentRoom);
+            } else {
+                console.warn('⚠️ [Technical] Module RoomPlansConfig non chargé');
+            }
+            
             // Masquer Vitrine et afficher la page technique
             if (mainContainer) {
                 mainContainer.style.display = 'none';
@@ -10455,8 +7405,11 @@
             
             console.log('🔧 [Technical] Page technique affichée pour la salle:', currentRoom);
         }
+        
 
-        function returnToVitrine() {
+
+        function returnToVitrine() {try{ window.__SEA_BANNER_OPEN__ = false; }catch(e){}
+
             console.log('🔧 [Technical] Retour à Vitrine');
             const technicalPage = document.getElementById('technicalPage');
             const mainContainer = document.querySelector('.main-container');
@@ -10471,10 +7424,13 @@
         }
 
         // ✅ NOUVEAU : Fonctions de gestion de l'overlay de chargement diagnostic
+        let __diagnosticLoadingShownAtMs = 0;
+
         function showDiagnosticLoading() {
             console.log('⏳ [Diagnostic] Affichage du chargement');
             const overlay = document.getElementById('diagnosticLoadingOverlay');
             if (overlay) {
+                __diagnosticLoadingShownAtMs = Date.now();
                 overlay.style.display = 'flex';
                 // Petite pause pour la transition CSS
                 setTimeout(() => {
@@ -10487,9 +7443,14 @@
             console.log('✅ [Diagnostic] Masquage du chargement');
             const overlay = document.getElementById('diagnosticLoadingOverlay');
             if (overlay) {
-                // ✅ CORRECTION : Masquage immédiat pour éviter le retard avec les bannières
-                overlay.classList.remove('show');
-                overlay.style.display = 'none';
+                // Respecter une durée minimale d'affichage de 2 secondes
+                const MIN_DURATION_MS = 2000;
+                const elapsed = Date.now() - (__diagnosticLoadingShownAtMs || 0);
+                const delay = Math.max(0, MIN_DURATION_MS - elapsed);
+                setTimeout(() => {
+                    overlay.classList.remove('show');
+                    overlay.style.display = 'none';
+                }, delay);
             }
         }
 
@@ -10508,13 +7469,16 @@
         // Retour à l'accueil (page des palettes) - PAS la landing page
         function returnToHome() {
             // S'assurer que la page des palettes est visible
-            document.getElementById('assistantPage').style.display = 'block';
-            document.getElementById('landingPage').style.display = 'none';
+            const assistantPage = document.getElementById('assistantPage');
+            const landingPage = document.getElementById('landingPage');
+            if (assistantPage) assistantPage.style.display = 'block';
+            if (landingPage) landingPage.style.display = 'none';
             
             // Vider les messages
-            const assistantPage = document.getElementById('assistantPage');
-            const existingMessages = assistantPage.querySelectorAll('.message');
-            existingMessages.forEach(msg => msg.remove());
+            if (assistantPage) {
+                const existingMessages = assistantPage.querySelectorAll('.message');
+                existingMessages.forEach(msg => msg.remove());
+            }
             
             // ✅ NETTOYAGE : Supprimer toutes les bannières d'escalade
             const escalationInterfaces = document.querySelectorAll('.escalation-interface');
@@ -10555,9 +7519,11 @@
             
             if (savedTheme === 'dark') {
                 document.body.setAttribute('data-theme', 'dark');
+                document.body.classList.add('dark'); // Pour Tailwind CSS
                 if (headerTitle) headerTitle.style.color = 'black';
             } else {
                 document.body.removeAttribute('data-theme');
+                document.body.classList.remove('dark'); // Pour Tailwind CSS
                 if (headerTitle) headerTitle.style.color = 'black';
             }
             
@@ -10604,10 +7570,19 @@
                 console.log('🎛️ [ChatSEA] Kiosk détecté:', kioskID);
             }
             
-            // Démarrer l'écoute des demandes de chat quand une salle est définie
+            // ✅ CORRIGÉ : Attendre l'initialisation du backend avant de démarrer les EventSource
             if (getCurrentRoom()) {
-                startChatRequestListener();
-                startStatusEventSource();
+                backendInitPromise.then(() => {
+                    startChatRequestListener();
+                    startStatusEventSource();
+                    
+                    // ✅ NOUVEAU : Restaurer le statut persistant après initialisation
+                    setTimeout(() => {
+                        restorePersistentStatus();
+                        // Vérifier aussi le statut côté serveur pour synchronisation
+                        checkCurrentTicketStatus();
+                    }, 2000); // Attendre 2s pour que les connexions SSE soient établies
+                });
             }
         });
 
@@ -10628,31 +7603,173 @@
         console.log('  • Détection automatique des préférences système');
         console.log('  • Bouton de retour');
         
-        // ✅ NOUVEAU : Démarrer surveillance hybride DNS/localhost
-        setTimeout(() => {
-            startHybridMonitoring();
-            console.log('🔄 [HybridMode] Surveillance DNS/localhost démarrée');
-        }, 5000);
-        </script>
-<!-- Fonction globale supprimée - utilisation de createTicketDirect -->
-<script>
-(function(){
-  function loadScript(url, cb){
-    var s = document.createElement('script');
-    s.src = url;
-    s.async = false; // keep order
-    s.onload = function(){ cb && cb(null); };
-    s.onerror = function(){ cb && cb(new Error('load failed')); };
-    document.body.appendChild(s);
-  }
-  var CDN_APP = "https://raw.githubusercontent.com/Zine76/vitrine-static/refs/heads/main/app-extracted.js?v=final-1";
-  var LOC_APP = "app-extracted.js";
+        // ✅ CONFIGURATION SIMPLIFIÉE - Pas de surveillance nécessaire
+        console.log('? [Config] Backend unique configuré');
 
-  // 1) Load main app script from GitHub, fallback to local
-  loadScript(CDN_APP, function(err){ if(err) loadScript(LOC_APP); });
-})();
-</script>
-<script>
+// ? EXPOSITION DES FONCTIONS GLOBALES POUR VITRINE.HTML
+// Ces fonctions sont nécessaires pour l'interface entre vitrine.html et app.js
+
+// Fonction principale d'initialisation de Vitrine
+window.initializeVitrine = function() {
+    console.log('?? [initializeVitrine] Démarrage de l\'application Vitrine');
+    
+    // Créer l'interface Vitrine
+    if (typeof createVitrine === 'function') {
+        createVitrine();
+        console.log('? [initializeVitrine] Interface créée');
+    } else {
+        console.error('? [initializeVitrine] Fonction createVitrine non trouvée');
+        return false;
+    }
+    
+    // Initialiser le thème
+    if (typeof initializeTheme === 'function') {
+        initializeTheme();
+    }
+    
+    // Vérifier si une salle est verrouillée
+    if (window.__VITRINE_LOCK__ && window.__VITRINE_LOCK__.isLocked()) {
+        const lockedRoom = window.__LOCKED_ROOM_NAME__;
+        console.log('?? [initializeVitrine] Salle verrouillée détectée:', lockedRoom);
+        
+        // Simuler la confirmation de salle verrouillée
+        if (typeof setRoomCache === 'function' && typeof parseRoomInfo === 'function') {
+            const roomInfo = parseRoomInfo(lockedRoom);
+            if (roomInfo) {
+                setRoomCache(roomInfo);
+                if (typeof showAssistant === 'function') {
+                    showAssistant();
+                }
+            }
+        }
+    }
+    
+    console.log('? [initializeVitrine] Vitrine initialisée avec succès');
+    return true;
+};
+
+// Fonction de détection du meilleur backend (exposée globalement)
+window.detectBestBackend = detectBestBackend;
+
+// Fonction pour obtenir l'API courante
+window.getCurrentAPI = getCurrentAPI;
+
+// ? FONCTION createVitrine BASIQUE (interface HTML)
+function createVitrine() {
+    // Éviter la duplication si l'interface existe déjà
+    if (document.querySelector('.main-container')) {
+        return;
+    }
+    // Créer le container principal de l'application
+    const container = document.createElement('div');
+    container.innerHTML = `
+        <div class="main-container">
+            <!-- Interface basique de Vitrine -->
+            <div class="header">
+                <div class="header-top">
+                    <button class="technical-btn" onclick="openTechnicalMode()">
+                        <i class="fas fa-cog"></i>
+                        <span>Technique</span>
+                    </button>
+                    <button class="theme-toggle" onclick="toggleTheme()">
+                        <i class="fas fa-moon" id="themeIcon"></i>
+                        <span id="themeText">Mode nuit</span>
+                    </button>
+                </div>
+                <div class="title-section">
+                    <img alt="Vitrine" src="https://zine76.github.io/vitrine/assets/Vitrine.png" style="height: 80px;"/>
+                    <p id="headerTitle">Diagnostic interactif et assistance audiovisuelle</p>
+                </div>
+                <div class="status-indicator">
+                    <div class="status-dot" id="connection-indicator"></div>
+                    <span id="connection-text">Système opérationnel</span>
+                </div>
+            </div>
+            
+            <!-- Page d'accueil -->
+            <div id="landingPage" class="landing-page">
+                <div class="landing-content">
+                    <div class="welcome-section">
+                        <img src="https://zine76.github.io/vitrine/assets/Vitrine.png" alt="Vitrine" class="welcome-logo">
+                        <h2>Bienvenue sur la Vitrine SavQonnect</h2>
+                        <p>Sélectionnez votre salle pour commencer</p>
+                    </div>
+                    <div class="room-input-container">
+                        <input type="text" id="roomInput" placeholder="Ex: A-1750, B-2500" onkeypress="handleRoomKeyPress(event)">
+                        <button id="confirmRoomBtn" onclick="confirmRoom()">Confirmer</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Page assistant -->
+            <div id="assistantPage" class="assistant-page" style="display: none;">
+                <div class="room-header">
+                    <span id="currentRoomDisplay">Salle</span>
+                    <button onclick="changeRoom()">Changer de salle</button>
+                </div>
+                <div class="assistant-content">
+                    <div id="problemPalettes" class="problem-palettes">
+                        <button onclick="sendExampleMessage('Problème Vidéo')">Problème Vidéo</button>
+                        <button onclick="sendExampleMessage('Problème Audio')">Problème Audio</button>
+                        <button onclick="sendExampleMessage('Problème de réseau')">Problème Réseau</button>
+                    </div>
+                    <div class="problem-input-section">
+                        <input type="text" id="problemInput" placeholder="Décrivez votre problème...">
+                        <button id="sendBtn" onclick="sendProblemReport()">Signaler</button>
+                    </div>
+                    <div id="suggestions" class="suggestions"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(container);
+    console.log('? [createVitrine] Interface basique créée');
+
+	// Injecter le modal d'authentification technique si absent
+	if (!document.getElementById('technicalAuthModal')) {
+		const authModal = document.createElement('div');
+		authModal.id = 'technicalAuthModal';
+		authModal.className = 'technical-auth-modal';
+		authModal.style.display = 'none';
+		authModal.style.position = 'fixed';
+		authModal.style.inset = '0';
+		authModal.style.alignItems = 'center';
+		authModal.style.justifyContent = 'center';
+		authModal.style.background = 'rgba(0,0,0,0.5)';
+		authModal.style.zIndex = '10000';
+		authModal.innerHTML = `
+			<div class="technical-auth-content" style="background:#111827; color:#e5e7eb; padding:1.5rem; border-radius:0.75rem; width:100%; max-width:420px; box-shadow:0 10px 25px rgba(0,0,0,0.6);">
+				<h3 style="margin:0 0 1rem 0; font-size:1.25rem; display:flex; align-items:center; gap:.5rem;"><i class="fas fa-user-shield"></i> Mode technique</h3>
+				<div id="technicalAuthError" class="technical-auth-error" style="display:none; background:#7f1d1d; color:#fecaca; padding:.5rem .75rem; border-radius:.5rem; margin-bottom:.75rem;"></div>
+				<input type="password" id="technicalPassword" placeholder="Mot de passe" onkeypress="handleTechnicalPasswordKeypress(event)" style="width:100%; padding:.6rem .8rem; border-radius:.5rem; border:1px solid #374151; background:#0b1220; color:#e5e7eb; outline:none;">
+				<div class="technical-auth-actions" style="display:flex; gap:.75rem; justify-content:flex-end; margin-top:1rem;">
+					<button class="technical-auth-cancel" onclick="closeTechnicalAuth()" style="background:#374151; color:#e5e7eb; border:none; padding:.5rem .9rem; border-radius:.5rem; cursor:pointer;"><i class="fas fa-times"></i> Annuler</button>
+					<button class="technical-auth-submit" onclick="submitTechnicalAuth()" style="background:#10b981; color:white; border:none; padding:.5rem .9rem; border-radius:.5rem; cursor:pointer;"><i class="fas fa-unlock"></i> Accéder</button>
+				</div>
+			</div>`;
+		document.body.appendChild(authModal);
+	}
+
+	// Injecter la page technique si absente
+	if (!document.getElementById('technicalPage')) {
+		const techPage = document.createElement('div');
+		techPage.id = 'technicalPage';
+		techPage.style.display = 'none';
+		techPage.style.padding = '1rem';
+		techPage.innerHTML = `
+			<div class="technical-header" style="display:flex; align-items:center; gap:1rem; margin-bottom:1rem;">
+				<button onclick="returnToVitrine()" style="background:#3b82f6; color:white; border:none; padding:.4rem .8rem; border-radius:.5rem; cursor:pointer;"><i class=\"fas fa-arrow-left\"></i> Retour</button>
+				<h2 style="margin:0;">Mode technique</h2>
+				<div style="margin-left:auto;">Salle: <strong id="technicalCurrentRoom"></strong></div>
+			</div>
+			<div class="technical-content" style="background:#0b1220; color:#e5e7eb; padding:1rem; border-radius:.75rem;">
+				<p>Outils techniques disponibles prochainement.</p>
+			</div>`;
+		document.body.appendChild(techPage);
+	}
+}
+console.log('[AppJS] Fonctions globales exposées pour vitrine.html');
 // Admin overlay + reset (Alt+Ctrl+K). Also adds click fallback and console hook.
 (function(){
   var ADMIN_CODE = 'adminsav';
@@ -10695,7 +7812,6 @@
         }
       }
       toRemove.forEach(function(k){ localStorage.removeItem(k); });
-      // compat: also remove explicit keys we used earlier
       localStorage.removeItem('nomSalle');
       localStorage.removeItem('vitrineSalle');
     } catch(e){}
@@ -10779,10 +7895,8 @@
     }, true);
   })();
 })();
-</script>
 
-<!-- VITRINE LOCK ENFORCER -->
-<script>
+// VITRINE LOCK ENFORCER
 (function(){
   var KEY = 'vitrine.room.lock';
   var ADMIN_PASS = 'vitrine'; // change si nécessaire
@@ -10806,40 +7920,39 @@
     if (!isLocked()) return;
     document.documentElement.classList.add('is-room-locked');
 
-    // Empêche toute navigation vers landing
     document.addEventListener('click', function(e){
       if (!isLocked()) return;
       var t = e.target;
       var el = t.closest ? t.closest('.change-room-btn,[data-action="choose-room"],[data-action="change-room"],[onclick*="changeRoom"],[href*="landing"],[data-route="landing"]') : null;
-      if (el) { e.stopImmediatePropagation(); e.preventDefault(); toast('🔒 Salle verrouillée. Alt+Ctrl+K pour modifier.'); }
+      if (el) { e.stopImmediatePropagation(); e.preventDefault(); toast('Salle verrouillée. Alt+Ctrl+K pour modifier.'); }
     }, true);
 
-    // Désactive les éléments ciblés déjà présents
     document.querySelectorAll('.change-room-btn,[data-action="choose-room"],[data-action="change-room"],[onclick*="changeRoom"],[href*="landing"],[data-route="landing"]').forEach(function(el){
       el.setAttribute('disabled','disabled'); el.style.pointerEvents='none'; el.style.opacity='.5'; el.style.filter='grayscale(1)';
     });
   }
 
-  // Wrap des fonctions globales si elles existent
   var originalChange = window.changeRoom;
   window.changeRoom = function(){
-    if (isLocked()) { console.log('[LOCK] changeRoom() bloqué'); toast('🔒 Salle verrouillée. Alt+Ctrl+K pour modifier.'); return; }
+    if (isLocked()) { console.log('[LOCK] changeRoom() bloqué'); toast('Salle verrouillée. Alt+Ctrl+K pour modifier.'); return; }
     if (typeof originalChange === 'function') return originalChange.apply(this, arguments);
   };
   var originalConfirm = window.confirmRoom;
   window.confirmRoom = function(){
-    // Laisse le flux normal puis verrouille avec la valeur d'input détectée
     var r = (typeof originalConfirm === 'function') ? originalConfirm.apply(this, arguments) : undefined;
     try {
-      var candidate = document.querySelector('input[type="text"],input[type="search"],input[name*="salle" i],input[id*="salle" i]');
+      // Ne capturer QUE les inputs de salle, pas ceux de configuration backend
+      var candidate = document.querySelector('#roomInput, input[name*="salle" i], input[id*="salle" i]:not(#backendIpInput)');
       var v = (candidate && candidate.value || '').trim();
-      if (v) set({ locked:true, name:v, setAt: new Date().toISOString() });
+      // Valider que c'est bien un nom de salle et pas une IP
+      if (v && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v) && !v.includes('.') && !v.includes(':')) {
+        set({ locked:true, name:v, setAt: new Date().toISOString() });
+      }
     } catch(e){}
     setTimeout(applyLockUI, 0);
     return r;
   };
 
-  // Interception générique des clics sur "Confirmer" depuis la landing (au cas où)
   document.addEventListener('click', function(e){
     var t = e.target;
     if (!t) return;
@@ -10852,122 +7965,768 @@
       isConfirm = (txt === 'confirmer' || txt === 'confirm' || txt.includes('confirmer'));
     }
     if (isConfirm) {
-      // si déjà verrouillé -> bloquer
-      if (isLocked()) { e.preventDefault(); e.stopImmediatePropagation(); toast('🔒 Salle verrouillée. Alt+Ctrl+K pour modifier.'); return; }
-      // sinon, verrouiller avec la valeur entrée
+      if (isLocked()) { e.preventDefault(); e.stopImmediatePropagation(); toast('Salle verrouillée. Alt+Ctrl+K pour modifier.'); return; }
       try {
-        var candidate = document.querySelector('input[type="text"],input[type="search"],input[name*="salle" i],input[id*="salle" i]');
+        // Ne capturer QUE les inputs de salle, pas ceux de configuration backend
+        var candidate = document.querySelector('#roomInput, input[name*="salle" i], input[id*="salle" i]:not(#backendIpInput)');
         var v = (candidate && candidate.value || '').trim();
-        if (v) set({ locked:true, name:v, setAt: new Date().toISOString() });
+        // Valider que c'est bien un nom de salle et pas une IP
+        if (v && !/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(v) && !v.includes('.') && !v.includes(':')) {
+          set({ locked:true, name:v, setAt: new Date().toISOString() });
+        }
         setTimeout(applyLockUI, 0);
       } catch(e){}
     }
   }, true);
 
-  // Alt+Ctrl+K pour déverrouiller
-  document.addEventListener('keydown', function(e){
-    if (e.altKey && e.ctrlKey && (e.key||'').toLowerCase()==='k') {
-      var pwd = prompt('Mot de passe administrateur pour modifier la salle :');
-      if (pwd === ADMIN_PASS) {
-        clear();
-        document.documentElement.classList.remove('is-room-locked');
-        toast('🔓 Déverrouillé. Vous pouvez modifier la salle.');
-      } else if (pwd != null) {
-        toast('❌ Mot de passe invalide.');
-      }
-    }
-  });
+  // Supprimé: Alt+Ctrl+K géré uniquement par le panneau admin principal (pas de double prompt)
 
   document.addEventListener('DOMContentLoaded', applyLockUI);
 })();
-</script>
 
-<!-- ✅ NOUVEAU : Overlay de chargement diagnostic -->
-<div id="diagnosticLoadingOverlay" class="diagnostic-loading-overlay">
-    <div class="diagnostic-loading-content">
-        <div class="diagnostic-hourglass">
-            <i class="fas fa-hourglass-half"></i>
-        </div>
-        <div class="diagnostic-loading-text">Diagnostic en cours...</div>
-        <p class="diagnostic-loading-subtext">Vérification automatique du système</p>
-    </div>
-</div>
+// === Extracted from vitrine.htm (2025-08-22 10:01:06) ===
 
-<!-- ✅ NOUVEAU : Modal d'authentification technique -->
-<div id="technicalAuthModal" class="technical-auth-modal">
-    <div class="technical-auth-content">
-        <h3>
-            <i class="fas fa-lock"></i>
-            Accès Technique
-        </h3>
-        <p style="color: #64748b; margin-bottom: 1.5rem;">Veuillez saisir le mot de passe technique pour accéder au mode avancé.</p>
-        <input 
-            type="password" 
-            id="technicalPassword" 
-            class="technical-password-input" 
-            placeholder="Mot de passe technique"
-            onkeypress="handleTechnicalPasswordKeypress(event)"
-        />
-        <div class="technical-auth-error" id="technicalAuthError">
-            Mot de passe incorrect. Veuillez réessayer.
-        </div>
-        <div class="technical-auth-buttons">
-            <button class="technical-auth-btn technical-auth-cancel" onclick="closeTechnicalAuth()">
-                Annuler
-            </button>
-            <button class="technical-auth-btn technical-auth-submit" onclick="submitTechnicalAuth()">
-                <i class="fas fa-unlock"></i>
-                Accéder
-            </button>
-        </div>
-    </div>
-</div>
+(function () {
+  var KEY = 'vitrine.room.lock';
+  try {
+    var state = JSON.parse(localStorage.getItem(KEY) || 'null');
+    window.__VITRINE_LOCK__ = {
+      get: function(){ try { return JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ return null; } },
+      set: function(obj){ try { localStorage.setItem(KEY, JSON.stringify(obj)); } catch(e){} },
+      clear: function(){ try { localStorage.removeItem(KEY); } catch(e){} },
+      isLocked: function(){ var s=this.get(); return !!(s && s.locked && s.name); }
+    };
+    if (state && state.locked && state.name) {
+      document.documentElement.classList.add('is-room-locked');
+      window.__LOCKED_ROOM_NAME__ = state.name;
+    }
+  } catch(e){}
+})();
 
-<!-- ✅ NOUVEAU : Page technique -->
-<div id="technicalPage" class="technical-page">
-    <div class="technical-header">
-        <div class="technical-title">
-            <i class="fas fa-cog"></i>
-            <h2>Mode Technique</h2>
-        </div>
-        <button class="technical-return-btn" onclick="returnToVitrine()">
-            <i class="fas fa-arrow-left"></i>
-            Retour à Vitrine
-        </button>
-    </div>
-    <div class="technical-content">
-        <div class="technical-construction-banner">
-            <h3>
-                <i class="fas fa-hard-hat"></i>
-                Page en Construction
-            </h3>
-            <p>Cette section technique est actuellement en développement. Les plans unifilaires et autres outils techniques seront bientôt disponibles.</p>
-        </div>
+// ===== EXTENSIONS VITRINE - BACKEND DYNAMIQUE & MONITORING =====
+// Ajouté pour permettre à la vitrine de fonctionner depuis n'importe quel PC
+
+// ===== PATCH CRITIQUE POUR BACKEND DYNAMIQUE =====
+(function() {
+    setTimeout(() => {
+        console.log('🔧 [BackendPatch] Application du patch pour backend dynamique');
         
-        <!-- Section future pour les plans unifilaires -->
-        <div style="background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 2rem;">
-            <h4 style="color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                <i class="fas fa-blueprint"></i>
-                Plans Unifilaires
-            </h4>
-            <p style="color: #64748b; margin: 0;">
-                <strong>Salle actuelle :</strong> <span id="technicalCurrentRoom">-</span><br>
-                <em>Le plan unifilaire pour cette salle sera affiché ici prochainement.</em>
-            </p>
-        </div>
+        function getConfiguredBackendUrl() {
+            // ✅ PRIORITÉ 1 : Utiliser currentAPI si défini (même URL que app.js principal)
+            if (typeof currentAPI !== 'undefined' && currentAPI) {
+                return currentAPI;
+            }
+            
+            // ✅ PRIORITÉ 2 : Utiliser API_BASE_URL si défini (notre nouvelle logique)
+            if (typeof API_BASE_URL !== 'undefined' && API_BASE_URL) {
+                return API_BASE_URL;
+            }
+            
+            // ✅ PRIORITÉ 3 : Utiliser window.BACKEND_BASE si défini
+            if (window.BACKEND_BASE) {
+                return window.BACKEND_BASE;
+            }
+            
+            // ✅ PRIORITÉ 4 : Récupérer depuis localStorage
+            try {
+                const storedIp = localStorage.getItem('vitrine.backend.ip');
+                if (storedIp) {
+                    return /^https?:\/\//i.test(storedIp) ? storedIp : ('http://' + storedIp + ':7070');
+                }
+            } catch (e) {
+                console.error('❌ [BackendPatch] Erreur lecture localStorage:', e);
+            }
+            
+            // ✅ PRIORITÉ 5 : Fallback vers IP réseau actuel
+            console.log('🌐 [BackendPatch] Fallback vers IP réseau actuel');
+            return 'http://localhost:7070';
+        }
+        
+        let configuredUrl = getConfiguredBackendUrl();
+        console.log(`🌐 [BackendPatch] URL backend configurée: ${configuredUrl}`);
+        
+        // Écouter les changements de backend pour mettre à jour la configuration
+        window.addEventListener('backend:updated', function(event) {
+            const newUrl = event.detail?.base || getConfiguredBackendUrl();
+            if (newUrl !== configuredUrl) {
+                configuredUrl = newUrl;
+                console.log(`🔄 [BackendPatch] Backend mis à jour: ${configuredUrl}`);
+            }
+        });
+        
+        // Patcher fetch
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            if (typeof url === 'string' && url.includes('localhost:7070')) {
+                const newUrl = url.replace('http://localhost:7070', configuredUrl);
+                console.log(`🔄 [BackendPatch] Redirection: ${url} → ${newUrl}`);
+                return originalFetch(newUrl, options);
+            }
+            
+            if (typeof url === 'string' && url.startsWith('/api')) {
+                const newUrl = configuredUrl + url;
+                // ✅ OPTIMISATION : Log seulement si debug activé ou si ce n'est pas un heartbeat
+                if (window.DEBUG_BACKEND || !url.includes('/heartbeat')) {
+                    console.log(`🔄 [BackendPatch] Absolutisation: ${url} → ${newUrl}`);
+                }
+                return originalFetch(newUrl, options);
+            }
+            
+            return originalFetch(url, options);
+        };
+        
+        // Patcher EventSource
+        const originalEventSource = window.EventSource;
+        window.EventSource = function(url, eventSourceInitDict) {
+            if (typeof url === 'string' && url.includes('localhost:7070')) {
+                const newUrl = url.replace('http://localhost:7070', configuredUrl);
+                console.log(`🔄 [BackendPatch] SSE Redirection: ${url} → ${newUrl}`);
+                return new originalEventSource(newUrl, eventSourceInitDict);
+            }
+            
+            if (typeof url === 'string' && url.startsWith('/api')) {
+                const newUrl = configuredUrl + url;
+                // ✅ OPTIMISATION : Log seulement si debug activé
+                if (window.DEBUG_BACKEND) {
+                    console.log(`🔄 [BackendPatch] SSE Absolutisation: ${url} → ${newUrl}`);
+                }
+                return new originalEventSource(newUrl, eventSourceInitDict);
+            }
+            
+            return new originalEventSource(url, eventSourceInitDict);
+        };
+        
+        console.log('✅ [BackendPatch] Patch appliqué avec succès');
+    }, 1000);
+})();
 
-        <!-- Section future pour autres outils -->
-        <div style="background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
-            <h4 style="color: #1e293b; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                <i class="fas fa-tools"></i>
-                Outils Techniques
-            </h4>
-            <p style="color: #64748b; margin: 0;">
-                <em>Diagnostic avancé, gestion réseau, et autres outils techniques seront disponibles ici.</em>
-            </p>
-        </div>
-    </div>
-</div>
+// ===== MONITORING AUTOMATIQUE DU BACKEND =====
+let backendMonitoringInterval = null;
+let isBackendOnline = false;
 
-</body>
-</html> 
+function startBackendMonitoring() {
+    if (backendMonitoringInterval) {
+        clearInterval(backendMonitoringInterval);
+    }
+    
+    console.log('🔍 [BackendMonitor] Démarrage du monitoring automatique');
+    
+    backendMonitoringInterval = setInterval(async () => {
+        try {
+            // ✅ UTILISER LA MÊME URL QUE APP.JS PRINCIPAL
+            const backendUrl = (typeof currentAPI !== 'undefined' && currentAPI) ? currentAPI :
+                              (window.BACKEND_BASE || 
+                              (localStorage.getItem('vitrine.backend.ip') ? 
+                               'http://' + localStorage.getItem('vitrine.backend.ip') + ':7070' : 
+                               'http://localhost:7070'));
+            
+            const response = await fetch(`${backendUrl}/api/health`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(5000)
+            });
+            
+            const wasOnline = isBackendOnline;
+            isBackendOnline = response.ok;
+            
+            if (!wasOnline && isBackendOnline) {
+                console.log('✅ [BackendMonitor] Backend revenu en ligne !');
+                updateSystemStatus(true);
+                
+                if (typeof getCurrentRoom === 'function' && getCurrentRoom()) {
+                    console.log('🔄 [BackendMonitor] Backend revenu - Connexions SSE déjà actives');
+                    // ✅ CORRECTION : Ne pas redémarrer automatiquement les SSE
+                    // Les connexions existantes continuent de fonctionner
+                    // Redémarrage manuel uniquement si nécessaire
+                }
+            } else if (wasOnline && !isBackendOnline) {
+                console.log('❌ [BackendMonitor] Backend hors ligne détecté');
+                updateSystemStatus(false);
+            }
+            
+        } catch (error) {
+            const wasOnline = isBackendOnline;
+            isBackendOnline = false;
+            
+            if (wasOnline) {
+                console.log('❌ [BackendMonitor] Perte de connexion backend:', error.message);
+                updateSystemStatus(false);
+            }
+        }
+    }, 10000);
+}
+
+function updateSystemStatus(online) {
+    const statusDot = document.querySelector('.status-dot');
+    const statusText = document.querySelector('.status-indicator span');
+    
+    if (statusDot && statusText) {
+        if (online) {
+            statusDot.style.backgroundColor = '#10b981';
+            statusText.textContent = 'Système opérationnel';
+        } else {
+            statusDot.style.backgroundColor = '#ef4444';
+            statusText.textContent = 'Connexion backend interrompue';
+        }
+    }
+}
+
+// ===== NOTIFICATION MODE RAPPEL =====
+let vitrineChatId = null;
+
+async function notifyBackendClientClosedRecall() {
+    try {
+        const currentRoom = typeof getCurrentRoom === 'function' ? getCurrentRoom() : null;
+        const chatId = vitrineChatId;
+        console.log(`🔍 [ClientClosed] Debug - currentRoom: ${currentRoom}, vitrineChatId: ${chatId}`);
+
+        if (!currentRoom || !chatId) {
+            console.log('⚠️ [ClientClosed] Pas de salle ou chatId actuel, skip notification');
+            return;
+        }
+
+        console.log(`📡 [ClientClosed] Notification backend: client a fermé la bannière de rappel`);
+
+        // ✅ UTILISER LA MÊME URL QUE APP.JS PRINCIPAL
+        let apiBase = (typeof currentAPI !== 'undefined' && currentAPI) ? currentAPI : null;
+
+        if (!apiBase) {
+            apiBase = window.BACKEND_BASE;
+        }
+
+        if (!apiBase) {
+            try {
+                const storedIp = localStorage.getItem('vitrine.backend.ip');
+                if (storedIp) {
+                    apiBase = /^https?:\/\//i.test(storedIp) ? storedIp : ('http://' + storedIp + ':7070');
+                    console.log(`🔧 [ClientClosed] IP récupérée depuis localStorage: ${apiBase}`);
+                } else {
+                    console.error('❌ [ClientClosed] Aucune IP backend configurée !');
+                    return;
+                }
+            } catch (e) {
+                console.error('❌ [ClientClosed] Erreur lecture localStorage:', e);
+                return;
+            }
+        }
+
+        if (!apiBase) {
+            console.error('❌ [ClientClosed] Aucun backend configuré - impossible de notifier');
+            return;
+        }
+
+        console.log(`🌐 [ClientClosed] URL backend utilisée: ${apiBase}`);
+
+        const payload = {
+            room: currentRoom,
+            chat_id: chatId,
+            status: 'client_closed',
+            message: 'Client a fermé la bannière de rappel - Non disponible'
+        };
+
+        console.log(`📤 [ClientClosed] Payload envoyé:`, payload);
+
+        const response = await fetch(`${apiBase}/api/tickets/chat/recall-mode`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        console.log(`📡 [ClientClosed] Réponse HTTP:`, response.status, response.statusText);
+
+        if (response.ok) {
+            const responseData = await response.text();
+            console.log('✅ [ClientClosed] Backend notifié avec succès, réponse:', responseData);
+        } else {
+            const errorText = await response.text();
+            console.warn('⚠️ [ClientClosed] Erreur notification backend:', response.status, errorText);
+        }
+    } catch (error) {
+        console.error('❌ [ClientClosed] Erreur notification backend:', error);
+    }
+}
+
+async function notifyBackendRecallMode() {
+    try {
+        const currentRoom = typeof getCurrentRoom === 'function' ? getCurrentRoom() : null;
+        const chatId = vitrineChatId;
+        console.log(`🔍 [RecallMode] Debug - currentRoom: ${currentRoom}, vitrineChatId: ${chatId}`);
+        
+        if (!currentRoom || !chatId) {
+            console.log('⚠️ [RecallMode] Pas de salle ou chatId actuel, skip notification');
+            return;
+        }
+        
+        console.log(`📡 [RecallMode] Notification backend: salle ${currentRoom} en mode rappel`);
+        
+        // ✅ UTILISER LA MÊME URL QUE APP.JS PRINCIPAL
+        let apiBase = (typeof currentAPI !== 'undefined' && currentAPI) ? currentAPI : null;
+        
+        if (!apiBase) {
+            apiBase = window.BACKEND_BASE;
+        }
+        
+        if (!apiBase) {
+            try {
+                const storedIp = localStorage.getItem('vitrine.backend.ip');
+                if (storedIp) {
+                    apiBase = /^https?:\/\//i.test(storedIp) ? storedIp : ('http://' + storedIp + ':7070');
+                    console.log(`🔧 [RecallMode] IP récupérée depuis localStorage: ${apiBase}`);
+                } else {
+                    console.error('❌ [RecallMode] Aucune IP backend configurée !');
+                    return;
+                }
+            } catch (e) {
+                console.error('❌ [RecallMode] Erreur lecture localStorage:', e);
+                return;
+            }
+        }
+        
+        if (!apiBase) {
+            console.error('❌ [RecallMode] Aucun backend configuré - impossible de notifier');
+            return;
+        }
+        
+        console.log(`🌐 [RecallMode] URL backend utilisée: ${apiBase}`);
+        
+        const payload = {
+            room: currentRoom,
+            chat_id: chatId,
+            status: 'recall_mode',
+            message: 'Client n\'a pas répondu - Vitrine en mode rappel'
+        };
+        
+        console.log(`📤 [RecallMode] Payload envoyé:`, payload);
+        
+        const response = await fetch(`${apiBase}/api/tickets/chat/recall-mode`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        console.log(`📡 [RecallMode] Réponse HTTP:`, response.status, response.statusText);
+        
+        if (response.ok) {
+            const responseData = await response.text();
+            console.log('✅ [RecallMode] Backend notifié avec succès, réponse:', responseData);
+        } else {
+            const errorText = await response.text();
+            console.warn('⚠️ [RecallMode] Erreur notification backend:', response.status, errorText);
+        }
+    } catch (error) {
+        console.error('❌ [RecallMode] Erreur notification backend:', error);
+    }
+}
+
+// ✅ NOUVEAU : Système de détection de déconnexion inattendue
+let isNormalClosure = false; // Flag pour distinguer fermeture normale vs inattendue
+let lastHeartbeat = Date.now();
+
+// ✅ NOUVEAU : Détecter fermeture de page/navigateur (F5, fermeture, etc.)
+window.addEventListener('beforeunload', function(event) {
+    console.log('🚨 [Disconnect] Détection de fermeture/rechargement de page');
+    
+    // Si on a un chat actif et que ce n'est pas une fermeture normale
+    if (currentChatId && !isNormalClosure) {
+        console.log('⚠️ [Disconnect] Fermeture inattendue avec chat actif:', currentChatId);
+        
+        // Notification immédiate au backend (synchrone)
+        notifyUnexpectedDisconnection();
+        
+        // Message d'avertissement (optionnel - peut être désactivé)
+        // event.preventDefault();
+        // event.returnValue = 'Vous avez un chat en cours. Êtes-vous sûr de vouloir quitter ?';
+        // return event.returnValue;
+    }
+});
+
+// ✅ NOUVEAU : Détecter perte de connexion réseau
+window.addEventListener('offline', function() {
+    console.log('📡 [Disconnect] Connexion réseau perdue');
+    if (currentChatId) {
+        console.log('⚠️ [Disconnect] Chat actif lors de perte de connexion');
+        showNotification('Connexion réseau perdue', 'warning');
+    }
+});
+
+// ✅ NOUVEAU : Détecter retour de connexion
+window.addEventListener('online', function() {
+    console.log('📡 [Reconnect] Connexion réseau rétablie');
+    if (currentChatId) {
+        console.log('🔄 [Reconnect] Tentative de reconnexion du chat');
+        showNotification('Connexion rétablie', 'success');
+        reconnectChat();
+    }
+});
+
+// ✅ NOUVEAU : Système de heartbeat pour détecter les déconnexions
+function startHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+    }
+    
+    console.log('💓 [Heartbeat] Démarrage du système de heartbeat');
+    lastHeartbeat = Date.now();
+    
+    heartbeatInterval = setInterval(async function() {
+        if (currentChatId) {
+            try {
+                const apiBase = await getCurrentAPI();
+                const response = await fetch(`${apiBase}/api/tickets/chat/heartbeat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        channel_id: currentChatId,
+                        room_id: getCurrentRoom(),
+                        timestamp: Date.now()
+                    }),
+                    signal: AbortSignal.timeout(5000) // Timeout de 5 secondes
+                });
+                
+                if (response.ok) {
+                    lastHeartbeat = Date.now();
+                    console.log('💓 [Heartbeat] Ping envoyé avec succès');
+                } else {
+                    console.warn('⚠️ [Heartbeat] Erreur de ping:', response.status);
+                }
+            } catch (error) {
+                console.error('❌ [Heartbeat] Échec du ping:', error);
+                // Si plusieurs échecs consécutifs, considérer comme déconnecté
+                if (Date.now() - lastHeartbeat > 60000) { // 1 minute sans heartbeat
+                    console.log('🚨 [Heartbeat] Déconnexion détectée - Chat considéré comme perdu');
+                    handleHeartbeatTimeout();
+                }
+            }
+        }
+    }, 15000); // Heartbeat toutes les 15 secondes
+}
+
+// ✅ NOUVEAU : Gérer la perte de heartbeat
+function handleHeartbeatTimeout() {
+    if (currentChatId) {
+        console.log('⏰ [Heartbeat] Timeout détecté - Nettoyage local');
+        
+        // Nettoyer l'interface locale
+        closeChatInterface();
+        showNotification('Connexion perdue - Chat fermé', 'error');
+        
+        // Arrêter le heartbeat
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+        }
+    }
+}
+
+// ✅ CORRIGÉ : Notification de déconnexion inattendue (synchrone)
+async function notifyUnexpectedDisconnection() {
+    if (!currentChatId) return;
+    
+    try {
+        const apiBase = await getCurrentAPI();
+        const currentRoom = getCurrentRoom();
+        
+        console.log('📤 [Disconnect] Notification F5 pour:', { currentChatId, currentRoom });
+        
+        // ✅ CORRECTION : Utiliser l'endpoint /api/tickets/chat/end avec ended_by='vitrine_f5'
+        const data = JSON.stringify({
+            channel_id: currentChatId,
+            room_id: currentRoom,
+            ended_by: 'vitrine_f5', // Indiquer que c'est un F5
+            ticket_id: window.lastTicketNumber || '',
+            disconnection_type: 'f5_detected' // Ajouter le type spécifique
+        });
+        
+        // Utilisation de sendBeacon pour notification synchrone même lors de fermeture
+        const success = navigator.sendBeacon(`${apiBase}/api/tickets/chat/end`, data);
+        console.log('📤 [Disconnect] Notification F5 envoyée via sendBeacon:', success ? 'Succès' : 'Échec');
+        
+        // Fallback avec fetch si sendBeacon échoue
+        if (!success) {
+            fetch(`${apiBase}/api/tickets/chat/end`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: data,
+                keepalive: true // Garder la requête même si la page se ferme
+            }).catch(error => {
+                console.error('❌ [Disconnect] Erreur notification fallback:', error);
+            });
+        }
+    } catch (error) {
+        console.error('❌ [Disconnect] Erreur notification:', error);
+    }
+}
+
+// ✅ NOUVEAU : Tentative de reconnexion
+async function reconnectChat() {
+    if (!currentChatId) return;
+    
+    try {
+        console.log('🔄 [Reconnect] Tentative de reconnexion...');
+        
+        const apiBase = await getCurrentAPI();
+        const response = await fetch(`${apiBase}/api/tickets/chat/reconnect`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                channel_id: currentChatId,
+                room_id: getCurrentRoom()
+            })
+        });
+        
+        if (response.ok) {
+            console.log('✅ [Reconnect] Reconnexion réussie');
+            showNotification('Connexion rétablie', 'success');
+            
+            // Redémarrer le heartbeat
+            startHeartbeat();
+        } else {
+            console.error('❌ [Reconnect] Échec de reconnexion:', response.status);
+            showNotification('Impossible de reconnecter - Chat fermé', 'error');
+            closeChatInterface();
+        }
+    } catch (error) {
+        console.error('❌ [Reconnect] Erreur de reconnexion:', error);
+        showNotification('Erreur de reconnexion - Chat fermé', 'error');
+        closeChatInterface();
+    }
+}
+
+// ===== EXPORT DES FONCTIONS POUR LE HTML =====
+// Export des fonctions de rappel et timeout
+window.closeTimeoutBanner = closeTimeoutBanner;
+window.closeTimeoutBannerWithDecline = closeTimeoutBannerWithDecline;
+window.initiateRecallRequest = initiateRecallRequest;
+window.showChatTimeoutBanner = showChatTimeoutBanner;
+window.notifyBackendRecallMode = notifyBackendRecallMode;
+
+// ===== INITIALISATION DES EXTENSIONS =====
+document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+        startBackendMonitoring();
+    }, 2000);
+    
+    setTimeout(() => {
+        // Hook sur showChatTimeoutBanner
+        if (typeof window.showChatTimeoutBanner === 'function') {
+            const originalShowTimeout = window.showChatTimeoutBanner;
+            window.showChatTimeoutBanner = function() {
+                console.log('🔄 [RecallMode] Hook sur showChatTimeoutBanner original');
+                const result = originalShowTimeout.apply(this, arguments);
+                notifyBackendRecallMode();
+                return result;
+            };
+            console.log('✅ [RecallMode] Hook installé sur showChatTimeoutBanner');
+        }
+
+        // Hook console.log pour capturer channel_id (OPTIMISÉ)
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            // ✅ OPTIMISATION : Filtrer les logs selon les flags de debug
+            const logMessage = args[0];
+            if (typeof logMessage === 'string') {
+                // Bloquer les logs de typing si debug désactivé
+                if (!window.DEBUG_TYPING && logMessage.includes('[TypingVitrine]')) {
+                    return; // Ne pas logger
+                }
+                
+                // Bloquer les logs backend si debug désactivé
+                if (!window.DEBUG_BACKEND && logMessage.includes('[Config] Utilisation backend unique')) {
+                    return; // Ne pas logger
+                }
+                
+                // Bloquer les logs heartbeat si debug désactivé
+                if (!window.DEBUG_HEARTBEAT && (
+                    logMessage.includes('[Heartbeat]') || 
+                    logMessage.includes('[BackendPatch] Absolutisation') && logMessage.includes('/heartbeat')
+                )) {
+                    return; // Ne pas logger
+                }
+                
+                // ✅ OPTIMISATION SUPPLÉMENTAIRE : Bloquer les logs verbeux répétitifs
+                if (!window.DEBUG_BACKEND && (
+                    logMessage.includes('🔔 [StatusEvents] Événement reçu:') ||
+                    logMessage.includes('🔔 [StatusEvents] Type de data:') ||
+                    logMessage.includes('🔔 [StatusEvents] Propriétés de data:') ||
+                    logMessage.includes('🔔 [StatusEvents] data.Type:') ||
+                    logMessage.includes('🔔 [StatusEvents] data.type:') ||
+                    logMessage.includes('🔔 [StatusEvents] data.Data:') ||
+                    logMessage.includes('🔔 [StatusEvents] data.data:')
+                )) {
+                    return; // Ne pas logger les événements SSE verbeux
+                }
+                
+                // Capturer channel_id pour RecallMode
+                if (logMessage.includes('💬 [SSE] Demande de chat RÉELLE reçue:')) {
+                    const data = args[1];
+                    if (data && data.channel_id) {
+                        vitrineChatId = data.channel_id;
+                        originalConsoleLog('✅ [RecallMode] Channel ID capturé:', vitrineChatId);
+                    }
+                }
+                
+                if (logMessage.includes('🛑 [SSE] Chat terminé par:')) {
+                    vitrineChatId = null;
+                    originalConsoleLog('🔄 [RecallMode] Channel ID reset');
+                }
+            }
+            
+            return originalConsoleLog.apply(this, args);
+        };
+        console.log('✅ [RecallMode] Hook console.log installé pour capturer channel_id');
+    }, 2000);
+});
+
+
+
+// Global flag for SEA banner open state
+window.__SEA_BANNER_OPEN__ = window.__SEA_BANNER_OPEN__ || false;
+
+// ✅ SYSTÈME DE DEBUG POUR RÉDUIRE LE SPAM DE LOGS
+window.DEBUG_TYPING = false;
+window.DEBUG_BACKEND = false;
+window.DEBUG_HEARTBEAT = false;
+
+// 🔧 Fonction pour activer/désactiver le debug
+// OPTIMISATIONS ANTI-LAG V5.0 :
+// - Réduction de 90% des logs de typing (handleTypingVitrine)
+// - Réduction des logs backend (ensureBackendConnection)
+// - Réduction des logs heartbeat et BackendPatch
+// - Protection contre les multiples heartbeats
+// - Debounce sur les événements de typing (100ms)
+window.toggleVitrineDebug = function(category = 'all') {
+    if (category === 'all' || category === 'typing') {
+        window.DEBUG_TYPING = !window.DEBUG_TYPING;
+        console.log(`🔧 [Debug] Typing debug: ${window.DEBUG_TYPING ? 'ON' : 'OFF'}`);
+    }
+    if (category === 'all' || category === 'backend') {
+        window.DEBUG_BACKEND = !window.DEBUG_BACKEND;
+        console.log(`🔧 [Debug] Backend debug: ${window.DEBUG_BACKEND ? 'ON' : 'OFF'}`);
+    }
+    if (category === 'all' || category === 'heartbeat') {
+        window.DEBUG_HEARTBEAT = !window.DEBUG_HEARTBEAT;
+        console.log(`🔧 [Debug] Heartbeat debug: ${window.DEBUG_HEARTBEAT ? 'ON' : 'OFF'}`);
+    }
+    console.log('🔧 Usage: toggleVitrineDebug("typing"), toggleVitrineDebug("backend"), toggleVitrineDebug("heartbeat"), ou toggleVitrineDebug("all")');
+    console.log('🚀 OPTIMISATIONS ACTIVES: Logs réduits de 90%, debounce typing, protection heartbeat');
+};
+
+// 🚨 Fonction d'urgence pour réactiver tous les logs (debugging)
+window.enableAllVitrineDebug = function() {
+    window.DEBUG_TYPING = true;
+    window.DEBUG_BACKEND = true;
+    window.DEBUG_HEARTBEAT = true;
+    console.log('🚨 [Debug] TOUS LES LOGS RÉACTIVÉS pour debugging');
+    console.log('🔧 Pour les désactiver: toggleVitrineDebug("all")');
+};
+
+// 🔄 ===== SYSTÈME DE HEARTBEAT POUR DÉTECTION DÉCONNEXIONS =====
+let heartbeatInterval = null;
+let clientId = null;
+
+function generateClientId() {
+    const room = getCurrentRoom();
+    // ✅ CORRECTION : Générer un ID même si la salle n'est pas encore définie
+    const roomId = room || 'unknown';
+    
+    return `vitrine-${roomId}-${Date.now()}`;
+}
+
+function startHeartbeat() {
+    // ✅ OPTIMISATION : Éviter les multiples heartbeats
+    if (heartbeatInterval) {
+        if (window.DEBUG_HEARTBEAT) {
+            console.log('🚫 [Heartbeat] Heartbeat déjà actif, ignoré');
+        }
+        return;
+    }
+    
+    clientId = generateClientId();
+    if (!clientId) {
+        console.log('🔄 [Heartbeat] Impossible de générer clientId');
+        return;
+    }
+    
+    if (window.DEBUG_HEARTBEAT) {
+        console.log('🔄 [Heartbeat] Démarrage heartbeat pour client:', clientId);
+    }
+    
+    // Envoyer un heartbeat toutes les 15 secondes
+    heartbeatInterval = setInterval(async () => {
+        try {
+            // ✅ CORRECTION : Utiliser le backend configuré
+            const api = await getCurrentAPI();
+            const response = await fetch(`${api}/api/chat/heartbeat`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    client_id: clientId
+                })
+            });
+            
+            if (response.ok) {
+                if (window.DEBUG_HEARTBEAT) {
+                    console.log('💓 [Heartbeat] Heartbeat envoyé avec succès');
+                }
+            } else {
+                console.warn('⚠️ [Heartbeat] Erreur heartbeat:', response.status);
+            }
+        } catch (error) {
+            console.error('❌ [Heartbeat] Erreur réseau heartbeat:', error);
+        }
+    }, 15000); // 15 secondes
+}
+
+function stopHeartbeat() {
+    if (heartbeatInterval) {
+        clearInterval(heartbeatInterval);
+        heartbeatInterval = null;
+        if (window.DEBUG_HEARTBEAT) {
+            console.log('🔄 [Heartbeat] Arrêt heartbeat pour client:', clientId);
+        }
+        clientId = null;
+    }
+}
+
+// Arrêter heartbeat quand la page se ferme
+window.addEventListener('beforeunload', () => {
+    stopHeartbeat();
+});
+
+// ✅ FONCTION DE TEST POUR LE TYPING CÔTÉ VITRINE
+window.testVitrineTyping = function() {
+    console.log('🧪 [Test] Test du système de typing côté Vitrine...');
+    console.log(`🔐 [Test] ID client Vitrine: ${VITRINE_CLIENT_ID}`);
+    
+    // 1. Test indicateur Technicien (SEA)
+    setTimeout(() => {
+        console.log('🧪 Test: Indicateur Technicien (sans animation)...');
+        showTypingIndicator('sea');
+    }, 1000);
+    
+    // 2. Test indicateur Client (autre Vitrine)
+    setTimeout(() => {
+        console.log('🧪 Test: Indicateur autre Client...');
+        hideTypingIndicator();
+        showTypingIndicator('vitrine');
+    }, 3000);
+    
+    // 3. Nettoyage
+    setTimeout(() => {
+        console.log('🧪 Test: Nettoyage...');
+        hideTypingIndicator();
+    }, 6000);
+    
+    console.log('✅ Test typing Vitrine démarré - Plus de bande qui bouge !');
+};
