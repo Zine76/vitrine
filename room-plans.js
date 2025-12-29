@@ -1,12 +1,19 @@
-﻿// Module des plans unifilaires - Version compatible GitHub Pages + Backend
-// Les plans sont servis via le backend pour Ã©viter les problÃ¨mes de sÃ©curitÃ© file://
+﻿// Module des plans unifilaires - Version avec chemin rÃ©seau UQAM
+// Note: Les navigateurs bloquent l'accÃ¨s direct aux chemins file:// et \\
+// Solution: Afficher le chemin pour copier/coller dans l'explorateur Windows
 
 (function() {
     console.log('ðŸ“‹ [RoomPlans] Module des plans unifilaires chargÃ© - Version locale');
     
-    // Configuration des plans disponibles
-    const AVAILABLE_PLANS = ['A-1825']; // Ajouter d'autres salles ici si nÃ©cessaire
+    // Configuration des plans disponibles avec leurs chemins rÃ©seau
+    const PLANS_CONFIG = {
+        'A-1825': {
+            path: '\\\\index\\Donnees.01\\SAV\\Accueil\\Soutien\\Atelier\\plans\\plans_branchements\\A (Pavillon Hubert-Aquin)\\A-1785\\Plan_unifilaire_A1785_20230113.pdf',
+            name: 'Plan_unifilaire_A1785_20230113.pdf'
+        }
+    };
     
+    const AVAILABLE_PLANS = Object.keys(PLANS_CONFIG);
     console.log('ðŸ“‹ [RoomPlans] Plans disponibles:', AVAILABLE_PLANS);
     
     // Configuration globale pour les plans
@@ -24,22 +31,42 @@
             }
             
             // VÃ©rifier si un plan existe pour cette salle
-            if (AVAILABLE_PLANS.includes(roomName)) {
+            const planConfig = PLANS_CONFIG[roomName];
+            if (planConfig) {
                 console.log('âœ… [RoomPlans] Plan disponible pour:', roomName);
                 planSection.style.display = 'block';
                 noPlanSection.style.display = 'none';
                 
                 if (planLink) {
-                    // Utiliser l'API backend pour servir les plans
-                    // Le backend doit exposer /api/room-plans/{room}.pdf
-                    const backendBase = window.BACKEND_BASE || 'http://localhost:7070';
-                    const planUrl = backendBase + '/api/room-plans/' + encodeURIComponent(roomName) + '.pdf';
+                    // Afficher le nom du fichier
+                    planLink.innerHTML = '<i class=\"fas fa-external-link-alt\"></i> ' + planConfig.name;
+                    planLink.href = '#';
+                    planLink.title = 'Cliquez pour copier le chemin du plan';
                     
-                    planLink.href = planUrl;
-                    planLink.target = '_blank';
                     planLink.onclick = function(e) {
-                        // Ouvrir dans un nouvel onglet
-                        console.log('ðŸ“„ [RoomPlans] Ouverture du plan:', planUrl);
+                        e.preventDefault();
+                        
+                        // Copier le chemin dans le presse-papiers
+                        navigator.clipboard.writeText(planConfig.path).then(function() {
+                            // Afficher confirmation
+                            const originalText = planLink.innerHTML;
+                            planLink.innerHTML = '<i class=\"fas fa-check\"></i> Chemin copiÃ© !';
+                            planLink.style.backgroundColor = '#10b981';
+                            
+                            setTimeout(function() {
+                                planLink.innerHTML = originalText;
+                                planLink.style.backgroundColor = '';
+                            }, 2000);
+                            
+                            // Afficher aussi une alerte avec le chemin
+                            alert('Chemin copiÃ© dans le presse-papiers !\\n\\nCollez-le dans l\\'Explorateur Windows (Win+E) :\\n\\n' + planConfig.path);
+                            
+                            console.log('ðŸ“„ [RoomPlans] Chemin copiÃ©:', planConfig.path);
+                        }).catch(function(err) {
+                            console.error('âŒ [RoomPlans] Erreur copie:', err);
+                            // Fallback: afficher le chemin dans une alerte
+                            prompt('Copiez ce chemin et collez-le dans l\\'Explorateur Windows:', planConfig.path);
+                        });
                     };
                 }
             } else {
@@ -52,5 +79,5 @@
     
     // Initialisation
     console.log('ðŸ“‹ [RoomPlans] Module local initialisÃ© avec', AVAILABLE_PLANS.length, 'plans');
-    console.log('ðŸŒ [RoomPlans] Configuration pour localhost');
+    console.log('ðŸŒ [RoomPlans] Configuration pour rÃ©seau UQAM');
 })();
