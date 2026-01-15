@@ -14,16 +14,15 @@
 <title>Vitrine</title>
 <!-- Favicon -->
 <link href="https://zine76.github.io/vitrine/assets/Vitrine.png" rel="icon" type="image/png"/>
-<!-- Font Awesome pour les ic�nes -->
+<!-- Font Awesome pour les icônes -->
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
 <link href="style.css" rel="stylesheet"/>
-<!-- Banni�re mince d'accueil du chat -->
+<!-- Bannière mince d'accueil du chat -->
 <link href="chat-welcome.css" rel="stylesheet"/>
-<!-- Barre lat�rale de liens utiles -->
+<!-- Barre latérale de liens utiles -->
 <link href="sidebar.css" rel="stylesheet"/>
 <link href="graphSearch.css" rel="stylesheet"/>
-<!-- Syst�me d'appel WebRTC -->
-<!-- call.css SUPPRIMÉ - Vitrine ne fait plus d'appels -->
+<!-- Système d'appel WebRTC - DÉSACTIVÉ (Vitrine ne fait plus d'appels) -->
 <style id="modal-inline-css">
 /* Modal Equipment - Styles inline pour file:/// */
 #equipmentModal {
@@ -278,19 +277,19 @@
 <div id="backendModal" class="technical-auth-modal" style="display:none;">
     <div class="technical-auth-content" style="max-width:520px;">
         <h3><i class="fas fa-server"></i> Backend</h3>
-        <p class="tech-auth-intro">Entrez l'adresse IP ou le nom d'h�te (ex: localhost ou SAV-ATL-POR-8.ddns.uqam.ca). Le port 7070 sera utilis� automatiquement si absent.</p>
+        <p class="tech-auth-intro">Entrez l'adresse IP ou le nom d'hôte (ex: localhost ou SAV-ATL-POR-8.ddns.uqam.ca). Le port 7070 sera utilisé automatiquement si absent.</p>
         <div id="networkDetectionInfo" style="margin: 10px 0; padding: 8px; background: #f0f9ff; border: 1px solid #0ea5e9; border-radius: 4px; font-size: 0.85rem; display: none;">
-            <strong>?? D�tection automatique :</strong> <span id="networkDetectionText">En cours...</span>
+            <strong>🌐 Détection automatique :</strong> <span id="networkDetectionText">En cours...</span>
         </div>
-        <input type="text" id="backendIpInput" class="technical-password-input" placeholder="IP ou nom d'h�te du backend" aria-label="IP ou nom d'h�te du backend"/>
+        <input type="text" id="backendIpInput" class="technical-password-input" placeholder="IP ou nom d'hôte du backend" aria-label="IP ou nom d'hôte du backend"/>
         <div class="technical-auth-buttons">
             <button class="technical-auth-btn technical-auth-cancel" onclick="window.hideBackendModal()">Annuler</button>
             <button class="technical-auth-btn technical-auth-submit" onclick="window.saveBackendIp()"><i class="fas fa-save"></i> Enregistrer</button>
         </div>
     </div>
-    <div style="margin-top:8px; text-align:center; color:#64748b; font-size:0.85rem;">Cette configuration est temporaire jusqu'� l'IP fixe.</div>
+    <div style="margin-top:8px; text-align:center; color:#64748b; font-size:0.85rem;">Cette configuration est temporaire jusqu'à l'IP fixe.</div>
 </div>
-<!-- Barre lat�rale de liens utiles -->
+<!-- Barre latérale de liens utiles -->
 <div class="sidebar-links">
     <div class="sidebar-header">
         <h3>Liens Utiles</h3>
@@ -303,7 +302,7 @@
             <span>Audiovisuel UQAM</span>
         </a>
         
-        <a href="https://enseigner.uqam.ca/rediffusion-formations/" target="_blank" rel="noopener" class="sidebar-btn" title="Formations p�dagogiques">
+        <a href="https://enseigner.uqam.ca/rediffusion-formations/" target="_blank" rel="noopener" class="sidebar-btn" title="Formations pédagogiques">
             <div class="sidebar-icon">
                 <i class="fas fa-graduation-cap"></i>
             </div>
@@ -317,7 +316,7 @@
             <span>Services Info</span>
         </a>
         
-        <a href="https://sps.uqam.ca/" target="_blank" rel="noopener" class="sidebar-btn emergency" title="S�curit� et pr�vention - URGENCE">
+        <a href="https://sps.uqam.ca/" target="_blank" rel="noopener" class="sidebar-btn emergency" title="Sécurité et prévention - URGENCE">
             <div class="sidebar-icon">
                 <i class="fas fa-exclamation-triangle"></i>
             </div>
@@ -346,7 +345,7 @@
 </div>
 <div class="status-indicator">
 <div class="status-dot"></div>
-<span>Syst�me op�rationnel</span>
+<span>Système opérationnel</span>
 </div>
 </div>
 <!-- Landing Page - Saisie de salle obligatoire -->
@@ -354,19 +353,19 @@
 <div class="landing-content">
 <div class="room-input-banner">
 <div class="banner-header">
-<span class="banner-icon">??</span>
+<span class="banner-icon">📍</span>
 <h3>Quelle salle avez-vous besoin d'aide ?</h3>
 </div>
 <div class="banner-content">
-<p>Entrez le num�ro de votre salle pour acc�der � l'assistant personnalis�</p>
+<p>Entrez le numéro de votre salle pour accéder à l'assistant personnalisé</p>
 <div class="room-input-container">
-<input class="room-input" id="roomInput" onkeypress="handleRoomKeyPress(event)" placeholder="Ex: A-1750, B-2500, SH-R200..." type="text" aria-label="Num�ro de salle"/>
+<input class="room-input" id="roomInput" onkeypress="handleRoomKeyPress(event)" placeholder="Ex: A-1750, B-2500, SH-R200..." type="text" aria-label="Numéro de salle"/>
 <button class="confirm-room-btn" id="confirmRoomBtn" onclick="confirmRoom()">
-                                ? Confirmer
+                                ✅ Confirmer
                             </button>
 </div>
 <div class="room-examples">
-<p><strong>Exemples de formats accept�s :</strong></p>
+<p><strong>Exemples de formats acceptés :</strong></p>
 <div class="example-rooms">
 <span class="room-example" onclick="setRoomExample('A-1750')">A-1750</span>
 <span class="room-example" onclick="setRoomExample('B-2500')">B-2500</span>
@@ -379,59 +378,59 @@
 </div>
 </div>
 </div>
-<!-- Assistant Page - Affich� apr�s validation de la salle -->
+<!-- Assistant Page - Affiché après validation de la salle -->
 <div class="content hidden" id="assistantPage" role="region" aria-label="Assistant audiovisuel">
 <!-- Header de salle -->
 <div class="room-header" id="roomHeader">
 <div class="current-room-info">
-<span class="room-icon">??</span>
+<span class="room-icon">📍</span>
 <span class="room-text">Salle : <strong id="currentRoomDisplay">-</strong></span>
 <button class="change-room-btn" onclick="changeRoom()" title="Changer de salle" aria-label="Changer de salle">
 <i class="fas fa-edit"></i>
 </button>
 </div>
-<!-- ? SUPPRIM� : Boutons inutiles Mode nuit et Accueil dans la zone de salle -->
+<!-- ✅ SUPPRIMÉ : Boutons inutiles Mode nuit et Accueil dans la zone de salle -->
 </div>
-<!-- Champ de saisie cach� pour les messages -->
+<!-- Champ de saisie caché pour les messages -->
 <input id="problemInput" class="hidden" type="hidden" aria-hidden="true"/>
-<!-- Section des palettes de probl�mes -->
+<!-- Section des palettes de problèmes -->
 <div class="problem-palettes" id="problemPalettes">
 <!-- Palette Audio -->
 <div class="palette audio" onclick="sendExampleMessage('Pas de son')">
-<div class="palette-icon">??</div>
-<h3>Probl�me Audio</h3>
-<p>Microphones, haut-parleurs, volume, qualit� sonore</p>
+<div class="palette-icon">🔵</div>
+<h3>Problème Audio</h3>
+<p>Microphones, haut-parleurs, volume, qualité sonore</p>
 </div>
-<!-- Palette Vid�o -->
-<div class="palette video" onclick="sendExampleMessage('�cran noir projecteur')">
-<div class="palette-icon">??</div>
-<h3>Probl�me Vid�o</h3>
-<p>Projecteurs, �crans, qualit� d'image, connectivit�</p>
+<!-- Palette Vidéo -->
+<div class="palette video" onclick="sendExampleMessage('Écran noir projecteur')">
+<div class="palette-icon">🟣</div>
+<h3>Problème Vidéo</h3>
+<p>Projecteurs, écrans, qualité d'image, connectivité</p>
 </div>
-<!-- Palette R�seau -->
-<div class="palette network" onclick="sendExampleMessage('Probl�me de r�seau')">
-<div class="palette-icon">??</div>
-<h3>Probl�me R�seau</h3>
-<p>Connexion internet, Wi-Fi, connectivit� r�seau</p>
+<!-- Palette Réseau -->
+<div class="palette network" onclick="sendExampleMessage('Problème de réseau')">
+<div class="palette-icon">🟠</div>
+<h3>Problème Réseau</h3>
+<p>Connexion internet, Wi-Fi, connectivité réseau</p>
 </div>
 <!-- Palette Autres -->
-<div class="palette other" onclick="sendExampleMessage('Syst�me qui ne r�pond plus')">
-<div class="palette-icon">??</div>
-<h3>Autres Probl�mes</h3>
-<p>�quipements, infrastructure, maintenance g�n�rale</p>
+<div class="palette other" onclick="sendExampleMessage('Système qui ne répond plus')">
+<div class="palette-icon">🟢</div>
+<h3>Autres Problèmes</h3>
+<p>Équipements, infrastructure, maintenance générale</p>
 </div>
 </div>
 <!-- Section des suggestions -->
 <div class="suggestions" id="suggestions"></div>
 </div>
 </div>
-<!-- Modale de r�sultat -->
+<!-- Modale de résultat -->
 <div class="modal-overlay" id="modalOverlay">
 <div class="modal" id="modal">
-<div class="modal-icon" id="modalIcon">?</div>
-<h3 id="modalTitle">Probl�me r�solu</h3>
-<p id="modalMessage">Le probl�me a �t� corrig� automatiquement.</p>
-<button class="modal-btn" onclick="closeModal()">Retour � l'accueil</button>
+<div class="modal-icon" id="modalIcon">✅</div>
+<h3 id="modalTitle">Problème résolu</h3>
+<p id="modalMessage">Le problème a été corrigé automatiquement.</p>
+<button class="modal-btn" onclick="closeModal()">Retour à l'accueil</button>
 </div>
 </div>
 
@@ -439,10 +438,10 @@
 <div class="chat-modal" id="chatModal">
 <div class="chat-container">
 <div class="chat-header">
-<h3>?? Chat SEA - Assistance en direct</h3>
+<h3>💬 Chat SEA - Assistance en direct</h3>
 <div class="chat-header-actions">
 <div class="chat-font-controls">
-<button class="chat-font-btn" onclick="adjustVitrineFont('decrease')" title="R�duire la taille du texte">
+<button class="chat-font-btn" onclick="adjustVitrineFont('decrease')" title="Réduire la taille du texte">
 <i class="fas fa-search-minus"></i>
 </button>
 <span class="chat-font-size-indicator" id="vitrineFontIndicator">0%</span>
@@ -458,7 +457,7 @@
 <div class="chat-content" id="chatContent">
 <div class="chat-messages" id="chatMessages"></div>
 <div class="chat-input-area">
-<textarea id="chatInput" placeholder="Tapez votre message..." onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }" oninput="autoResizeTextarea(this); handleTypingVitrine(event);" aria-label="Message � envoyer"></textarea>
+<textarea id="chatInput" placeholder="Tapez votre message..." onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); sendChatMessage(); }" oninput="autoResizeTextarea(this); handleTypingVitrine(event);" aria-label="Message à envoyer"></textarea>
 <button onclick="sendChatMessage()" class="send-btn" aria-label="Envoyer" title="Envoyer">
 <i class="fas fa-paper-plane"></i>
 </button>
@@ -467,17 +466,17 @@
 </div>
 </div>
 
-<!-- Consent Banner Centr�e avec Animation Sonnerie -->
+<!-- Consent Banner Centrée avec Animation Sonnerie -->
 <div class="consent-banner hidden" id="consentBanner">
     <div class="consent-content">
-        <!-- Ic�ne chat qui clignote comme une notification -->
+        <!-- Icône chat qui clignote comme une notification -->
         <div class="consent-banner-phone">
             <i class="fas fa-comments fa-3x"></i>
         </div>
         
         <div class="consent-text">
-            <h4>?? Demande de chat SEA</h4>
-            <p>Le service SEA souhaite �tablir un chat pour assister avec le ticket <strong id="consentTicketNumber">-</strong></p>
+            <h4>💬 Demande de chat SEA</h4>
+            <p>Le service SEA souhaite établir un chat pour assister avec le ticket <strong id="consentTicketNumber">-</strong></p>
             <p><em>Demande de chat pour salle <span id="consentRoomName">-</span></em></p>
         </div>
         
@@ -498,9 +497,9 @@
 <div class="chat-timeout-banner hidden" id="chatTimeoutBanner">
     <h3>
         <i class="fas fa-clock"></i>
-        Demande de chat expir�e
+        Demande de chat expirée
     </h3>
-    <p>Le technicien SEA �tait disponible pour discuter de votre probl�me, mais le d�lai de r�ponse a expir�.</p>
+    <p>Le technicien SEA était disponible pour discuter de votre problème, mais le délai de réponse a expiré.</p>
     <p><strong>Souhaitez-vous initier une conversation avec le technicien ?</strong></p>
     
     <div class="timeout-actions">
@@ -516,32 +515,32 @@
 </div>
 
 
-<!-- Fonction globale supprim�e - utilisation de createTicketDirect -->
+<!-- Fonction globale supprimée - utilisation de createTicketDirect -->
 
 
 
 <!-- VITRINE LOCK ENFORCER -->
 
 
-<!-- ? NOUVEAU : Overlay de chargement diagnostic -->
+<!-- ✅ NOUVEAU : Overlay de chargement diagnostic -->
 <div id="diagnosticLoadingOverlay" class="diagnostic-loading-overlay">
     <div class="diagnostic-loading-content">
         <div class="diagnostic-hourglass">
             <i class="fas fa-hourglass-half"></i>
         </div>
         <div class="diagnostic-loading-text">Diagnostic en cours...</div>
-        <p class="diagnostic-loading-subtext">V�rification automatique du syst�me</p>
+        <p class="diagnostic-loading-subtext">Vérification automatique du système</p>
     </div>
 </div>
 
-<!-- ? NOUVEAU : Modal d'authentification technique -->
+<!-- ✅ NOUVEAU : Modal d'authentification technique -->
 <div id="technicalAuthModal" class="technical-auth-modal">
     <div class="technical-auth-content">
         <h3>
             <i class="fas fa-lock"></i>
-            Acc�s Technique
+            Accès Technique
         </h3>
-        <p class="tech-auth-intro">Veuillez saisir le mot de passe technique pour acc�der au mode avanc�.</p>
+        <p class="tech-auth-intro">Veuillez saisir le mot de passe technique pour accéder au mode avancé.</p>
         <input 
             type="password" 
             id="technicalPassword" 
@@ -551,7 +550,7 @@
             onkeypress="handleTechnicalPasswordKeypress(event)"
         />
         <div class="technical-auth-error" id="technicalAuthError">
-            Mot de passe incorrect. Veuillez r�essayer.
+            Mot de passe incorrect. Veuillez réessayer.
         </div>
         <div class="technical-auth-buttons">
             <button class="technical-auth-btn technical-auth-cancel" onclick="closeTechnicalAuth()">
@@ -559,22 +558,22 @@
             </button>
             <button class="technical-auth-btn technical-auth-submit" onclick="submitTechnicalAuth()">
                 <i class="fas fa-unlock"></i>
-                Acc�der
+                Accéder
             </button>
         </div>
     </div>
 </div>
 
-<!-- ? NOUVEAU : Page technique -->
+<!-- ✅ NOUVEAU : Page technique -->
 <div id="technicalPage" class="technical-page">
     <div class="technical-header">
         <div class="technical-title">
             <i class="fas fa-cog"></i>
             <h2>Mode Technique</h2>
         </div>
-        <button class="technical-return-btn" onclick="returnToVitrine()" aria-label="Retour � Vitrine">
+        <button class="technical-return-btn" onclick="returnToVitrine()" aria-label="Retour à Vitrine">
             <i class="fas fa-arrow-left"></i>
-            Retour � Vitrine
+            Retour à Vitrine
         </button>
     </div>
     <div class="technical-content">
@@ -583,10 +582,10 @@
                 <i class="fas fa-hard-hat"></i>
                 Page en Construction
             </h3>
-            <p>Cette section technique est actuellement en d�veloppement. Les plans unifilaires et autres outils techniques seront bient�t disponibles.</p>
+            <p>Cette section technique est actuellement en développement. Les plans unifilaires et autres outils techniques seront bientôt disponibles.</p>
         </div>
         
-        <!-- ? NOUVEAU : Section Plans Unifilaires avec lien PDF -->
+        <!-- ✅ NOUVEAU : Section Plans Unifilaires avec lien PDF -->
         <div class="card card--spaced">
             <h4 class="card-title with-icon">
                 <i class="fas fa-blueprint"></i>
@@ -615,11 +614,11 @@
             </div>
         </div>
 
-                <!-- Section Recherche de C�blage -->
+                <!-- Section Recherche de Câblage -->
         <div class="card card--spaced">
             <h4 class="card-title with-icon">
                 <i class="fas fa-search"></i>
-                Recherche de C�blage
+                Recherche de Câblage
             </h4>
             <div class="graph-search-container">
                 <div class="search-input-wrapper">
@@ -627,8 +626,8 @@
                         type="text" 
                         id="graphSearchInput" 
                         class="graph-search-input" 
-                        placeholder="Rechercher un c�ble (ex: V001) ou un �quipement (ex: Extron)"
-                        aria-label="Recherche c�ble ou �quipement"
+                        placeholder="Rechercher un câble (ex: V001) ou un équipement (ex: Extron)"
+                        aria-label="Recherche câble ou équipement"
                         onkeyup="handleGraphSearch(event)"
                     />
                     <button class="graph-search-btn" onclick="executeGraphSearch()" title="Rechercher">
@@ -640,15 +639,15 @@
                 </div>
                 
                 <div id="graphSearchStats" class="graph-stats hidden">
-                    <span class="stat-item"><i class="fas fa-cube"></i> <span id="statNodes">0</span> �quipements</span>
-                    <span class="stat-item"><i class="fas fa-link"></i> <span id="statEdges">0</span> c�bles</span>
+                    <span class="stat-item"><i class="fas fa-cube"></i> <span id="statNodes">0</span> équipements</span>
+                    <span class="stat-item"><i class="fas fa-link"></i> <span id="statEdges">0</span> câbles</span>
                     <span class="stat-item warning"><i class="fas fa-exclamation-triangle"></i> <span id="statUncertain">0</span> incertains</span>
                 </div>
                 
                 <div id="graphSearchResults" class="graph-results">
                     <div class="graph-placeholder">
                         <i class="fas fa-project-diagram"></i>
-                        <p>Entrez un code c�ble (ex: V001, A001) ou un nom d'�quipement (ex: Extron)</p>
+                        <p>Entrez un code câble (ex: V001, A001) ou un nom d'équipement (ex: Extron)</p>
                     </div>
                 </div>
             </div>
@@ -660,7 +659,7 @@
                 Outils Techniques
             </h4>
             <p class="text-muted m-0">
-                <em>Diagnostic avanc�, gestion r�seau, et autres outils techniques seront disponibles ici.</em>
+                <em>Diagnostic avancé, gestion réseau, et autres outils techniques seront disponibles ici.</em>
             </p>
         </div>
     </div>
@@ -675,7 +674,7 @@
     try{
       var v = String(input||'').trim();
       if (!v) return false;
-      if (/^https?:\/\//i.test(v)) return true; // URL compl�te
+      if (/^https?:\/\//i.test(v)) return true; // URL complète
       if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(v)) return true; // IPv4
       if (/^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)+$/.test(v)) return true; // domaine/hostname
       return false;
@@ -688,7 +687,7 @@
     var inp = document.getElementById('backendIpInput');
     if (inp){ inp.value = (prefill||'').toString(); setTimeout(function(){ inp.focus(); inp.select(); }, 50); }
     
-    // Afficher les informations de d�tection r�seau si disponibles
+    // Afficher les informations de détection réseau si disponibles
     var networkInfo = document.getElementById('networkDetectionInfo');
     var networkText = document.getElementById('networkDetectionText');
     if (networkInfo && networkText) {
@@ -704,7 +703,7 @@
   window.saveBackendIp = function(){
     var raw = (document.getElementById('backendIpInput')||{}).value||'';
     if (!isValidHost(raw)){
-      alert('Valeur invalide. Entrez une IP (ex: localhost), un nom d\'h�te (ex: host.domaine), ou une URL http(s) compl�te.');
+      alert('Valeur invalide. Entrez une IP (ex: localhost), un nom d\'hôte (ex: host.domaine), ou une URL http(s) complète.');
       return;
     }
     var value = raw.trim();
@@ -723,51 +722,51 @@
       
       // Exemples d'IPs disponibles avec labels (pour suggestions uniquement)
       var IPS_WITH_LABELS = [
-        { ip: 'localhost', label: 'Local (M�me PC)' },
+        { ip: 'localhost', label: 'Local (Même PC)' },
         { ip: '', label: 'Entrer IP manuellement' },
         { ip: 'SAV-ATL-POR-8.ddns.uqam.ca', label: 'DNS UQAM' }
       ];
       
-      // R�cup�rer l'IP actuelle
+      // Récupérer l'IP actuelle
       var currentIp = localStorage.getItem('vitrine.backend.ip') || '';
       
       // Trouver l'index actuel
       var currentIndex = IPS_WITH_LABELS.findIndex(function(item) { return item.ip === currentIp; });
       if (currentIndex === -1) currentIndex = 0;
       
-      // Passer � la prochaine IP (rotation)
+      // Passer à la prochaine IP (rotation)
       var nextIndex = (currentIndex + 1) % IPS_WITH_LABELS.length;
       var nextIpConfig = IPS_WITH_LABELS[nextIndex];
       
       // Afficher dans la console pour info
-      console.log('?? [IP Switch] ' + currentIp + ' ? ' + nextIpConfig.ip + ' (' + nextIpConfig.label + ')');
+      console.log('🔄 [IP Switch] ' + currentIp + ' → ' + nextIpConfig.ip + ' (' + nextIpConfig.label + ')');
       
       // Ouvrir le modal avec la nouvelle IP
       window.showBackendModal(nextIpConfig.ip);
     }
   }, true);
-  // Premi�re ouverture: si aucune IP stock�e et si on n'est pas en prod fixe
+  // Première ouverture: si aucune IP stockée et si on n'est pas en prod fixe
   document.addEventListener('DOMContentLoaded', function(){
     try{
-      // Nettoyer les verrous corrompus (IP stock�es comme salle)
+      // Nettoyer les verrous corrompus (IP stockées comme salle)
       var lockData = localStorage.getItem('vitrine.room.lock');
       if (lockData) {
         var parsed = JSON.parse(lockData);
         if (parsed && parsed.name && /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(parsed.name)) {
-          console.log('[CleanBadLock] IP d�tect�e comme salle, suppression:', parsed.name);
+          console.log('[CleanBadLock] IP détectée comme salle, suppression:', parsed.name);
           localStorage.removeItem('vitrine.room.lock');
           location.reload(); // Recharger pour appliquer
           return;
         }
       }
       
-      // ? CORRECTION EXPERT : Retour au syst�me DNS normal (pas de localhost forc�)
-      console.log('?? [Backend] Utilisation du syst�me DNS normal pour multi-PC');
+      // ✅ CORRECTION EXPERT : Retour au système DNS normal (pas de localhost forcé)
+      console.log('🌐 [Backend] Utilisation du système DNS normal pour multi-PC');
     }catch(e){
-      console.error('? [Backend] Erreur initialisation:', e);
+      console.error('❌ [Backend] Erreur initialisation:', e);
     }
 
-    // Raccourci clavier pour rouvrir la banni�re backend
+    // Raccourci clavier pour rouvrir la bannière backend
     document.addEventListener('keydown', function(ev){
       try{
         if (ev.altKey && ev.ctrlKey && (ev.key === 'j' || ev.key === 'J')){
@@ -784,42 +783,40 @@
 <script src="room-plans.js"></script>
 <script src="graphSearch.js"></script>
 <script src="app.js"></script>
-<!-- Room Brain Integration V1.1 - Diagnosis First -->
-<script src="brain-integration.js"></script>
 <script>
-// ? CONFIGURATION INTELLIGENTE AVEC IPs MULTIPLES
-console.log('?? [Config] Syst�me multi-IP avec Alt+Ctrl+J');
+// ✅ CONFIGURATION INTELLIGENTE AVEC IPs MULTIPLES
+console.log('🔧 [Config] Système multi-IP avec Alt+Ctrl+J');
 
 // Configuration des IPs disponibles (incluant UQAM pour Podio)
-const AVAILABLE_IPS = []; // Pas d'IPs par d�faut - utiliser Alt+Ctrl+J pour configurer
+const AVAILABLE_IPS = []; // Pas d'IPs par défaut - utiliser Alt+Ctrl+J pour configurer
 
-// V�rifier si une IP est d�j� configur�e, sinon utiliser la premi�re disponible
+// Vérifier si une IP est déjà configurée, sinon utiliser la première disponible
 setTimeout(function() {
     var storedIp = localStorage.getItem('vitrine.backend.ip');
     
     if (storedIp) {
-        console.log('? [Config] IP existante trouv�e:', storedIp);
+        console.log('✅ [Config] IP existante trouvée:', storedIp);
         
-        // S'assurer que le BACKEND_BASE est bien configur� au chargement
+        // S'assurer que le BACKEND_BASE est bien configuré au chargement
         if (typeof window !== 'undefined') {
             window.BACKEND_BASE = 'http://' + storedIp + ':7070';
         }
     } else {
-        console.log('?? [Config] Aucune IP configur�e. Utilisez Alt+Ctrl+J pour configurer le backend.');
+        console.log('⚠️ [Config] Aucune IP configurée. Utilisez Alt+Ctrl+J pour configurer le backend.');
     }
 }, 100);
 
 // Info pour l'utilisateur
-console.log('?? [Info] Utilisez Alt+Ctrl+J pour configurer l\'adresse du backend');
+console.log('💡 [Info] Utilisez Alt+Ctrl+J pour configurer l\'adresse du backend');
 console.log('   Exemples: localhost, votre-ip-locale, SAV-ATL-POR-8.ddns.uqam.ca');
-console.log('   Pour conna�tre votre IP locale: ipconfig (Windows) ou ifconfig (Linux/Mac)');
+console.log('   Pour connaître votre IP locale: ipconfig (Windows) ou ifconfig (Linux/Mac)');
 </script>
-<!-- Tout le JavaScript a �t� d�plac� dans app.js -->
-<!-- Syst�me d'appel WebRTC -->
-<!-- call.js SUPPRIMÉ - Vitrine ne fait plus d'appels -->
+<!-- Tout le JavaScript a été déplacé dans app.js -->
+<!-- Room Brain Integration V1.1 - Diagnosis First -->
+<script src="brain-integration.js"></script>
 
 <script>
-// === Module Recherche de C�blage ===
+// === Module Recherche de Câblage ===
 var graphSearchInitialized = false;
 var graphSearchTimeout = null;
 
@@ -835,11 +832,11 @@ async function initGraphSearch() {
             graphSearchInitialized = true;
             updateGraphStats();
             if (resultsDiv) {
-                resultsDiv.innerHTML = '<div class="graph-placeholder"><i class="fas fa-project-diagram"></i><p>Entrez un code c�ble (ex: V001) ou un �quipement (ex: Extron)</p></div>';
+                resultsDiv.innerHTML = '<div class="graph-placeholder"><i class="fas fa-project-diagram"></i><p>Entrez un code câble (ex: V001) ou un équipement (ex: Extron)</p></div>';
             }
         } else {
             if (resultsDiv) {
-                resultsDiv.innerHTML = '<div class="graph-no-results"><i class="fas fa-exclamation-circle"></i><p>Impossible de charger le graphe de c�blage</p></div>';
+                resultsDiv.innerHTML = '<div class="graph-no-results"><i class="fas fa-exclamation-circle"></i><p>Impossible de charger le graphe de câblage</p></div>';
             }
         }
     } catch (error) {
@@ -875,7 +872,7 @@ function executeGraphSearch() {
     var resultsDiv = document.getElementById('graphSearchResults');
     if (!resultsDiv) return;
     if (query.length < 1) {
-        resultsDiv.innerHTML = '<div class="graph-placeholder"><i class="fas fa-project-diagram"></i><p>Entrez un code c�ble ou un �quipement</p></div>';
+        resultsDiv.innerHTML = '<div class="graph-placeholder"><i class="fas fa-project-diagram"></i><p>Entrez un code câble ou un équipement</p></div>';
         return;
     }
     var results = GraphSearch.search(query);
@@ -887,12 +884,12 @@ function renderSearchResults(results, query) {
     if (!resultsDiv) return;
     var total = results.cables.length + results.equipment.length;
     if (total === 0) {
-        resultsDiv.innerHTML = '<div class="graph-no-results"><i class="fas fa-search"></i><p>Aucun r�sultat pour "' + escapeHtml(query) + '"</p></div>';
+        resultsDiv.innerHTML = '<div class="graph-no-results"><i class="fas fa-search"></i><p>Aucun résultat pour "' + escapeHtml(query) + '"</p></div>';
         return;
     }
     var html = '';
     if (results.cables.length > 0) {
-        html += '<div class="results-section"><div class="results-section-title"><i class="fas fa-link"></i> C�BLES <span class="count">' + results.cables.length + '</span></div>';
+        html += '<div class="results-section"><div class="results-section-title"><i class="fas fa-link"></i> CÂBLES <span class="count">' + results.cables.length + '</span></div>';
         results.cables.forEach(function(cable) {
             var catClass = (cable.category || '').toLowerCase().replace(/[^a-z]/g, '');
             html += '<div class="cable-card" onclick="showCableDetails(\'' + cable.code + '\')">';
@@ -902,7 +899,7 @@ function renderSearchResults(results, query) {
         html += '</div>';
     }
     if (results.equipment.length > 0) {
-        html += '<div class="results-section"><div class="results-section-title"><i class="fas fa-cube"></i> �QUIPEMENTS <span class="count">' + results.equipment.length + '</span></div>';
+        html += '<div class="results-section"><div class="results-section-title"><i class="fas fa-cube"></i> ÉQUIPEMENTS <span class="count">' + results.equipment.length + '</span></div>';
         results.equipment.forEach(function(equip) {
             var marque = equip.marque || '';
             var modele = equip.modele || equip.label;
@@ -913,7 +910,7 @@ function renderSearchResults(results, query) {
             html += '<span class="equipment-modele">' + escapeHtml(modele) + '</span>';
             html += '</div>';
             if (fonction) html += '<div class="equipment-fonction">' + escapeHtml(fonction) + '</div>';
-            html += '<div class="equipment-connections"><span class="inbound"><i class="fas fa-arrow-left"></i> ' + equip.connections.inbound + ' entr�es</span>';
+            html += '<div class="equipment-connections"><span class="inbound"><i class="fas fa-arrow-left"></i> ' + equip.connections.inbound + ' entrées</span>';
             html += '<span class="outbound"><i class="fas fa-arrow-right"></i> ' + equip.connections.outbound + ' sorties</span></div>';
             html += '</div>';
         });
@@ -929,13 +926,13 @@ function showCableDetails(code) {
     var confClass = cable.confidence >= 0.8 ? 'confidence-high' : (cable.confidence >= 0.6 ? 'confidence-medium' : 'confidence-low');
     var fromLabel = cable.from.node ? cable.from.node.label : 'Inconnu';
     var toLabel = cable.to.node ? cable.to.node.label : 'Inconnu';
-    var html = '<div class="cable-details"><div class="cable-details-header"><span class="cable-details-title"><i class="fas fa-link"></i> C�ble ' + code + '</span>';
+    var html = '<div class="cable-details"><div class="cable-details-header"><span class="cable-details-title"><i class="fas fa-link"></i> Câble ' + code + '</span>';
     html += '<button class="cable-details-close" onclick="executeGraphSearch()"><i class="fas fa-times"></i></button></div>';
     html += '<div class="cable-diagram"><div class="diagram-node"><div class="diagram-node-label">' + escapeHtml(fromLabel) + '</div></div>';
     html += '<div class="diagram-edge"><div class="diagram-edge-line"></div><div class="diagram-edge-code">' + code + '</div></div>';
     html += '<div class="diagram-node"><div class="diagram-node-label">' + escapeHtml(toLabel) + '</div></div></div>';
     html += '<div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:1rem;">';
-    html += '<div><strong>Cat�gorie:</strong> ' + (cable.category || 'Non class�') + '</div>';
+    html += '<div><strong>Catégorie:</strong> ' + (cable.category || 'Non classé') + '</div>';
     html += '<div><strong>Confiance:</strong> <span class="confidence-badge ' + confClass + '">' + Math.round(cable.confidence * 100) + '%</span></div></div></div>';
     resultsDiv.innerHTML = html;
 }
@@ -1070,7 +1067,7 @@ function clearGraphSearch() {
     var input = document.getElementById('graphSearchInput');
     if (input) { input.value = ''; input.focus(); }
     var resultsDiv = document.getElementById('graphSearchResults');
-    if (resultsDiv) resultsDiv.innerHTML = '<div class="graph-placeholder"><i class="fas fa-project-diagram"></i><p>Entrez un code c�ble ou un �quipement</p></div>';
+    if (resultsDiv) resultsDiv.innerHTML = '<div class="graph-placeholder"><i class="fas fa-project-diagram"></i><p>Entrez un code câble ou un équipement</p></div>';
 }
 
 function escapeHtml(text) {
