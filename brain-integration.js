@@ -525,7 +525,7 @@
      * 2. If no ticket → call Brain diagnose
      * 3. Brain auto_fix → execute correction
      * 4. Brain escalate → create enriched ticket
-     * 5. Brain ignore/monitor → STILL escalate (user reported problem) with enriched diagnostic
+     * 5. Brain ignore → show "no action needed" message
      */
     function wrapSendProblemReport() {
         if (typeof window.sendProblemReport !== 'function') {
@@ -732,17 +732,43 @@
 
     /**
      * Show a warning when a duplicate ticket is detected
+     * Uses the existing ticket banner UI from app.js
      */
     function showDuplicateTicketWarning(data) {
         const existingTicket = data.existing_ticket || 'inconnu';
         const canAutoFix = data.can_auto_fix || false;
+        const room = window.roomCache?.room || 'unknown';
         
+        console.log(`🎫 [Brain] Affichage bannière ticket existant: ${existingTicket}`);
+        
+        // 🆕 Use the existing ticket banner function from app.js
+        if (typeof window.showExistingTicketBanner === 'function') {
+            window.showExistingTicketBanner({
+                number: existingTicket,
+                room: room,
+                title: `Ticket existant pour ${room}`,
+                status: 'open',
+                timestamp: new Date().toISOString()
+            });
+            console.log(`✅ [Brain] Bannière ticket existant affichée: ${existingTicket}`);
+            return;
+        }
+        
+        // Fallback: Try hasExistingTicket + showExistingTicketBanner pattern
+        if (typeof window.hasExistingTicket === 'function') {
+            // Set the ticket info for the banner
+            window.__existingTicketInfo__ = {
+                number: existingTicket,
+                room: room
+            };
+        }
+        
+        // Fallback: addMessage
         const message = `⚠️ Un ticket ${existingTicket} est déjà ouvert pour cette salle.`;
         const subMessage = canAutoFix 
             ? 'Vous pouvez toujours essayer une correction automatique via Brain.' 
             : 'Veuillez attendre que le ticket existant soit traité.';
         
-        // Try to use existing UI functions if available
         if (typeof window.addMessage === 'function') {
             window.addMessage('system', `${message}\n\n${subMessage}`, {
                 suggestions: canAutoFix ? ['Réessayer auto-fix', 'Voir ticket existant'] : ['OK']
