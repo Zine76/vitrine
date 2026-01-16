@@ -137,10 +137,11 @@
                 return handleEscalation(decision, brainResponse);
             
             case 'monitor':
-                return handleMonitor(decision);
+                return handleMonitor(decision, brainResponse);
             
             case 'ignore':
-                return handleIgnore(decision);
+                // User reported a problem → escalate anyway with enriched diagnostic
+                return handleIgnore(decision, brainResponse);
             
             default:
                 console.warn(`[Brain] Unknown decision type: ${decision.decision}`);
@@ -304,24 +305,43 @@
     }
 
     /**
-     * Handle monitor decision - suggest retry later
+     * Handle monitor decision - Brain suggests monitoring
+     * BUT: User reported a problem, so we STILL escalate with enriched diagnostic
      */
-    function handleMonitor(decision) {
-        console.log(`👀 [Brain] Monitor recommended, retry after ${decision.retry_after_sec || 60}s`);
+    function handleMonitor(decision, brainResponse) {
+        console.log(`👀 [Brain] Monitor recommended, but user reported a problem - ESCALATING`);
+        console.log(`🧠 [Brain] Reasoning: ${decision.reasoning}`);
         
-        // ✅ CORRECTION: Annuler le timer d'escalade car Brain surveille
+        // Cancel escalation timer (we're handling it now)
         if (typeof clearEscalationTimeout === 'function') {
             clearEscalationTimeout();
-            console.log('🧠 [Brain] Timer escalade annulé suite à décision monitor');
+            console.log('🧠 [Brain] Timer escalade annulé - escalade manuelle');
         }
         
         if (typeof hideDiagnosticLoading === 'function') {
             hideDiagnosticLoading();
         }
 
-        if (typeof addMessage === 'function') {
-            addMessage('system', `👀 ${decision.reasoning || 'Surveillance recommandée'}`, {
-                suggestions: ['Réessayer dans 1 minute', 'Signaler quand même']
+        // 🧠 Store Brain diagnostic for ticket creation
+        window.__BRAIN_LAST_DIAGNOSTIC__ = {
+            decision: decision,
+            response: brainResponse,
+            timestamp: new Date().toISOString(),
+            diagnostic_text: buildDiagnosticTextForMonitor(decision, brainResponse)
+        };
+        console.log('🧠 [Brain] Diagnostic stocké pour ticket (monitor → escalade):', window.__BRAIN_LAST_DIAGNOSTIC__);
+
+        // Show SEA escalation banner
+        if (typeof showSEAEscalationBanner === 'function') {
+            const room = window.roomCache?.room || 'unknown';
+            showSEAEscalationBanner({
+                intent: 'user_reported_problem',
+                confidence: 0.85,
+                room: room,
+                escalation_reason: `Problème signalé. Brain recommande surveillance: ${decision.reasoning || 'Situation à surveiller'}`,
+                brain_decision: decision,
+                brain_diagnostic: window.__BRAIN_LAST_DIAGNOSTIC__.diagnostic_text,
+                correlation_id: brainResponse?.correlation_id || 'unknown'
             });
         }
 
@@ -329,28 +349,111 @@
     }
 
     /**
-     * Handle ignore decision - no action needed
+     * Build diagnostic text for "monitor" decisions
      */
-    function handleIgnore(decision) {
-        console.log(`✅ [Brain] No action needed: ${decision.reasoning}`);
+    function buildDiagnosticTextForMonitor(decision, brainResponse) {
+        const lines = [];
         
-        // ✅ CORRECTION: Annuler le timer d'escalade car Brain a pris une décision
+        lines.push(`=== DIAGNOSTIC ROOM BRAIN ===`);
+        lines.push(`👀 SURVEILLANCE RECOMMANDÉE`);
+        lines.push(`Problème signalé par l'usager`);
+        lines.push(`Confiance: ${((decision.confidence || 0.7) * 100).toFixed(0)}%`);
+        
+        if (decision.reasoning) {
+            lines.push(`\nRaisonnement: ${decision.reasoning}`);
+        }
+
+        // Include device states if available
+        if (brainResponse && brainResponse.room_snapshot && brainResponse.room_snapshot.devices) {
+            lines.push(`\nÉtat des équipements:`);
+            brainResponse.room_snapshot.devices.forEach(d => {
+                const status = d.is_online !== false ? '✅ En ligne' : '❌ Hors ligne';
+                lines.push(`  - ${d.name || d.device_type}: ${status}`);
+            });
+        }
+
+        lines.push(`\n⚠️ Brain recommandait une surveillance.`);
+        lines.push(`Ticket créé suite au signalement usager.`);
+        lines.push(`\n=== FIN DIAGNOSTIC ===`);
+        
+        return lines.join('\n');
+    }
+
+    /**
+     * Handle ignore decision - Brain says "no anomaly detected"
+     * BUT: User reported a problem, so we STILL escalate with enriched diagnostic
+     * The diagnostic will help the technician understand the system state
+     */
+    function handleIgnore(decision, brainResponse) {
+        console.log(`🧠 [Brain] No anomaly detected, but user reported a problem - ESCALATING ANYWAY`);
+        console.log(`🧠 [Brain] Reasoning: ${decision.reasoning}`);
+        
+        // Cancel escalation timer (we're handling it now)
         if (typeof clearEscalationTimeout === 'function') {
             clearEscalationTimeout();
-            console.log('🧠 [Brain] Timer escalade annulé suite à décision ignore');
+            console.log('🧠 [Brain] Timer escalade annulé - escalade manuelle');
         }
         
         if (typeof hideDiagnosticLoading === 'function') {
             hideDiagnosticLoading();
         }
 
-        if (typeof addMessage === 'function') {
-            addMessage('system', `✅ ${decision.reasoning || 'Aucune action requise'}`, {
-                suggestions: ['Nouveau problème', 'Fermer']
+        // 🧠 Store Brain diagnostic for ticket creation
+        // Even if Brain says "ignore", the diagnostic is valuable for the technician
+        window.__BRAIN_LAST_DIAGNOSTIC__ = {
+            decision: decision,
+            response: brainResponse,
+            timestamp: new Date().toISOString(),
+            diagnostic_text: buildDiagnosticTextForIgnore(decision, brainResponse)
+        };
+        console.log('🧠 [Brain] Diagnostic stocké pour ticket (ignore → escalade):', window.__BRAIN_LAST_DIAGNOSTIC__);
+
+        // Show SEA escalation banner - user reported a problem, we escalate
+        if (typeof showSEAEscalationBanner === 'function') {
+            const room = window.roomCache?.room || 'unknown';
+            showSEAEscalationBanner({
+                intent: 'user_reported_problem',
+                confidence: 0.95,
+                room: room,
+                escalation_reason: `Problème signalé par l'usager. Diagnostic Brain: ${decision.reasoning || 'Aucune anomalie détectée'}`,
+                brain_decision: decision,
+                brain_diagnostic: window.__BRAIN_LAST_DIAGNOSTIC__.diagnostic_text,
+                correlation_id: brainResponse?.correlation_id || 'unknown'
             });
         }
 
         return true;
+    }
+
+    /**
+     * Build diagnostic text for "ignore" decisions (no anomaly but user reported problem)
+     */
+    function buildDiagnosticTextForIgnore(decision, brainResponse) {
+        const lines = [];
+        
+        lines.push(`=== DIAGNOSTIC ROOM BRAIN ===`);
+        lines.push(`⚠️ PROBLÈME SIGNALÉ PAR L'USAGER`);
+        lines.push(`Analyse Brain: Aucune anomalie détectée`);
+        lines.push(`Confiance: ${((decision.confidence || 0.8) * 100).toFixed(0)}%`);
+        
+        if (decision.reasoning) {
+            lines.push(`\nRaisonnement: ${decision.reasoning}`);
+        }
+
+        // Include device states if available
+        if (brainResponse && brainResponse.room_snapshot && brainResponse.room_snapshot.devices) {
+            lines.push(`\nÉtat des équipements (tous OK selon Brain):`);
+            brainResponse.room_snapshot.devices.forEach(d => {
+                const status = d.is_online !== false ? '✅ En ligne' : '❌ Hors ligne';
+                lines.push(`  - ${d.name || d.device_type}: ${status}`);
+            });
+        }
+
+        lines.push(`\n⚠️ NOTE: L'usager a quand même signalé un problème.`);
+        lines.push(`Vérification sur place recommandée.`);
+        lines.push(`\n=== FIN DIAGNOSTIC ===`);
+        
+        return lines.join('\n');
     }
 
     // ============================================================================
@@ -422,7 +525,7 @@
      * 2. If no ticket → call Brain diagnose
      * 3. Brain auto_fix → execute correction
      * 4. Brain escalate → create enriched ticket
-     * 5. Brain ignore → show "no action needed" message
+     * 5. Brain ignore/monitor → STILL escalate (user reported problem) with enriched diagnostic
      */
     function wrapSendProblemReport() {
         if (typeof window.sendProblemReport !== 'function') {
