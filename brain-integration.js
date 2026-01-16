@@ -484,7 +484,8 @@
         }
 
         try {
-            const response = await fetch(`${apiBase}/api/copilot/vitrine-list-tickets?room=${encodeURIComponent(room)}&status=open`, {
+            // Ne pas filtrer par status côté serveur - on vérifie tous les statuts actifs côté client
+            const response = await fetch(`${apiBase}/api/copilot/vitrine-list-tickets?room=${encodeURIComponent(room)}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
             });
@@ -496,13 +497,13 @@
 
             const data = await response.json();
             
-            // Check if there are open tickets
+            // Check if there are open tickets (open, created, or in_progress)
             if (data.tickets && data.tickets.length > 0) {
                 const openTicket = data.tickets.find(t => 
                     t.status === 'open' || t.status === 'created' || t.status === 'in_progress'
                 );
                 if (openTicket) {
-                    console.log(`🎫 [Brain] Ticket existant trouvé: ${openTicket.ticket_number || openTicket.id}`);
+                    console.log(`🎫 [Brain] Ticket existant trouvé: ${openTicket.ticket_number || openTicket.id} (status: ${openTicket.status})`);
                     return openTicket;
                 }
             }
@@ -566,7 +567,7 @@
             const existingTicket = await checkExistingTicket(room);
             
             if (existingTicket) {
-                console.log(`🎫 [Brain] Ticket existant détecté: ${existingTicket.ticket_number || existingTicket.id}`);
+                console.log(`🎫 [Brain] Ticket existant détecté: ${existingTicket.ticket_number || existingTicket.id} (status: ${existingTicket.status})`);
                 
                 // Cancel escalation timer
                 if (typeof clearEscalationTimeout === 'function') {
