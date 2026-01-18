@@ -1,8 +1,14 @@
 /**
- * Room Brain Integration for Vitrine V1.1
+ * Room Brain Integration for Vitrine V1.2
  * 
  * This module provides Brain-first diagnosis for Vitrine.
  * Brain is the authoritative source for action gating and escalation decisions.
+ * 
+ * V1.2 Changes:
+ * - Support for state machine diagnosis (COLLECTING -> DETECTING -> ACTING -> VERIFYING -> RESOLVED/ESCALATED)
+ * - Evidence-first display: What I See / What I Did / Result / Why Escalated
+ * - EvidencePack support for enriched ticket creation
+ * - Confidence indicators (High/Medium/Low)
  * 
  * Usage:
  * 1. Copy this file to Annexe/Vitrine-Github-version/brain-integration.js
@@ -12,7 +18,7 @@
  * 
  * Fallback: If Brain is unavailable (timeout 2s), falls back to Copilot.
  * 
- * @version 1.1
+ * @version 1.2
  * @author SAVQonnect Team
  */
 
@@ -24,7 +30,19 @@
     // ============================================================================
     
     const BRAIN_TIMEOUT_MS = 15000; // 15 seconds timeout for Brain API (needs time to collect data)
-    const BRAIN_API_VERSION = '1.1';
+    const BRAIN_API_VERSION = '1.2';
+    
+    // V1.2 State Machine states
+    const DIAGNOSIS_STATES = {
+        COLLECTING: 'COLLECTING',
+        DETECTING: 'DETECTING',
+        ACTING: 'ACTING',
+        VERIFYING: 'VERIFYING',
+        RESOLVED: 'RESOLVED',
+        ESCALATE_CANDIDATE: 'ESCALATE_CANDIDATE',
+        ESCALATED: 'ESCALATED',
+        ERROR: 'ERROR'
+    };
     
     // Feature flag - can be set via localStorage or window global
     window.VITRINE_USES_BRAIN = window.VITRINE_USES_BRAIN || 
@@ -115,17 +133,31 @@
 
     /**
      * Process Brain's decision and execute appropriate actions
+     * V1.2: Supports both legacy brain_decision and new state machine format
      * @param {Object} brainResponse - Response from Brain diagnose endpoint
      * @returns {boolean} True if Brain handled the request, false to fallback
      */
     async function processBrainDecision(brainResponse) {
-        if (!brainResponse || !brainResponse.brain_decision) {
+        if (!brainResponse) {
+            console.log('[Brain] No response, falling back to Copilot');
+            return false;
+        }
+
+        const correlationId = brainResponse.correlation_id || 'unknown';
+        
+        // V1.2: Check for state machine response first
+        if (brainResponse.state) {
+            console.log(`🧠 [Brain V1.2] State machine response: ${brainResponse.state} (${correlationId})`);
+            return await processStateMachineResponse(brainResponse);
+        }
+        
+        // Legacy V1.1: brain_decision format
+        if (!brainResponse.brain_decision) {
             console.log('[Brain] No decision in response, falling back to Copilot');
             return false;
         }
 
         const decision = brainResponse.brain_decision;
-        const correlationId = brainResponse.correlation_id || 'unknown';
         
         console.log(`🧠 [Brain] Processing decision: ${decision.decision} (${correlationId})`);
 
@@ -140,13 +172,337 @@
                 return handleMonitor(decision, brainResponse);
             
             case 'ignore':
-                // User reported a problem → escalate anyway with enriched diagnostic
+                // User reported a problem -> escalate anyway with enriched diagnostic
                 return handleIgnore(decision, brainResponse);
             
             default:
                 console.warn(`[Brain] Unknown decision type: ${decision.decision}`);
                 return false;
         }
+    }
+    
+    /**
+     * V1.2: Process state machine response
+     * @param {Object} response - State machine response
+     * @returns {boolean} True if handled
+     */
+    async function processStateMachineResponse(response) {
+        const correlationId = response.correlation_id || 'unknown';
+        const state = response.state;
+        
+        // Display Vitrine evidence panel
+        if (response.vitrine_display) {
+            displayEvidencePanel(response.vitrine_display, response);
+        }
+        
+        switch (state) {
+            case DIAGNOSIS_STATES.RESOLVED:
+                console.log(`✅ [Brain V1.2] Problem resolved (${correlationId})`);
+                return handleResolved(response);
+                
+            case DIAGNOSIS_STATES.ESCALATED:
+                console.log(`🚨 [Brain V1.2] Escalation with evidence pack (${correlationId})`);
+                return handleEscalatedWithEvidence(response);
+                
+            case DIAGNOSIS_STATES.ERROR:
+                console.error(`❌ [Brain V1.2] Diagnosis error (${correlationId})`);
+                // Fallback to legacy handling via brain_decision if available
+                if (response.brain_decision) {
+                    return processBrainDecision({ brain_decision: response.brain_decision, correlation_id: correlationId });
+                }
+                return false;
+                
+            default:
+                // For intermediate states, check brain_decision
+                if (response.brain_decision) {
+                    const decision = response.brain_decision;
+                    switch (decision.decision) {
+                        case 'auto_fix':
+                            return await handleAutoFix(decision, correlationId);
+                        case 'escalate':
+                            return handleEscalation(decision, response);
+                        case 'monitor':
+                            return handleMonitor(decision, response);
+                        case 'ignore':
+                            return handleIgnore(decision, response);
+                    }
+                }
+                console.warn(`[Brain V1.2] Unhandled state: ${state}`);
+                return false;
+        }
+    }
+    
+    /**
+     * V1.2: Handle RESOLVED state - show success message
+     */
+    function handleResolved(response) {
+        if (typeof hideDiagnosticLoading === 'function') {
+            hideDiagnosticLoading();
+        }
+        
+        if (typeof clearEscalationTimeout === 'function') {
+            clearEscalationTimeout();
+        }
+        
+        // Show success banner
+        if (typeof showAutoActionResult === 'function') {
+            const display = response.vitrine_display || {};
+            showAutoActionResult({
+                type: 'brain_resolved',
+                description: display.what_i_did || 'Correction automatique'
+            }, { 
+                message: display.result || 'Probleme resolu',
+                confidence: display.confidence || 'High'
+            });
+        }
+        
+        return true;
+    }
+    
+    /**
+     * V1.2: Handle ESCALATED state with evidence pack
+     */
+    function handleEscalatedWithEvidence(response) {
+        if (typeof hideDiagnosticLoading === 'function') {
+            hideDiagnosticLoading();
+        }
+        
+        if (typeof clearEscalationTimeout === 'function') {
+            clearEscalationTimeout();
+        }
+        
+        // Build enriched diagnostic from evidence pack
+        const evidencePack = response.evidence_pack;
+        const display = response.vitrine_display || {};
+        
+        // Store for ticket creation
+        window.__BRAIN_LAST_DIAGNOSTIC__ = {
+            decision: response.brain_decision,
+            response: response,
+            evidence_pack: evidencePack,
+            timestamp: new Date().toISOString(),
+            diagnostic_text: buildDiagnosticTextFromEvidence(evidencePack, display)
+        };
+        
+        console.log('🧠 [Brain V1.2] Evidence pack stored for ticket:', window.__BRAIN_LAST_DIAGNOSTIC__);
+        
+        // Show escalation banner
+        if (typeof showSEAEscalationBanner === 'function') {
+            const room = response.room_name || window.roomCache?.room || 'unknown';
+            showSEAEscalationBanner({
+                intent: 'brain_escalation_v2',
+                confidence: response.overall_confidence || 0.95,
+                room: room,
+                escalation_reason: display.why_escalated || evidencePack?.escalation_reason || 'Escalade apres diagnostic',
+                brain_decision: response.brain_decision,
+                brain_diagnostic: window.__BRAIN_LAST_DIAGNOSTIC__.diagnostic_text,
+                evidence_pack: evidencePack,
+                correlation_id: response.correlation_id
+            });
+        }
+        
+        return true;
+    }
+    
+    /**
+     * V1.2: Build diagnostic text from evidence pack
+     */
+    function buildDiagnosticTextFromEvidence(evidencePack, display) {
+        const lines = [];
+        
+        lines.push(`=== DIAGNOSTIC ROOM BRAIN V1.2 ===`);
+        
+        // What I See
+        if (display.what_i_see) {
+            lines.push(`\n📋 CE QUE JE VOIS:`);
+            lines.push(`   ${display.what_i_see}`);
+        }
+        
+        // What I Did
+        if (display.what_i_did) {
+            lines.push(`\n🔧 CE QUE J'AI FAIT:`);
+            lines.push(`   ${display.what_i_did}`);
+        }
+        
+        // Result
+        if (display.result) {
+            lines.push(`\n📊 RESULTAT:`);
+            lines.push(`   ${display.result}`);
+        }
+        
+        // Why Escalated
+        if (display.why_escalated) {
+            lines.push(`\n⚠️ RAISON DE L'ESCALADE:`);
+            lines.push(`   ${display.why_escalated}`);
+        }
+        
+        // Confidence
+        if (display.confidence) {
+            lines.push(`\n🎯 CONFIANCE: ${display.confidence}`);
+        }
+        
+        // Evidence Pack details
+        if (evidencePack) {
+            // Anomalies detected
+            if (evidencePack.anomalies_detected && evidencePack.anomalies_detected.length > 0) {
+                lines.push(`\n🔍 ANOMALIES DETECTEES:`);
+                evidencePack.anomalies_detected.forEach(a => {
+                    lines.push(`   - ${a.device_name}: ${a.description} (${(a.confidence * 100).toFixed(0)}%)`);
+                });
+            }
+            
+            // Actions attempted
+            if (evidencePack.actions_attempted && evidencePack.actions_attempted.length > 0) {
+                lines.push(`\n🔧 ACTIONS TENTEES:`);
+                evidencePack.actions_attempted.forEach(a => {
+                    const status = a.success ? '✅ Succes' : '❌ Echec';
+                    lines.push(`   - ${a.action_type} sur ${a.device_name}: ${status}`);
+                    if (a.error) {
+                        lines.push(`     Erreur: ${a.error}`);
+                    }
+                });
+            }
+            
+            // Final conclusion
+            if (evidencePack.final_conclusion) {
+                lines.push(`\n📝 CONCLUSION:`);
+                lines.push(`   ${evidencePack.final_conclusion}`);
+            }
+        }
+        
+        lines.push(`\n=== FIN DIAGNOSTIC V1.2 ===`);
+        
+        return lines.join('\n');
+    }
+    
+    /**
+     * V1.2: Display evidence panel in Vitrine UI
+     */
+    function displayEvidencePanel(display, response) {
+        // Check if we have a container for evidence display
+        let evidencePanel = document.getElementById('brain-evidence-panel');
+        
+        if (!evidencePanel) {
+            // Create the panel if it doesn't exist
+            evidencePanel = document.createElement('div');
+            evidencePanel.id = 'brain-evidence-panel';
+            evidencePanel.className = 'brain-evidence-panel';
+            
+            // Insert after the diagnostic loading or at the top of main content
+            const container = document.querySelector('.diagnostic-container') || document.body;
+            container.insertBefore(evidencePanel, container.firstChild);
+        }
+        
+        // Build panel content
+        const confidenceClass = (display.confidence || 'Medium').toLowerCase();
+        const stateEmoji = getStateEmoji(response.state);
+        
+        evidencePanel.innerHTML = `
+            <div class="evidence-header">
+                <span class="evidence-state">${stateEmoji} ${response.state || 'DIAGNOSTIC'}</span>
+                <span class="evidence-confidence confidence-${confidenceClass}">${display.confidence || 'Medium'}</span>
+            </div>
+            <div class="evidence-body">
+                ${display.what_i_see ? `<div class="evidence-row"><strong>📋 Ce que je vois:</strong> ${display.what_i_see}</div>` : ''}
+                ${display.what_i_did ? `<div class="evidence-row"><strong>🔧 Ce que j'ai fait:</strong> ${display.what_i_did}</div>` : ''}
+                ${display.result ? `<div class="evidence-row"><strong>📊 Resultat:</strong> ${display.result}</div>` : ''}
+                ${display.why_escalated ? `<div class="evidence-row escalation-reason"><strong>⚠️ Escalade:</strong> ${display.why_escalated}</div>` : ''}
+            </div>
+        `;
+        
+        evidencePanel.style.display = 'block';
+        
+        // Add CSS if not already present
+        addEvidencePanelStyles();
+    }
+    
+    /**
+     * Get emoji for state
+     */
+    function getStateEmoji(state) {
+        const emojis = {
+            'COLLECTING': '📡',
+            'DETECTING': '🔍',
+            'ACTING': '🔧',
+            'VERIFYING': '✅',
+            'RESOLVED': '✅',
+            'ESCALATE_CANDIDATE': '⚠️',
+            'ESCALATED': '🚨',
+            'ERROR': '❌'
+        };
+        return emojis[state] || '🧠';
+    }
+    
+    /**
+     * Add CSS styles for evidence panel
+     */
+    function addEvidencePanelStyles() {
+        if (document.getElementById('brain-evidence-styles')) return;
+        
+        const style = document.createElement('style');
+        style.id = 'brain-evidence-styles';
+        style.textContent = `
+            .brain-evidence-panel {
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                border: 1px solid #0f3460;
+                border-radius: 12px;
+                padding: 16px;
+                margin: 12px 0;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                color: #e0e0e0;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            }
+            .evidence-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-bottom: 12px;
+                padding-bottom: 8px;
+                border-bottom: 1px solid #0f3460;
+            }
+            .evidence-state {
+                font-weight: 600;
+                font-size: 14px;
+                color: #00d9ff;
+            }
+            .evidence-confidence {
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-size: 12px;
+                font-weight: 500;
+            }
+            .confidence-high {
+                background: rgba(0, 200, 83, 0.2);
+                color: #00c853;
+            }
+            .confidence-medium {
+                background: rgba(255, 193, 7, 0.2);
+                color: #ffc107;
+            }
+            .confidence-low {
+                background: rgba(244, 67, 54, 0.2);
+                color: #f44336;
+            }
+            .evidence-body {
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+            }
+            .evidence-row {
+                font-size: 13px;
+                line-height: 1.5;
+            }
+            .evidence-row strong {
+                color: #90caf9;
+            }
+            .escalation-reason {
+                background: rgba(255, 152, 0, 0.1);
+                padding: 8px 12px;
+                border-radius: 8px;
+                border-left: 3px solid #ff9800;
+            }
+        `;
+        document.head.appendChild(style);
     }
 
     /**
@@ -162,7 +518,7 @@
         
         // Show waiting banner
         if (typeof showWaitingBanner === 'function') {
-            showWaitingBanner('🧠 Correction automatique Brain...', decision.reasoning || 'Exécution des actions autorisées');
+            showWaitingBanner('🧠 Correction automatique Brain...', decision.reasoning || 'Execution des actions autorisees');
         }
 
         let allSucceeded = true;
@@ -203,8 +559,8 @@
                 if (typeof showAutoActionResult === 'function') {
                     showAutoActionResult({
                         type: 'brain_auto_fix',
-                        description: 'Correction Brain terminée'
-                    }, { message: decision.reasoning || 'Actions exécutées avec succès' });
+                        description: 'Correction Brain terminee'
+                    }, { message: decision.reasoning || 'Actions executees avec succes' });
                 }
             }
         }, 3000);
@@ -228,7 +584,7 @@
             clearEscalationTimeout();
         }
 
-        // 🧠 Store Brain diagnostic for ticket creation
+        // Store Brain diagnostic for ticket creation
         // This will be used when the SEA ticket is created
         window.__BRAIN_LAST_DIAGNOSTIC__ = {
             decision: decision,
@@ -262,7 +618,7 @@
         const lines = [];
         
         lines.push(`=== DIAGNOSTIC ROOM BRAIN ===`);
-        lines.push(`Décision: ${decision.decision || 'escalate'}`);
+        lines.push(`Decision: ${decision.decision || 'escalate'}`);
         lines.push(`Confiance: ${(decision.confidence * 100).toFixed(0)}%`);
         
         if (decision.reasoning) {
@@ -275,7 +631,7 @@
 
         // Include matched patterns if available
         if (brainResponse.matched_patterns && brainResponse.matched_patterns.length > 0) {
-            lines.push(`\nPatterns détectés:`);
+            lines.push(`\nPatterns detectes:`);
             brainResponse.matched_patterns.forEach(p => {
                 lines.push(`  - ${p.title || p.id}: ${p.severity || 'INFO'}`);
             });
@@ -283,7 +639,7 @@
 
         // Include device states if available
         if (brainResponse.snapshot && brainResponse.snapshot.devices) {
-            lines.push(`\nÉtat des équipements:`);
+            lines.push(`\nEtat des equipements:`);
             brainResponse.snapshot.devices.forEach(d => {
                 const status = d.is_online ? '✅ En ligne' : '❌ Hors ligne';
                 lines.push(`  - ${d.name}: ${status}`);
@@ -292,9 +648,9 @@
 
         // Include attempted actions
         if (decision.actions_attempted && decision.actions_attempted.length > 0) {
-            lines.push(`\nActions tentées:`);
+            lines.push(`\nActions tentees:`);
             decision.actions_attempted.forEach(a => {
-                const result = a.success ? '✅ Succès' : '❌ Échec';
+                const result = a.success ? '✅ Succes' : '❌ Echec';
                 lines.push(`  - ${a.action_type}: ${result}`);
             });
         }
@@ -315,21 +671,21 @@
         // Cancel escalation timer (we're handling it now)
         if (typeof clearEscalationTimeout === 'function') {
             clearEscalationTimeout();
-            console.log('🧠 [Brain] Timer escalade annulé - escalade manuelle');
+            console.log('🧠 [Brain] Timer escalade annule - escalade manuelle');
         }
         
         if (typeof hideDiagnosticLoading === 'function') {
             hideDiagnosticLoading();
         }
 
-        // 🧠 Store Brain diagnostic for ticket creation
+        // Store Brain diagnostic for ticket creation
         window.__BRAIN_LAST_DIAGNOSTIC__ = {
             decision: decision,
             response: brainResponse,
             timestamp: new Date().toISOString(),
             diagnostic_text: buildDiagnosticTextForMonitor(decision, brainResponse)
         };
-        console.log('🧠 [Brain] Diagnostic stocké pour ticket (monitor → escalade):', window.__BRAIN_LAST_DIAGNOSTIC__);
+        console.log('🧠 [Brain] Diagnostic stocke pour ticket (monitor -> escalade):', window.__BRAIN_LAST_DIAGNOSTIC__);
 
         // Show SEA escalation banner
         if (typeof showSEAEscalationBanner === 'function') {
@@ -338,7 +694,7 @@
                 intent: 'user_reported_problem',
                 confidence: 0.85,
                 room: room,
-                escalation_reason: `Problème signalé. Brain recommande surveillance: ${decision.reasoning || 'Situation à surveiller'}`,
+                escalation_reason: `Probleme signale. Brain recommande surveillance: ${decision.reasoning || 'Situation a surveiller'}`,
                 brain_decision: decision,
                 brain_diagnostic: window.__BRAIN_LAST_DIAGNOSTIC__.diagnostic_text,
                 correlation_id: brainResponse?.correlation_id || 'unknown'
@@ -355,8 +711,8 @@
         const lines = [];
         
         lines.push(`=== DIAGNOSTIC ROOM BRAIN ===`);
-        lines.push(`👀 SURVEILLANCE RECOMMANDÉE`);
-        lines.push(`Problème signalé par l'usager`);
+        lines.push(`👀 SURVEILLANCE RECOMMANDEE`);
+        lines.push(`Probleme signale par l'usager`);
         lines.push(`Confiance: ${((decision.confidence || 0.7) * 100).toFixed(0)}%`);
         
         if (decision.reasoning) {
@@ -365,7 +721,7 @@
 
         // Include device states if available
         if (brainResponse && brainResponse.room_snapshot && brainResponse.room_snapshot.devices) {
-            lines.push(`\nÉtat des équipements:`);
+            lines.push(`\nEtat des equipements:`);
             brainResponse.room_snapshot.devices.forEach(d => {
                 const status = d.is_online !== false ? '✅ En ligne' : '❌ Hors ligne';
                 lines.push(`  - ${d.name || d.device_type}: ${status}`);
@@ -373,7 +729,7 @@
         }
 
         lines.push(`\n⚠️ Brain recommandait une surveillance.`);
-        lines.push(`Ticket créé suite au signalement usager.`);
+        lines.push(`Ticket cree suite au signalement usager.`);
         lines.push(`\n=== FIN DIAGNOSTIC ===`);
         
         return lines.join('\n');
@@ -391,14 +747,14 @@
         // Cancel escalation timer (we're handling it now)
         if (typeof clearEscalationTimeout === 'function') {
             clearEscalationTimeout();
-            console.log('🧠 [Brain] Timer escalade annulé - escalade manuelle');
+            console.log('🧠 [Brain] Timer escalade annule - escalade manuelle');
         }
         
         if (typeof hideDiagnosticLoading === 'function') {
             hideDiagnosticLoading();
         }
 
-        // 🧠 Store Brain diagnostic for ticket creation
+        // Store Brain diagnostic for ticket creation
         // Even if Brain says "ignore", the diagnostic is valuable for the technician
         window.__BRAIN_LAST_DIAGNOSTIC__ = {
             decision: decision,
@@ -406,7 +762,7 @@
             timestamp: new Date().toISOString(),
             diagnostic_text: buildDiagnosticTextForIgnore(decision, brainResponse)
         };
-        console.log('🧠 [Brain] Diagnostic stocké pour ticket (ignore → escalade):', window.__BRAIN_LAST_DIAGNOSTIC__);
+        console.log('🧠 [Brain] Diagnostic stocke pour ticket (ignore -> escalade):', window.__BRAIN_LAST_DIAGNOSTIC__);
 
         // Show SEA escalation banner - user reported a problem, we escalate
         if (typeof showSEAEscalationBanner === 'function') {
@@ -415,7 +771,7 @@
                 intent: 'user_reported_problem',
                 confidence: 0.95,
                 room: room,
-                escalation_reason: `Problème signalé par l'usager. Diagnostic Brain: ${decision.reasoning || 'Aucune anomalie détectée'}`,
+                escalation_reason: `Probleme signale par l'usager. Diagnostic Brain: ${decision.reasoning || 'Aucune anomalie detectee'}`,
                 brain_decision: decision,
                 brain_diagnostic: window.__BRAIN_LAST_DIAGNOSTIC__.diagnostic_text,
                 correlation_id: brainResponse?.correlation_id || 'unknown'
@@ -432,8 +788,8 @@
         const lines = [];
         
         lines.push(`=== DIAGNOSTIC ROOM BRAIN ===`);
-        lines.push(`⚠️ PROBLÈME SIGNALÉ PAR L'USAGER`);
-        lines.push(`Analyse Brain: Aucune anomalie détectée`);
+        lines.push(`⚠️ PROBLEME SIGNALE PAR L'USAGER`);
+        lines.push(`Analyse Brain: Aucune anomalie detectee`);
         lines.push(`Confiance: ${((decision.confidence || 0.8) * 100).toFixed(0)}%`);
         
         if (decision.reasoning) {
@@ -442,15 +798,15 @@
 
         // Include device states if available
         if (brainResponse && brainResponse.room_snapshot && brainResponse.room_snapshot.devices) {
-            lines.push(`\nÉtat des équipements (tous OK selon Brain):`);
+            lines.push(`\nEtat des equipements (tous OK selon Brain):`);
             brainResponse.room_snapshot.devices.forEach(d => {
                 const status = d.is_online !== false ? '✅ En ligne' : '❌ Hors ligne';
                 lines.push(`  - ${d.name || d.device_type}: ${status}`);
             });
         }
 
-        lines.push(`\n⚠️ NOTE: L'usager a quand même signalé un problème.`);
-        lines.push(`Vérification sur place recommandée.`);
+        lines.push(`\n⚠️ NOTE: L'usager a quand meme signale un probleme.`);
+        lines.push(`Verification sur place recommandee.`);
         lines.push(`\n=== FIN DIAGNOSTIC ===`);
         
         return lines.join('\n');
@@ -484,7 +840,7 @@
         }
 
         try {
-            // Ne pas filtrer par status côté serveur - on vérifie tous les statuts actifs côté client
+            // Ne pas filtrer par status cote serveur - on verifie tous les statuts actifs cote client
             const response = await fetch(`${apiBase}/api/copilot/vitrine-list-tickets?room=${encodeURIComponent(room)}`, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' }
@@ -497,13 +853,13 @@
 
             const data = await response.json();
             
-            // Check if there are open tickets (open, created, or in_progress)
+            // Check if there are open tickets
             if (data.tickets && data.tickets.length > 0) {
                 const openTicket = data.tickets.find(t => 
                     t.status === 'open' || t.status === 'created' || t.status === 'in_progress'
                 );
                 if (openTicket) {
-                    console.log(`🎫 [Brain] Ticket existant trouvé: ${openTicket.ticket_number || openTicket.id} (status: ${openTicket.status})`);
+                    console.log(`🎫 [Brain] Ticket existant trouve: ${openTicket.ticket_number || openTicket.id}`);
                     return openTicket;
                 }
             }
@@ -522,11 +878,11 @@
     /**
      * Intercept problem report to use Brain first
      * FLOW:
-     * 1. Check if ticket already exists for room → show existing ticket banner
-     * 2. If no ticket → call Brain diagnose
-     * 3. Brain auto_fix → execute correction
-     * 4. Brain escalate → create enriched ticket
-     * 5. Brain ignore → show "no action needed" message
+     * 1. Check if ticket already exists for room -> show existing ticket banner
+     * 2. If no ticket -> call Brain diagnose
+     * 3. Brain auto_fix -> execute correction
+     * 4. Brain escalate -> create enriched ticket
+     * 5. Brain ignore -> show "no action needed" message
      */
     function wrapSendProblemReport() {
         if (typeof window.sendProblemReport !== 'function') {
@@ -560,14 +916,14 @@
                 showDiagnosticLoading();
             }
 
-            // ═══════════════════════════════════════════════════════════════
+            // ===============================================================
             // STEP 1: Check if ticket already exists for this room
-            // ═══════════════════════════════════════════════════════════════
-            console.log(`🎫 [Brain] STEP 1: Vérification ticket existant pour ${room}...`);
+            // ===============================================================
+            console.log(`🎫 [Brain] STEP 1: Verification ticket existant pour ${room}...`);
             const existingTicket = await checkExistingTicket(room);
             
             if (existingTicket) {
-                console.log(`🎫 [Brain] Ticket existant détecté: ${existingTicket.ticket_number || existingTicket.id} (status: ${existingTicket.status})`);
+                console.log(`🎫 [Brain] Ticket existant detecte: ${existingTicket.ticket_number || existingTicket.id}`);
                 
                 // Cancel escalation timer
                 if (typeof clearEscalationTimeout === 'function') {
@@ -591,8 +947,8 @@
                 } else {
                     // Fallback: show message
                     if (typeof addMessage === 'function') {
-                        addMessage('system', `🎫 Un ticket ${existingTicket.ticket_number || existingTicket.id} est déjà ouvert pour cette salle. Veuillez patienter.`, {
-                            suggestions: ['Voir le ticket', 'Nouveau problème']
+                        addMessage('system', `🎫 Un ticket ${existingTicket.ticket_number || existingTicket.id} est deja ouvert pour cette salle. Veuillez patienter.`, {
+                            suggestions: ['Voir le ticket', 'Nouveau probleme']
                         });
                     }
                 }
@@ -604,9 +960,9 @@
             
             console.log(`✅ [Brain] Pas de ticket existant pour ${room}`);
 
-            // ═══════════════════════════════════════════════════════════════
+            // ===============================================================
             // STEP 2: Call Brain diagnose
-            // ═══════════════════════════════════════════════════════════════
+            // ===============================================================
             console.log(`🧠 [Brain] STEP 2: Appel Brain diagnose pour ${room}...`);
             
             // Detect symptoms from message
@@ -618,11 +974,11 @@
             // If Brain responded with a decision, process it
             if (brainResponse && brainResponse.brain_decision) {
                 const decision = brainResponse.brain_decision.decision;
-                console.log(`🧠 [Brain] STEP 3: Traitement décision Brain: ${decision}`);
+                console.log(`🧠 [Brain] STEP 3: Traitement decision Brain: ${decision}`);
                 
                 const handled = await processBrainDecision(brainResponse);
                 if (handled) {
-                    console.log(`✅ [Brain] Décision ${decision} traitée avec succès`);
+                    console.log(`✅ [Brain] Decision ${decision} traitee avec succes`);
                     // Clear input on success
                     if (problemInput) problemInput.value = '';
                     return;
@@ -650,7 +1006,7 @@
         if (lowerMessage.includes('micro') || lowerMessage.includes('sourdine') || lowerMessage.includes('mute')) {
             symptoms.push('mute_suspected');
         }
-        if (lowerMessage.includes('image') || lowerMessage.includes('écran noir') || lowerMessage.includes('vidéo')) {
+        if (lowerMessage.includes('image') || lowerMessage.includes('ecran noir') || lowerMessage.includes('video')) {
             symptoms.push('no_video');
         }
         if (lowerMessage.includes('projecteur') || lowerMessage.includes('allume')) {
@@ -696,7 +1052,7 @@
                     // Handle 409 Conflict (duplicate ticket)
                     if (response.status === 409) {
                         const data = await response.clone().json();
-                        console.log('🚫 [Brain] Ticket doublon détecté:', data);
+                        console.log('🚫 [Brain] Ticket doublon detecte:', data);
                         
                         // Show duplicate warning to user
                         showDuplicateTicketWarning(data);
@@ -740,9 +1096,9 @@
         const canAutoFix = data.can_auto_fix || false;
         const room = window.roomCache?.room || 'unknown';
         
-        console.log(`🎫 [Brain] Affichage bannière ticket existant: ${existingTicket}`);
+        console.log(`🎫 [Brain] Affichage banniere ticket existant: ${existingTicket}`);
         
-        // 🆕 Use the existing ticket banner function from app.js
+        // Use the existing ticket banner function from app.js
         if (typeof window.showExistingTicketBanner === 'function') {
             window.showExistingTicketBanner({
                 number: existingTicket,
@@ -751,7 +1107,7 @@
                 status: 'open',
                 timestamp: new Date().toISOString()
             });
-            console.log(`✅ [Brain] Bannière ticket existant affichée: ${existingTicket}`);
+            console.log(`✅ [Brain] Banniere ticket existant affichee: ${existingTicket}`);
             return;
         }
         
@@ -765,14 +1121,14 @@
         }
         
         // Fallback: addMessage
-        const message = `⚠️ Un ticket ${existingTicket} est déjà ouvert pour cette salle.`;
+        const message = `⚠️ Un ticket ${existingTicket} est deja ouvert pour cette salle.`;
         const subMessage = canAutoFix 
             ? 'Vous pouvez toujours essayer une correction automatique via Brain.' 
-            : 'Veuillez attendre que le ticket existant soit traité.';
+            : 'Veuillez attendre que le ticket existant soit traite.';
         
         if (typeof window.addMessage === 'function') {
             window.addMessage('system', `${message}\n\n${subMessage}`, {
-                suggestions: canAutoFix ? ['Réessayer auto-fix', 'Voir ticket existant'] : ['OK']
+                suggestions: canAutoFix ? ['Reessayer auto-fix', 'Voir ticket existant'] : ['OK']
             });
         } else if (typeof window.showTicketStatusMessage === 'function') {
             window.showTicketStatusMessage(`${message} ${subMessage}`, 'warning');
@@ -845,7 +1201,7 @@
     }
 
     /**
-     * 🧪 TEST FUNCTION: Simulate Brain escalation for testing
+     * TEST FUNCTION: Simulate Brain escalation for testing
      * Call from console: BrainIntegration.testEscalation()
      */
     function testEscalation() {
@@ -866,11 +1222,11 @@
             brain_decision: {
                 decision: 'escalate',
                 escalation_level: 'high',
-                reasoning: '🧪 [TEST] Projecteur hors ligne détecté - intervention technique requise',
+                reasoning: '🧪 [TEST] Projecteur hors ligne detecte - intervention technique requise',
                 bt_recommended: true,
                 bt_urgency: 'urgent',
                 confidence: 0.92,
-                why_template: 'Le projecteur ne répond pas aux commandes PJLink. Vérifier alimentation et connexion réseau.'
+                why_template: 'Le projecteur ne repond pas aux commandes PJLink. Verifier alimentation et connexion reseau.'
             },
             correlation_id: 'brain-TEST-' + Date.now(),
             processed_at: new Date().toISOString(),
@@ -883,11 +1239,65 @@
         const handled = processBrainDecision(mockBrainResponse);
         
         if (handled) {
-            console.log('✅ [TEST] Escalation simulée avec succès!');
-            console.log('🧪 [TEST] Diagnostic stocké:', window.__BRAIN_LAST_DIAGNOSTIC__);
-            console.log('📋 [TEST] Cliquez sur "Créer ticket" pour tester l\'injection du diagnostic');
+            console.log('✅ [TEST] Escalation simulee avec succes!');
+            console.log('🧪 [TEST] Diagnostic stocke:', window.__BRAIN_LAST_DIAGNOSTIC__);
+            console.log('📋 [TEST] Cliquez sur "Creer ticket" pour tester l\'injection du diagnostic');
         } else {
-            console.error('❌ [TEST] Échec simulation escalade');
+            console.error('❌ [TEST] Echec simulation escalade');
+        }
+        
+        return handled;
+    }
+    
+    /**
+     * TEST FUNCTION: Simulate V1.2 state machine response
+     * Call from console: BrainIntegration.testStateMachine()
+     */
+    function testStateMachine() {
+        console.log('🧪 [TEST] Simulation state machine V1.2...');
+        
+        const room = window.roomCache?.room || 'A-1825';
+        
+        // Mock V1.2 state machine response with ESCALATED state
+        const mockResponse = {
+            state: 'ESCALATED',
+            room_name: room,
+            correlation_id: 'brain-SM-TEST-' + Date.now(),
+            overall_confidence: 0.85,
+            vitrine_display: {
+                what_i_see: 'Microphone TCC2 en mode mute detecte',
+                what_i_did: 'Tentative unmute via SSC protocol',
+                result: 'Echec - appareil ne repond pas',
+                why_escalated: 'Action automatique echouee apres 2 tentatives',
+                confidence: 'Medium'
+            },
+            evidence_pack: {
+                anomalies_detected: [
+                    { device_name: 'Sennheiser TCC2', description: 'Microphone mute', confidence: 0.92 }
+                ],
+                actions_attempted: [
+                    { action_type: 'unmute_tcc2', device_name: 'Sennheiser TCC2', success: false, error: 'Connection timeout' }
+                ],
+                final_conclusion: 'Intervention manuelle requise - verifier connexion reseau du TCC2',
+                escalation_reason: 'Auto-fix failed after max attempts'
+            },
+            brain_decision: {
+                decision: 'escalate',
+                confidence: 0.85,
+                reasoning: 'Action automatique echouee'
+            }
+        };
+        
+        console.log('🧪 [TEST] Mock V1.2 response:', mockResponse);
+        
+        // Process the mock response
+        const handled = processBrainDecision(mockResponse);
+        
+        if (handled) {
+            console.log('✅ [TEST] State machine V1.2 simulee avec succes!');
+            console.log('🧪 [TEST] Evidence pack stocke:', window.__BRAIN_LAST_DIAGNOSTIC__);
+        } else {
+            console.error('❌ [TEST] Echec simulation state machine');
         }
         
         return handled;
@@ -900,7 +1310,8 @@
         checkExistingTicket,  // Check if ticket exists for room
         getBrainDiagnosticForTicket,
         clearBrainDiagnostic,
-        testEscalation,  // 🧪 TEST: Simulate escalation
+        testEscalation,  // TEST: Simulate escalation
+        testStateMachine, // TEST: Simulate V1.2 state machine
         setEnabled: (enabled) => {
             window.VITRINE_USES_BRAIN = enabled;
             localStorage.setItem('vitrine.uses.brain', enabled ? 'true' : 'false');
